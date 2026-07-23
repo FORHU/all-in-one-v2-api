@@ -7,6 +7,7 @@ import { rabbitmq } from './infrastructure/rabbitmq';
 import { redis } from './infrastructure/redis';
 import { startEmailConsumer } from './consumers/email.consumer';
 import { startAiConsumer } from './consumers/ai.consumer';
+import { startProductSyncConsumer } from './consumers/product-sync.consumer';
 import { workerMetrics } from './utils/worker-metrics';
 import { startScheduler } from './infrastructure/scheduler';
 import logger from './utils/logger';
@@ -62,6 +63,7 @@ const startWorker = async () => {
   // Register all consumers
   await startEmailConsumer();
   await startAiConsumer();
+  await startProductSyncConsumer();
 
   // Start scheduled jobs (cron)
   startScheduler();

@@ -75,3 +75,175 @@ enum UserRole {
   SUPER_ADMIN
   DEVELOPER
 }
+
+// ==========================================
+// Multi-Supplier Dropshipping Schema
+// ==========================================
+
+model Supplier {
+  id          String   @id @default(uuid())
+  name        String   @unique   // e.g. "cj-dropshipping", "aliexpress", "zendrop"
+  displayName String
+  isActive    Boolean  @default(true)
+  config      Json?    // API keys, base URLs, rate limits (encrypted at app level)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products    SupplierProduct[]
+  orders      SupplierOrder[]
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  category    String?
+  tags        String[]
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  variants         ProductVariant[]
+  supplierProducts SupplierProduct[]
+}
+
+model ProductVariant {
+  id          String   @id @default(uuid())
+  productId   String
+  sku         String?  @unique
+  title       String
+  price       Decimal  // Your selling price
+  stock       Int      @default(0)
+  attributes  Json?    // e.g. { color: "red", size: "XL" }
+
+  product          Product           @relation(fields: [productId], references: [id])
+  supplierVariants SupplierVariant[]
+  orderItems       OrderItem[]
+}
+
+model SupplierProduct {
+  id               String   @id @default(uuid())
+  supplierId       String
+  productId        String?  // null = not yet mapped to your catalog
+  externalId       String   // Supplier's own product ID
+  externalSku      String?
+  rawData          Json     // Full supplier response, preserved as-is
+  costPrice        Decimal
+  shippingEstimate Decimal?
+  lastSyncedAt     DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  supplier  Supplier  @relation(fields: [supplierId], references: [id])
+  product   Product?  @relation(fields: [productId], references: [id])
+  variants  SupplierVariant[]
+
+  @@unique([supplierId, externalId])
+  @@index([supplierId])
+  @@index([productId])
+}
+
+model SupplierVariant {
+  id                String   @id @default(uuid())
+  supplierProductId String
+  productVariantId  String?  // null = not yet mapped
+  externalId        String
+  costPrice         Decimal
+  rawData           Json
+  stock             Int?
+  lastSyncedAt      DateTime?
+
+  supplierProduct SupplierProduct @relation(fields: [supplierProductId], references: [id])
+  productVariant  ProductVariant? @relation(fields: [productVariantId], references: [id])
+
+  @@unique([supplierProductId, externalId])
+}
+
+model Order {
+  id          String      @id @default(uuid())
+  status      OrderStatus @default(PENDING)
+  totalAmount Decimal
+  currency    String      @default("USD")
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  items           OrderItem[]
+  supplierOrders  SupplierOrder[]  // 1 order -> N supplier fulfillments
+}
+
+model OrderItem {
+  id               String  @id @default(uuid())
+  orderId          String
+  productVariantId String
+  quantity         Int
+  unitPrice        Decimal
+  supplierOrderId  String?
+
+  order          Order          @relation(fields: [orderId], references: [id])
+  productVariant ProductVariant @relation(fields: [productVariantId], references: [id])
+}
+
+model SupplierOrder {
+  id            String            @id @default(uuid())
+  orderId       String
+  supplierId    String
+  externalId    String?           // Supplier's order ID after placement
+  status        SupplierOrderStatus @default(PENDING)
+  rawResponse   Json?             // Full supplier order response
+  trackingNum   String?
+  placedAt      DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  order    Order    @relation(fields: [orderId], references: [id])
+  supplier Supplier @relation(fields: [supplierId], references: [id])
+
+  @@index([orderId])
+  @@index([supplierId])
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  PARTIALLY_FULFILLED
+  FULFILLED
+  CANCELLED
+  REFUNDED
+}
+
+enum SupplierOrderStatus {
+  PENDING
+  PLACED
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+// ==========================================
+// Background Jobs Schema
+// ==========================================
+
+model Job {
+  id          String    @id @default(uuid())
+  type        String    // e.g., 'PRODUCT_SYNC'
+  content     String?   // A friendly name/description
+  status      JobStatus @default(PENDING)
+  payload     Json?     // Input parameters & progress tracking
+  error       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  startedAt   DateTime?
+  completedAt DateTime?
+}
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  PAUSED
+  CANCELLED
+}
+

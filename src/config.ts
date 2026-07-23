@@ -26,3 +26,8 @@ export const SMTP_USER = process.env.SMTP_USER || '';
 export const SMTP_PASS = process.env.SMTP_PASS || '';
 
 export const isDev = NODE_ENV === 'development';
+
+export const CJ_BASE_URL = process.env.CJ_BASE_URL || 'https://developers.cjdropshipping.com/api2.0/v1';
+export const CJ_API_KEY = process.env.CJ_API_KEY || '';
+export const CJ_RATE_LIMIT_MS = parseInt(process.env.CJ_RATE_LIMIT_MS || '1500');
+export const CJ_SUPPLIER_CACHE_TTL = parseInt(process.env.CJ_SUPPLIER_CACHE_TTL || '3600');
