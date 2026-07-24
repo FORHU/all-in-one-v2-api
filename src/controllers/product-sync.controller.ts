@@ -30,10 +30,12 @@ export class ProductSyncController {
       // Verify adapter exists
       try {
         supplierRegistry.get(supplierId);
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : `Supplier ${supplierId} not supported.`;
         return res.status(400).json({
           success: false,
-          message: err.message || `Supplier ${supplierId} not supported.`,
+          message,
         });
       }
 
@@ -41,7 +43,7 @@ export class ProductSyncController {
       const job = await JobService.createJob(
         'PRODUCT_SYNC',
         `Sync ${externalIds.length} products from ${supplierId}`,
-        { supplierId, externalIds, total: externalIds.length, successCount: 0, failCount: 0 }
+        { supplierId, externalIds, total: externalIds.length, successCount: 0, failCount: 0 },
       );
 
       // 2. Publish to RabbitMQ
@@ -58,7 +60,7 @@ export class ProductSyncController {
           productCount: externalIds.length,
         },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[ProductSyncController:syncProducts] Error:', error);
       return res.status(500).json({
         success: false,

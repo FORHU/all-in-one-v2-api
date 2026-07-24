@@ -1,5 +1,3 @@
-import { SupplierOrder, SupplierProduct } from '@prisma/client';
-
 /**
  * Common types for all suppliers to return to the application layer.
  */
@@ -30,6 +28,9 @@ export interface SupplierStock {
 
 /**
  * The canonical interface all suppliers must implement.
+ * Return types are `unknown` to keep the interface supplier-agnostic; each
+ * concrete adapter is expected to return a properly typed value that callers
+ * can narrow as needed.
  */
 export interface SupplierAdapter {
   /**
@@ -40,12 +41,12 @@ export interface SupplierAdapter {
   /**
    * Search for products on the supplier's platform.
    */
-  searchProducts(query: string): Promise<any[]>;
+  searchProducts(query: string): Promise<unknown[]>;
 
   /**
    * Fetch full details for a specific external product ID.
    */
-  getProduct(externalId: string): Promise<any>;
+  getProduct(externalId: string): Promise<unknown>;
 
   /**
    * Get current stock levels for a batch of external variant IDs.
@@ -55,10 +56,10 @@ export interface SupplierAdapter {
   /**
    * Place an order with the supplier.
    */
-  placeOrder(payload: PlaceOrderPayload): Promise<any>;
+  placeOrder(payload: PlaceOrderPayload): Promise<unknown>;
 
   /**
    * Check the status of an already placed order.
    */
-  getOrderStatus(externalOrderId: string): Promise<any>;
+  getOrderStatus(externalOrderId: string): Promise<unknown>;
 }

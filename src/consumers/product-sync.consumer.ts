@@ -21,7 +21,7 @@ export const startProductSyncConsumer = async () => {
   await rabbitmq.consume(
     QUEUES.PRODUCT_SYNC,
     ROUTING_KEYS.PRODUCT_SYNC,
-    async (payload: any, metadata: any) => {
+    async (payload: SyncPayload, _metadata: unknown) => {
       const { jobId, supplierId } = payload;
       const { externalIds } = payload.payload;
 
@@ -35,9 +35,9 @@ export const startProductSyncConsumer = async () => {
 
         // Fetch supplier model from DB to link correctly
         const supplierModel = await prisma.supplier.findUnique({
-          where: { name: supplierId }
+          where: { name: supplierId },
         });
-        
+
         if (!supplierModel) {
           throw new Error(`Supplier ${supplierId} not found in database. Run migrations or seed.`);
         }
@@ -49,15 +49,15 @@ export const startProductSyncConsumer = async () => {
           try {
             // Dynamic call to the generic adapter
             const rawData = await adapter.getProduct(externalId);
-            
+
             if (rawData) {
               // Upsert the raw data into our canonical SupplierProduct table
               await prisma.supplierProduct.upsert({
                 where: {
                   supplierId_externalId: {
                     supplierId: supplierModel.id,
-                    externalId: externalId
-                  }
+                    externalId: externalId,
+                  },
                 },
                 update: {
                   rawData,
@@ -69,15 +69,15 @@ export const startProductSyncConsumer = async () => {
                   rawData,
                   costPrice: 0, // Placeholder, mapped adapter logic would fill this
                   lastSyncedAt: new Date(),
-                }
+                },
               });
               successCount++;
             } else {
               failCount++;
             }
           } catch (e) {
-             logger.error(`[ProductSyncConsumer] Error syncing externalId ${externalId}`, e);
-             failCount++;
+            logger.error(`[ProductSyncConsumer] Error syncing externalId ${externalId}`, e);
+            failCount++;
           }
         }
 
@@ -89,14 +89,16 @@ export const startProductSyncConsumer = async () => {
           jobId,
           jobType: 'PRODUCT_SYNC',
           durationMs,
-          status: 'success'
+          status: 'success',
         });
-        logger.info(`[ProductSyncConsumer] Job ${jobId} completed in ${durationMs}ms. Success: ${successCount}, Fail: ${failCount}`);
+        logger.info(
+          `[ProductSyncConsumer] Job ${jobId} completed in ${durationMs}ms. Success: ${successCount}, Fail: ${failCount}`,
+        );
       } catch (error) {
         logger.error(`[ProductSyncConsumer] Fatal error processing job ${jobId}`, error);
         await JobService.updateJobStatus(jobId, 'FAILED', error);
       }
-    }
+    },
   );
 
   logger.info(`[ProductSyncConsumer] Listening to queue ${QUEUES.PRODUCT_SYNC}`);

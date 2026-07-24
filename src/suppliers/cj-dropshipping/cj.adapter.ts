@@ -3,13 +3,7 @@ import CacheUtil from '../../utils/cache.util';
 import logger from '../../utils/logger';
 import { PlaceOrderPayload, SupplierAdapter, SupplierStock } from '../supplier.interface';
 import { CJ_API_KEY, CJ_BASE_URL, CJ_RATE_LIMIT_MS } from '../../config';
-import {
-  CJApiResponse,
-  CJProductListResponse,
-  CJTokenData,
-  CJProductDetail,
-  CJVariant,
-} from './cj.types';
+import { CJApiResponse, CJTokenData, CJProductDetail, CJVariant, CJProduct } from './cj.types';
 
 const CACHE_VERSION = 'v1';
 const CJ_ACCESS_TOKEN_KEY = `cj:access_token:${CACHE_VERSION}`;
@@ -88,7 +82,10 @@ export class CJDropshippingAdapter implements SupplierAdapter {
       }
 
       const accessTTL = calculateTTL(result.data.accessTokenExpiryDate, DEFAULT_ACCESS_TOKEN_TTL);
-      const refreshTTL = calculateTTL(result.data.refreshTokenExpiryDate, DEFAULT_REFRESH_TOKEN_TTL);
+      const refreshTTL = calculateTTL(
+        result.data.refreshTokenExpiryDate,
+        DEFAULT_REFRESH_TOKEN_TTL,
+      );
 
       await CacheUtil.set(CJ_ACCESS_TOKEN_KEY, result.data.accessToken, accessTTL);
       await CacheUtil.set(CJ_REFRESH_TOKEN_KEY, result.data.refreshToken, refreshTTL);
@@ -116,7 +113,10 @@ export class CJDropshippingAdapter implements SupplierAdapter {
       }
 
       const accessTTL = calculateTTL(result.data.accessTokenExpiryDate, DEFAULT_ACCESS_TOKEN_TTL);
-      const refreshTTL = calculateTTL(result.data.refreshTokenExpiryDate, DEFAULT_REFRESH_TOKEN_TTL);
+      const refreshTTL = calculateTTL(
+        result.data.refreshTokenExpiryDate,
+        DEFAULT_REFRESH_TOKEN_TTL,
+      );
 
       await CacheUtil.set(CJ_ACCESS_TOKEN_KEY, result.data.accessToken, accessTTL);
       await CacheUtil.set(CJ_REFRESH_TOKEN_KEY, result.data.refreshToken, refreshTTL);
@@ -130,10 +130,10 @@ export class CJDropshippingAdapter implements SupplierAdapter {
 
   // --- Base Request ---
 
-  private async request<T = any>(
+  private async request<T = unknown>(
     endpoint: string,
     method: 'GET' | 'POST' | 'PATCH' | 'DELETE' = 'GET',
-    data?: any,
+    data?: unknown,
     queryParams?: Record<string, string | number | undefined>,
   ): Promise<CJApiResponse<T> | null> {
     const maxRetries = 3;
@@ -170,12 +170,13 @@ export class CJDropshippingAdapter implements SupplierAdapter {
         const result = await this.limiter.schedule(async () => {
           const res = await fetch(url, options);
 
+          let retryAfterMs: number | undefined;
           const retryAfter = res.headers.get('Retry-After');
-          if (retryAfter) (res as any)._retryAfterMs = parseInt(retryAfter) * 1000;
+          if (retryAfter) retryAfterMs = parseInt(retryAfter) * 1000;
 
           if (res.status === 429) {
-            const err = new Error(`CJ_RATE_LIMIT: HTTP 429`);
-            (err as any).retryAfterMs = (res as any)._retryAfterMs;
+            const err = new Error(`CJ_RATE_LIMIT: HTTP 429`) as Error & { retryAfterMs?: number };
+            err.retryAfterMs = retryAfterMs;
             throw err;
           }
 
@@ -183,8 +184,10 @@ export class CJDropshippingAdapter implements SupplierAdapter {
 
           const json: CJApiResponse<T> = await res.json();
           if (json.code === 1600200 || json.message?.includes('exceeds limit')) {
-            const err = new Error(`CJ_RATE_LIMIT: ${json.message}`);
-            (err as any).retryAfterMs = (res as any)._retryAfterMs;
+            const err = new Error(`CJ_RATE_LIMIT: ${json.message}`) as Error & {
+              retryAfterMs?: number;
+            };
+            err.retryAfterMs = retryAfterMs;
             throw err;
           }
 
@@ -196,9 +199,10 @@ export class CJDropshippingAdapter implements SupplierAdapter {
         }
 
         return result;
-      } catch (error: any) {
-        if (error.message.includes('CJ_RATE_LIMIT') && attempt < maxRetries) {
-          const backoffDelay = error.retryAfterMs || Math.pow(2, attempt - 1) * 5000;
+      } catch (error: unknown) {
+        const err = error as Error & { retryAfterMs?: number };
+        if (err.message?.includes('CJ_RATE_LIMIT') && attempt < maxRetries) {
+          const backoffDelay = err.retryAfterMs || Math.pow(2, attempt - 1) * 5000;
           await new Promise((resolve) => setTimeout(resolve, backoffDelay));
           continue;
         }
@@ -210,30 +214,35 @@ export class CJDropshippingAdapter implements SupplierAdapter {
 
   // --- SupplierAdapter Implementation ---
 
-  async searchProducts(query: string): Promise<any[]> {
-    const res = await this.request<any>('/product/listV2', 'GET', undefined, {
+  async searchProducts(query: string): Promise<CJProduct[]> {
+    const res = await this.request<Record<string, unknown>>('/product/listV2', 'GET', undefined, {
       keyWord: query,
       page: 1,
       size: 20,
     });
-    
+
     if (!res || !res.data) return [];
-    
+
     // CJ returns nested content sometimes
-    let list: any[] = [];
-    if (res.data.list) list = res.data.list;
+    let list: CJProduct[] = [];
+    if (Array.isArray(res.data.list)) list = res.data.list as CJProduct[];
     else if (res.data.content) {
-      if (Array.isArray(res.data.content)) {
-         list = res.data.content.flatMap((c: any) => c.productList || c);
-      } else if (res.data.content.productList) {
-         list = res.data.content.productList;
+      const content = res.data.content as Record<string, unknown> | Array<unknown>;
+      if (Array.isArray(content)) {
+        list = content.flatMap(
+          (c) => (c as Record<string, unknown>).productList || c,
+        ) as CJProduct[];
+      } else if ((content as Record<string, unknown>).productList) {
+        list = (content as Record<string, unknown>).productList as CJProduct[];
       }
     }
     return list;
   }
 
   async getProduct(externalId: string): Promise<CJProductDetail | null> {
-    const res = await this.request<CJProductDetail>('/product/query', 'GET', undefined, { pid: externalId });
+    const res = await this.request<CJProductDetail>('/product/query', 'GET', undefined, {
+      pid: externalId,
+    });
     return res?.data || null;
   }
 
@@ -243,7 +252,9 @@ export class CJDropshippingAdapter implements SupplierAdapter {
     const stocks: SupplierStock[] = [];
     for (const vid of externalVariantIds) {
       try {
-        const res = await this.request<CJVariant>('/product/variant/query', 'GET', undefined, { vid });
+        const res = await this.request<CJVariant>('/product/variant/query', 'GET', undefined, {
+          vid,
+        });
         if (res?.data) {
           stocks.push({
             externalId: res.data.vid,
@@ -257,7 +268,7 @@ export class CJDropshippingAdapter implements SupplierAdapter {
     return stocks;
   }
 
-  async placeOrder(payload: PlaceOrderPayload): Promise<any> {
+  async placeOrder(payload: PlaceOrderPayload): Promise<unknown> {
     // Maps canonical payload to CJ's payload
     const cjPayload = {
       orderNumber: payload.orderId,
@@ -280,8 +291,10 @@ export class CJDropshippingAdapter implements SupplierAdapter {
     return res?.data;
   }
 
-  async getOrderStatus(externalOrderId: string): Promise<any> {
-    const res = await this.request('/shopping/order/getOrderDetail', 'GET', undefined, { orderId: externalOrderId });
+  async getOrderStatus(externalOrderId: string): Promise<unknown> {
+    const res = await this.request('/shopping/order/getOrderDetail', 'GET', undefined, {
+      orderId: externalOrderId,
+    });
     return res?.data;
   }
 }

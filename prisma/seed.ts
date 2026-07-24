@@ -4,13 +4,13 @@ import { seedUsers } from './seeders/users.seeder';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Starting modular database seeding...');
+  process.stdout.write('🌱 Starting modular database seeding...\n');
 
   try {
     await seedUsers(prisma);
-    console.log('🎉 All seeder modules executed successfully!');
+    process.stdout.write('🎉 All seeder modules executed successfully!\n');
   } catch (error) {
-    console.error('❌ Seeding failed:', error);
+    process.stderr.write(`❌ Seeding failed: ${error}\n`);
     process.exit(1);
   } finally {
     await prisma.$disconnect();

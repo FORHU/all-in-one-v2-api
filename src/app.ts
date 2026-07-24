@@ -59,7 +59,8 @@ app.use(errorHandler);
 
 // Run setup
 setup().catch((err) => {
-  console.log('Setup failed:', err);
+  // Use process.stderr directly here — logger may not be initialized yet
+  process.stderr.write(`Setup failed: ${err}\n`);
 });
 
 export default app;

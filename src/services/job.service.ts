@@ -6,7 +6,7 @@ export class JobService {
   /**
    * Create a new job record
    */
-  static async createJob(type: string, content: string, payload: any) {
+  static async createJob(type: string, content: string, payload: Record<string, unknown>) {
     try {
       const job = await prisma.job.create({
         data: {
@@ -26,7 +26,7 @@ export class JobService {
   /**
    * Update job status and potentially error/payload
    */
-  static async updateJobStatus(jobId: string, status: JobStatus, error?: any) {
+  static async updateJobStatus(jobId: string, status: JobStatus, error?: unknown) {
     try {
       if (!jobId) return null;
 
@@ -41,7 +41,7 @@ export class JobService {
       if (error) {
         const message = error instanceof Error ? error.message : String(error);
         const currentJob = await prisma.job.findUnique({ where: { id: jobId } });
-        const currentPayload = (currentJob?.payload as any) || {};
+        const currentPayload = (currentJob?.payload as Record<string, unknown>) || {};
         updateData.payload = {
           ...currentPayload,
           error: message,
@@ -71,14 +71,14 @@ export class JobService {
   /**
    * Update job payload data (like progress tracking)
    */
-  static async updateJobPayload(jobId: string, data: any) {
+  static async updateJobPayload(jobId: string, data: Record<string, unknown>) {
     try {
       if (!jobId) return null;
 
       const job = await prisma.job.findUnique({ where: { id: jobId } });
       if (!job) return null;
 
-      const currentPayload = (job.payload as any) || {};
+      const currentPayload = (job.payload as Record<string, unknown>) || {};
       return await prisma.job.update({
         where: { id: jobId },
         data: {

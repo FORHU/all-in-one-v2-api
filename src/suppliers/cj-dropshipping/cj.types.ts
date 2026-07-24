@@ -1,4 +1,4 @@
-export interface CJApiResponse<T = any> {
+export interface CJApiResponse<T = unknown> {
   code: number;
   result: boolean;
   message: string;

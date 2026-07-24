@@ -3,27 +3,27 @@ import { PlaceOrderPayload, SupplierAdapter, SupplierStock } from '../supplier.i
 export class AliExpressAdapter implements SupplierAdapter {
   readonly supplierId = 'aliexpress';
 
-  async searchProducts(query: string): Promise<any[]> {
+  async searchProducts(_query: string): Promise<unknown[]> {
     // TODO: Implement AliExpress API call
     return [];
   }
 
-  async getProduct(externalId: string): Promise<any> {
+  async getProduct(_externalId: string): Promise<unknown> {
     // TODO: Implement AliExpress API call
     return {};
   }
 
-  async getInventory(externalVariantIds: string[]): Promise<SupplierStock[]> {
+  async getInventory(_externalVariantIds: string[]): Promise<SupplierStock[]> {
     // TODO: Implement AliExpress API call
     return [];
   }
 
-  async placeOrder(payload: PlaceOrderPayload): Promise<any> {
+  async placeOrder(_payload: PlaceOrderPayload): Promise<unknown> {
     // TODO: Implement AliExpress API call
     return {};
   }
 
-  async getOrderStatus(externalOrderId: string): Promise<any> {
+  async getOrderStatus(_externalOrderId: string): Promise<unknown> {
     // TODO: Implement AliExpress API call
     return {};
   }

@@ -13,7 +13,11 @@ export class JobQueueService {
   /**
    * Publishes a generic product sync job to RabbitMQ.
    */
-  static async publishProductSyncJob(jobId: string, supplierId: string, payload: { externalIds: string[] }) {
+  static async publishProductSyncJob(
+    jobId: string,
+    supplierId: string,
+    payload: { externalIds: string[] },
+  ) {
     try {
       const message = {
         jobId,
@@ -24,7 +28,9 @@ export class JobQueueService {
 
       await rabbitmq.publish(ROUTING_KEYS.PRODUCT_SYNC, message);
 
-      logger.info(`[JobQueueService:publishProductSyncJob] Published sync job ${jobId} for supplier ${supplierId}`);
+      logger.info(
+        `[JobQueueService:publishProductSyncJob] Published sync job ${jobId} for supplier ${supplierId}`,
+      );
       return true;
     } catch (error) {
       logger.error(`[JobQueueService:publishProductSyncJob] Failed to publish job ${jobId}`, error);
