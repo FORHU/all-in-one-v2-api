@@ -7,10 +7,14 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ==========================================
+// User & Auth Schema
+// ==========================================
+
 model User {
   id                  String                 @id @default(uuid())
   email               String                 @unique
-  password            String?                // Optional for social-only users
+  password            String? // Optional for social-only users
   name                String?
   username            String                 @unique
   role                UserRole               @default(USER)
@@ -25,6 +29,8 @@ model User {
   avatar              File?                  @relation("UserAvatar", fields: [avatarId], references: [id])
   sessions            Session[]
   socialAccounts      SessionSocialAccount[]
+  customer            Customer?
+  auditLogs           AuditLog[]
 }
 
 model Session {
@@ -36,7 +42,7 @@ model Session {
   provider          String?
   providerAvatarUrl String?
 
-  user              User      @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
 }
@@ -77,66 +83,166 @@ enum UserRole {
 }
 
 // ==========================================
+// Category & Product Catalog Schema
+// ==========================================
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  parentId    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryHierarchy")
+  products Product[]
+
+  @@index([parentId])
+}
+
+model Product {
+  id          String        @id @default(uuid())
+  title       String
+  slug        String?       @unique
+  description String?
+  tags        String[]
+  status      ProductStatus @default(DRAFT)
+  featured    Boolean       @default(false)
+  salePrice   Decimal?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+
+  pricingRuleId String?
+  pricingRule   PricingRule? @relation(fields: [pricingRuleId], references: [id])
+
+  variants         ProductVariant[]
+  supplierProducts SupplierProduct[]
+  images           ProductImage[]
+
+  @@index([categoryId])
+}
+
+enum ProductStatus {
+  DRAFT
+  READY
+  PUBLISHED
+  ARCHIVED
+}
+
+model ProductVariant {
+  id              String   @id @default(uuid())
+  productId       String
+  sku             String?  @unique
+  title           String
+  price           Decimal // Legacy / main display price
+  baseCost        Decimal? // Supplier cost
+  sellingPrice    Decimal? // Configured selling price
+  calculatedPrice Decimal? // Price after automated pricing rule markup
+  stock           Int      @default(0)
+  attributes      Json? // e.g. { color: "red", size: "XL" }
+
+  product          Product           @relation(fields: [productId], references: [id])
+  supplierVariants SupplierVariant[]
+  orderItems       OrderItem[]
+  cartItems        CartItem[]
+  images           ProductImage[]
+
+  @@index([productId])
+}
+
+model ProductImage {
+  id               String   @id @default(uuid())
+  productId        String
+  productVariantId String?
+  url              String
+  altText          String?
+  position         Int      @default(0)
+  isPrimary        Boolean  @default(false)
+  createdAt        DateTime @default(now())
+
+  product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productVariant ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@index([productVariantId])
+}
+
+// ==========================================
 // Multi-Supplier Dropshipping Schema
 // ==========================================
 
 model Supplier {
   id          String   @id @default(uuid())
-  name        String   @unique   // e.g. "cj-dropshipping", "aliexpress", "zendrop"
+  name        String   @unique // e.g. "cj-dropshipping", "aliexpress", "zendrop"
   displayName String
   isActive    Boolean  @default(true)
-  config      Json?    // API keys, base URLs, rate limits (encrypted at app level)
+  config      Json? // API keys, base URLs, rate limits
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  credentials SupplierCredential[]
   products    SupplierProduct[]
   orders      SupplierOrder[]
+  syncLogs    SupplierSyncLog[]
 }
 
-model Product {
-  id          String   @id @default(uuid())
-  title       String
-  description String?
-  category    String?
-  tags        String[]
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model SupplierCredential {
+  id          String    @id @default(uuid())
+  supplierId  String
+  environment String    @default("production") // e.g. "sandbox", "production"
+  apiKey      String?
+  apiSecret   String?
+  accessToken String?
+  expiresAt   DateTime?
+  config      Json?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  variants         ProductVariant[]
-  supplierProducts SupplierProduct[]
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@index([supplierId])
 }
 
-model ProductVariant {
-  id          String   @id @default(uuid())
-  productId   String
-  sku         String?  @unique
-  title       String
-  price       Decimal  // Your selling price
-  stock       Int      @default(0)
-  attributes  Json?    // e.g. { color: "red", size: "XL" }
+model SupplierSyncLog {
+  id               String     @id @default(uuid())
+  supplierId       String
+  action           String // e.g. "SYNC_PRODUCTS", "SYNC_ORDERS"
+  status           SyncStatus @default(PENDING)
+  recordsProcessed Int        @default(0)
+  details          Json?
+  errorMessage     String?
+  startedAt        DateTime   @default(now())
+  completedAt      DateTime?
 
-  product          Product           @relation(fields: [productId], references: [id])
-  supplierVariants SupplierVariant[]
-  orderItems       OrderItem[]
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@index([supplierId])
 }
 
 model SupplierProduct {
-  id               String   @id @default(uuid())
+  id               String     @id @default(uuid())
   supplierId       String
-  productId        String?  // null = not yet mapped to your catalog
-  externalId       String   // Supplier's own product ID
+  productId        String? // null = not yet mapped to catalog
+  externalId       String // Supplier's own product ID
   externalSku      String?
-  rawData          Json     // Full supplier response, preserved as-is
+  rawData          Json // Full supplier response
   costPrice        Decimal
   shippingEstimate Decimal?
+  syncStatus       SyncStatus @default(PENDING)
+  lastSyncError    String?
   lastSyncedAt     DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 
-  supplier  Supplier  @relation(fields: [supplierId], references: [id])
-  product   Product?  @relation(fields: [productId], references: [id])
-  variants  SupplierVariant[]
+  supplier Supplier          @relation(fields: [supplierId], references: [id])
+  product  Product?          @relation(fields: [productId], references: [id])
+  variants SupplierVariant[]
 
   @@unique([supplierId, externalId])
   @@index([supplierId])
@@ -144,13 +250,15 @@ model SupplierProduct {
 }
 
 model SupplierVariant {
-  id                String   @id @default(uuid())
+  id                String     @id @default(uuid())
   supplierProductId String
-  productVariantId  String?  // null = not yet mapped
+  productVariantId  String? // null = not yet mapped
   externalId        String
   costPrice         Decimal
   rawData           Json
   stock             Int?
+  syncStatus        SyncStatus @default(PENDING)
+  lastSyncError     String?
   lastSyncedAt      DateTime?
 
   supplierProduct SupplierProduct @relation(fields: [supplierProductId], references: [id])
@@ -159,16 +267,97 @@ model SupplierVariant {
   @@unique([supplierProductId, externalId])
 }
 
-model Order {
-  id          String      @id @default(uuid())
-  status      OrderStatus @default(PENDING)
-  totalAmount Decimal
-  currency    String      @default("USD")
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+// ==========================================
+// Commerce: Customer, Cart & Shipping Address
+// ==========================================
 
+model Customer {
+  id        String   @id @default(uuid())
+  userId    String?  @unique
+  email     String   @unique
+  firstName String?
+  lastName  String?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User?             @relation(fields: [userId], references: [id])
+  addresses ShippingAddress[]
+  carts     Cart[]
+  orders    Order[]
+}
+
+model ShippingAddress {
+  id           String   @id @default(uuid())
+  customerId   String?
+  fullName     String
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  state        String?
+  postalCode   String
+  country      String
+  phone        String?
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  customer Customer? @relation(fields: [customerId], references: [id])
+  orders   Order[]
+
+  @@index([customerId])
+}
+
+model Cart {
+  id         String   @id @default(uuid())
+  customerId String?
+  sessionId  String?  @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  customer Customer?  @relation(fields: [customerId], references: [id])
+  items    CartItem[]
+
+  @@index([customerId])
+}
+
+model CartItem {
+  id               String   @id @default(uuid())
+  cartId           String
+  productVariantId String
+  quantity         Int      @default(1)
+  unitPrice        Decimal
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  cart           Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productVariant ProductVariant @relation(fields: [productVariantId], references: [id])
+
+  @@unique([cartId, productVariantId])
+}
+
+// ==========================================
+// Commerce: Orders, Payments & Fulfillment
+// ==========================================
+
+model Order {
+  id                String      @id @default(uuid())
+  status            OrderStatus @default(PENDING)
+  totalAmount       Decimal
+  currency          String      @default("USD")
+  customerId        String?
+  shippingAddressId String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  customer        Customer?        @relation(fields: [customerId], references: [id])
+  shippingAddress ShippingAddress? @relation(fields: [shippingAddressId], references: [id])
   items           OrderItem[]
-  supplierOrders  SupplierOrder[]  // 1 order -> N supplier fulfillments
+  supplierOrders  SupplierOrder[] // 1 order -> N supplier fulfillments
+  payments        Payment[]
+
+  @@index([customerId])
+  @@index([shippingAddressId])
 }
 
 model OrderItem {
@@ -184,22 +373,70 @@ model OrderItem {
 }
 
 model SupplierOrder {
-  id            String            @id @default(uuid())
-  orderId       String
-  supplierId    String
-  externalId    String?           // Supplier's order ID after placement
-  status        SupplierOrderStatus @default(PENDING)
-  rawResponse   Json?             // Full supplier order response
-  trackingNum   String?
-  placedAt      DateTime?
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  id          String              @id @default(uuid())
+  orderId     String
+  supplierId  String
+  externalId  String? // Supplier's order ID after placement
+  status      SupplierOrderStatus @default(PENDING)
+  rawResponse Json? // Full supplier order response
+  trackingNum String?
+  placedAt    DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
 
-  order    Order    @relation(fields: [orderId], references: [id])
-  supplier Supplier @relation(fields: [supplierId], references: [id])
+  order     Order      @relation(fields: [orderId], references: [id])
+  supplier  Supplier   @relation(fields: [supplierId], references: [id])
+  shipments Shipment[]
 
   @@index([orderId])
   @@index([supplierId])
+}
+
+model Shipment {
+  id                String         @id @default(uuid())
+  supplierOrderId   String
+  trackingNumber    String?
+  carrier           String?
+  status            ShipmentStatus @default(PENDING)
+  shippedAt         DateTime?
+  estimatedDelivery DateTime?
+  deliveredAt       DateTime?
+  details           Json?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  supplierOrder SupplierOrder @relation(fields: [supplierOrderId], references: [id], onDelete: Cascade)
+
+  @@index([supplierOrderId])
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  orderId       String
+  amount        Decimal
+  currency      String        @default("PHP")
+  provider      String // e.g. "PAYMONGO", "STRIPE", "PAYPAL"
+  paymentMethod String? // e.g. "GCASH", "CARD", "GRAB_PAY"
+  status        PaymentStatus @default(PENDING)
+  transactionId String?       @unique
+  rawPayload    Json?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+}
+
+model WebhookEvent {
+  id           String     @id @default(uuid())
+  provider     String // e.g. "PAYMONGO", "CJ_DROPSHIPPING"
+  eventType    String
+  payload      Json
+  status       SyncStatus @default(PENDING)
+  errorMessage String?
+  processedAt  DateTime?
+  createdAt    DateTime   @default(now())
 }
 
 enum OrderStatus {
@@ -221,21 +458,72 @@ enum SupplierOrderStatus {
   CANCELLED
 }
 
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  PAID
+  PARTIALLY_REFUNDED
+  REFUNDED
+  FAILED
+  CANCELLED
+}
+
+enum ShipmentStatus {
+  PENDING
+  LABEL_CREATED
+  PICKED_UP
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
+  RETURNED
+}
+
 // ==========================================
-// Background Jobs Schema
+// Background Jobs & Operations
 // ==========================================
 
 model Job {
   id          String    @id @default(uuid())
-  type        String    // e.g., 'PRODUCT_SYNC'
-  content     String?   // A friendly name/description
+  type        String // e.g., 'PRODUCT_SYNC'
+  content     String? // A friendly name/description
   status      JobStatus @default(PENDING)
-  payload     Json?     // Input parameters & progress tracking
+  payload     Json? // Input parameters & progress tracking
   error       String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   startedAt   DateTime?
   completedAt DateTime?
+
+  logs JobLog[]
+}
+
+model JobLog {
+  id        String   @id @default(uuid())
+  jobId     String
+  level     LogLevel @default(INFO)
+  message   String
+  details   Json?
+  createdAt DateTime @default(now())
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  action    String // e.g. "UPDATE_PRICING_RULE", "DELETE_PRODUCT"
+  entity    String // e.g. "Product", "User"
+  entityId  String?
+  details   Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }
 
 enum JobStatus {
@@ -247,3 +535,97 @@ enum JobStatus {
   CANCELLED
 }
 
+enum LogLevel {
+  INFO
+  WARN
+  ERROR
+  DEBUG
+}
+
+// ==========================================
+// Centralized Marketplace Additions
+// ==========================================
+
+model PricingRule {
+  id            String     @id @default(uuid())
+  name          String     @unique
+  markupType    MarkupType
+  markupValue   Decimal
+  minimumProfit Decimal?
+  isActive      Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  products Product[]
+}
+
+enum MarkupType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum SyncStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+// ==========================================
+// CMS (Content Management System) Models
+// ==========================================
+
+model Page {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  title       String
+  status      String   @default("DRAFT")
+  seoMetadata Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sections PageSection[]
+}
+
+model PageSection {
+  id        String   @id @default(uuid())
+  pageId    String
+  type      String // e.g. "HERO", "FEATURE_GRID", "TESTIMONIALS"
+  content   Json
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  page Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@index([pageId])
+}
+
+model Banner {
+  id        String   @id @default(uuid())
+  title     String
+  imageUrl  String
+  linkUrl   String?
+  isActive  Boolean  @default(true)
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Announcement {
+  id        String   @id @default(uuid())
+  content   String
+  linkUrl   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FAQ {
+  id        String   @id @default(uuid())
+  question  String
+  answer    String
+  category  String?
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
