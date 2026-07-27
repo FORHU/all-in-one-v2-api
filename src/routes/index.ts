@@ -6,12 +6,17 @@ import healthRouter from './health.route';
 import productSyncRoute from './product-sync.route';
 import productSearchRoute from './product-search.routes';
 import productImportRoute from './product-import.routes';
+import categoryRoute from './category.route';
+import cartRoute from './cart.route';
+import orderRoute from './order.route';
+import paymentRoute from './payment.route';
+import cmsRoute from './cms.route';
 
 const router = express.Router();
 
 router.get('/v2', (_, res) => {
   res.json({
-    message: 'Welcome to all-in-one-v2-api',
+    message: 'Welcome to all-in-one-v2-api marketplace endpoints',
   });
 });
 
@@ -19,8 +24,13 @@ router.use('/v2/auth', authRoute);
 router.use('/v2/users', userRoute);
 router.use('/v2/file-uploads', fileUploadRoute);
 router.use('/v2/products', productSyncRoute);
-router.use('/v2/products', productImportRoute); // Mount under /v2/products
+router.use('/v2/products', productImportRoute);
 router.use('/v2/product-search', productSearchRoute);
+router.use('/v2/categories', categoryRoute);
+router.use('/v2/cart', cartRoute);
+router.use('/v2/orders', orderRoute);
+router.use('/v2/payments', paymentRoute);
+router.use('/v2/cms', cmsRoute);
 router.use('/health', healthRouter);
 
 export default router;

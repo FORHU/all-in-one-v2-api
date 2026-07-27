@@ -1,3 +1,4 @@
+import { ProductStatus } from '@prisma/client';
 import { supplierRegistry } from '../suppliers/supplier.registry';
 import { prisma } from '../utils/prisma';
 import { throwResponse } from '../utils/throw-response';
@@ -61,7 +62,7 @@ export class ProductImportService {
         data: {
           title,
           description,
-          isActive: true,
+          status: ProductStatus.PUBLISHED,
         },
       });
 
