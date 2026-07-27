@@ -5,7 +5,7 @@ import crypto from 'crypto';
  * Seeds initial users with PBKDF2 hashed passwords
  */
 export async function seedUsers(prisma: PrismaClient) {
-  console.log('🌱 Seeding Users...');
+  process.stdout.write('🌱 Seeding Users...\n');
 
   const users = [
     {
@@ -54,9 +54,9 @@ export async function seedUsers(prisma: PrismaClient) {
           password: hashedPassword,
         },
       });
-      console.log(`✅ Created user: ${rest.email}`);
+      process.stdout.write(`✅ Created user: ${rest.email}\n`);
     } else {
-      console.log(`ℹ️ User already exists: ${rest.email}`);
+      process.stdout.write(`ℹ️  User already exists: ${rest.email}\n`);
     }
   }
 }
