@@ -4,6 +4,8 @@ import userRoute from './user.route';
 import fileUploadRoute from './fileUpload.route';
 import healthRouter from './health.route';
 import productSyncRoute from './product-sync.route';
+import productSearchRoute from './product-search.routes';
+import productImportRoute from './product-import.routes';
 
 const router = express.Router();
 
@@ -17,6 +19,8 @@ router.use('/v2/auth', authRoute);
 router.use('/v2/users', userRoute);
 router.use('/v2/file-uploads', fileUploadRoute);
 router.use('/v2/products', productSyncRoute);
+router.use('/v2/products', productImportRoute); // Mount under /v2/products
+router.use('/v2/product-search', productSearchRoute);
 router.use('/health', healthRouter);
 
 export default router;

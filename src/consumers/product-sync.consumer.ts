@@ -5,6 +5,7 @@ import { supplierRegistry } from '../suppliers/supplier.registry';
 import logger from '../utils/logger';
 import { workerMetrics } from '../utils/worker-metrics';
 import { prisma } from '../utils/prisma';
+import { PricingUtil } from '../utils/pricing.util';
 
 interface SyncPayload {
   jobId: string;
@@ -51,33 +52,91 @@ export const startProductSyncConsumer = async () => {
             const rawData = await adapter.getProduct(externalId);
 
             if (rawData) {
-              // Upsert the raw data into our canonical SupplierProduct table
-              await prisma.supplierProduct.upsert({
+              const rawObj = rawData as Record<string, unknown>;
+              const costPrice = parseFloat(String(rawObj?.sellPrice || rawObj?.price || 0));
+              const stock = parseInt(String(rawObj?.inventory || rawObj?.stock || 0), 10);
+
+              // Fetch existing mapping to get the PricingRule
+              const existingMapping = await prisma.supplierProduct.findUnique({
                 where: {
                   supplierId_externalId: {
                     supplierId: supplierModel.id,
                     externalId: externalId,
                   },
                 },
-                update: {
-                  rawData,
-                  lastSyncedAt: new Date(),
-                },
-                create: {
-                  supplierId: supplierModel.id,
-                  externalId: externalId,
-                  rawData,
-                  costPrice: 0, // Placeholder, mapped adapter logic would fill this
-                  lastSyncedAt: new Date(),
-                },
+                include: { product: { include: { pricingRule: true } } },
+              });
+
+              const rule = existingMapping?.product?.pricingRule;
+              const finalSellingPrice = PricingUtil.calculatePlatformPrice(costPrice, rule);
+
+              // Update everything in a transaction to ensure integrity
+              await prisma.$transaction(async (tx) => {
+                // 1. Upsert SupplierProduct
+                const supplierProduct = await tx.supplierProduct.upsert({
+                  where: {
+                    supplierId_externalId: {
+                      supplierId: supplierModel.id,
+                      externalId: externalId,
+                    },
+                  },
+                  update: {
+                    rawData,
+                    costPrice,
+                    syncStatus: 'SUCCESS',
+                    lastSyncError: null,
+                    lastSyncedAt: new Date(),
+                  },
+                  create: {
+                    supplierId: supplierModel.id,
+                    externalId: externalId,
+                    rawData,
+                    costPrice,
+                    syncStatus: 'SUCCESS',
+                    lastSyncedAt: new Date(),
+                  },
+                });
+
+                // 2. Fetch the associated ProductVariant to update its price and stock
+                const supplierVariant = await tx.supplierVariant.findFirst({
+                  where: { supplierProductId: supplierProduct.id },
+                });
+
+                if (supplierVariant) {
+                  await tx.supplierVariant.update({
+                    where: { id: supplierVariant.id },
+                    data: { costPrice, rawData, syncStatus: 'SUCCESS', lastSyncError: null },
+                  });
+
+                  // Update actual selling price and stock!
+                  if (supplierVariant.productVariantId) {
+                    await tx.productVariant.update({
+                      where: { id: supplierVariant.productVariantId },
+                      data: {
+                        price: finalSellingPrice,
+                        stock: isNaN(stock) ? 0 : Math.max(0, stock), // If out of stock, set to 0
+                      },
+                    });
+                  }
+                }
               });
               successCount++;
             } else {
               failCount++;
+              // Mark sync failed if mapping exists
+              await prisma.supplierProduct.updateMany({
+                where: { supplierId: supplierModel.id, externalId: externalId },
+                data: { syncStatus: 'FAILED', lastSyncError: 'Product not found on supplier' },
+              });
             }
           } catch (e) {
-            logger.error(`[ProductSyncConsumer] Error syncing externalId ${externalId}`, e);
+            const err = e as Error;
+            logger.error(`[ProductSyncConsumer] Error syncing externalId ${externalId}`, err);
             failCount++;
+            await prisma.supplierProduct.updateMany({
+              where: { supplierId: supplierModel.id, externalId: externalId },
+              data: { syncStatus: 'FAILED', lastSyncError: err.message || 'Unknown error' },
+            });
           }
         }
 

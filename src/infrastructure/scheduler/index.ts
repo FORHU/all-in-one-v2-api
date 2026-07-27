@@ -41,5 +41,47 @@ export const startScheduler = () => {
     }
   });
 
+  // ── Product Synchronization — every 6 hours ──────────────────────────────
+  cron.schedule('0 */6 * * *', async () => {
+    logger.info('[Scheduler] Starting background product sync...');
+    try {
+      // Need to dynamically import prisma and JobQueueService to avoid circular deps during startup
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { prisma } = require('../../utils/prisma');
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { JobQueueService } = require('../../services/job-queue.service');
+
+      // Get all unique supplier IDs that have products
+      const suppliers = await prisma.supplier.findMany({
+        where: { products: { some: {} } },
+        select: { id: true, name: true },
+      });
+
+      for (const supplier of suppliers) {
+        // Find all external IDs for this supplier
+        const products = await prisma.supplierProduct.findMany({
+          where: { supplierId: supplier.id },
+          select: { externalId: true },
+        });
+
+        const externalIds = products.map((p: { externalId: string }) => p.externalId);
+
+        // Chunk them into batches of 50 to prevent massive RabbitMQ payloads
+        const CHUNK_SIZE = 50;
+        for (let i = 0; i < externalIds.length; i += CHUNK_SIZE) {
+          const chunk = externalIds.slice(i, i + CHUNK_SIZE);
+          const jobId = `sync_${supplier.name}_${Date.now()}_${i}`;
+
+          await JobQueueService.publishProductSyncJob(jobId, supplier.name, {
+            externalIds: chunk,
+          });
+        }
+      }
+      logger.info('[Scheduler] Successfully queued all products for synchronization.');
+    } catch (err) {
+      logger.error('[Scheduler] Failed to queue product sync:', err);
+    }
+  });
+
   logger.info('[Scheduler] All jobs registered.');
 };

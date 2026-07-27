@@ -100,8 +100,14 @@ model Product {
   category    String?
   tags        String[]
   isActive    Boolean  @default(true)
+  isPublished Boolean  @default(false)
+  featured    Boolean  @default(false)
+  salePrice   Decimal?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  
+  pricingRuleId    String?
+  pricingRule      PricingRule?      @relation(fields: [pricingRuleId], references: [id])
 
   variants         ProductVariant[]
   supplierProducts SupplierProduct[]
@@ -130,6 +136,8 @@ model SupplierProduct {
   rawData          Json     // Full supplier response, preserved as-is
   costPrice        Decimal
   shippingEstimate Decimal?
+  syncStatus       SyncStatus @default(PENDING)
+  lastSyncError    String?
   lastSyncedAt     DateTime?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -151,6 +159,8 @@ model SupplierVariant {
   costPrice         Decimal
   rawData           Json
   stock             Int?
+  syncStatus        SyncStatus @default(PENDING)
+  lastSyncError     String?
   lastSyncedAt      DateTime?
 
   supplierProduct SupplierProduct @relation(fields: [supplierProductId], references: [id])
@@ -245,5 +255,33 @@ enum JobStatus {
   FAILED
   PAUSED
   CANCELLED
+}
+
+// ==========================================
+// Centralized Marketplace Additions
+// ==========================================
+
+model PricingRule {
+  id            String   @id @default(uuid())
+  name          String   @unique
+  markupType    MarkupType
+  markupValue   Decimal
+  minimumProfit Decimal?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  products      Product[]
+}
+
+enum MarkupType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum SyncStatus {
+  PENDING
+  SUCCESS
+  FAILED
 }
 
