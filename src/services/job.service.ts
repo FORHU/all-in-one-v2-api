@@ -13,7 +13,7 @@ export class JobService {
           type,
           content,
           status: 'PENDING',
-          payload: payload || {},
+          payload: (payload || {}) as Prisma.InputJsonValue,
         },
       });
       return job;
@@ -46,7 +46,7 @@ export class JobService {
           ...currentPayload,
           error: message,
           stack: error instanceof Error ? error.stack : undefined,
-        };
+        } as Prisma.InputJsonValue;
         updateData.error = message;
       }
 
@@ -85,7 +85,7 @@ export class JobService {
           payload: {
             ...currentPayload,
             ...data,
-          },
+          } as Prisma.InputJsonValue,
         },
       });
     } catch (error) {
