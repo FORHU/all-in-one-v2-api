@@ -4,13 +4,28 @@ import CustomerRepository from '../repositories/customer.repository';
 import { OrderStatus } from '@prisma/client';
 import { throwResponse } from '../utils/throw-response';
 
-/** Who is asking to see an order: a customer, or a platform admin. */
+/**
+ * Who is asking to see an order: a signed-in customer, a guest holding the
+ * session that placed it, or a platform admin.
+ */
 export interface OrderViewer {
   customerId?: string;
+  sessionId?: string;
   isAdmin: boolean;
 }
 
 export default class OrderService {
+  /**
+   * An order belongs to the signed-in customer who placed it, or — for guest
+   * checkout, where customerId is null — to whoever holds the session id it
+   * was placed with.
+   */
+  static isOrderOwner(order: { customerId: string | null; sessionId: string | null }, viewer: OrderViewer): boolean {
+    if (viewer.customerId && order.customerId === viewer.customerId) return true;
+    if (viewer.sessionId && order.sessionId === viewer.sessionId) return true;
+    return false;
+  }
+
   static async getOrderDetails(orderId: string, viewer: OrderViewer) {
     const order = await OrderRepository.findById(orderId);
     if (!order) {
@@ -19,8 +34,7 @@ export default class OrderService {
 
     // Orders carry names, addresses and totals. Anyone who isn't the owner gets
     // the same 404 as a non-existent order, so ids can't be probed.
-    const isOwner = !!viewer.customerId && order.customerId === viewer.customerId;
-    if (!viewer.isAdmin && !isOwner) {
+    if (!viewer.isAdmin && !this.isOrderOwner(order, viewer)) {
       return throwResponse(404, 'Order not found');
     }
 
@@ -70,7 +84,9 @@ export default class OrderService {
       totalAmount,
       currency,
       status: OrderStatus.PENDING,
-      ...(customerId ? { customer: { connect: { id: customerId } } } : {}),
+      // Guests are identified by their session so they can pay for and track
+      // the order afterwards.
+      ...(customerId ? { customer: { connect: { id: customerId } } } : { sessionId }),
       ...(shippingAddressId ? { shippingAddress: { connect: { id: shippingAddressId } } } : {}),
       items: {
         create: cart.items.map((item) => ({

@@ -8,7 +8,10 @@ const router = express.Router();
 router.post('/checkout', optionalAuthenticate, OrderController.checkout);
 
 router.get('/my-orders', authenticate, OrderController.getMyOrders);
-router.get('/:id', authenticate, OrderController.getOrder);
+
+// Guests can view an order they placed by presenting the same x-session-id.
+// Ownership is enforced in the service, which 404s for everyone else.
+router.get('/:id', optionalAuthenticate, OrderController.getOrder);
 router.patch('/:id/status', authenticate, authorize(...ADMIN_ROLES), OrderController.updateStatus);
 
 export default router;

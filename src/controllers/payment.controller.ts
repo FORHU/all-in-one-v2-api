@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import PaymentService from '../services/payment.service';
 import { responseSuccess } from '../helpers/response.helper';
-import { resolveCustomerId, isAdmin } from '../helpers/requester.helper';
+import { resolveOrderViewer } from '../helpers/requester.helper';
 
 export default class PaymentController {
   static async createIntent(req: Request, res: Response, next: NextFunction) {
@@ -12,7 +12,7 @@ export default class PaymentController {
         orderId,
         provider,
         paymentMethod,
-        requester: { customerId: await resolveCustomerId(req), isAdmin: isAdmin(req) },
+        requester: await resolveOrderViewer(req),
       });
 
       return responseSuccess(res, 201, payment, 'Payment intent created');

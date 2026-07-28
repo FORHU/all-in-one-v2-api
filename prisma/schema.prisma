@@ -370,6 +370,9 @@ model Order {
   totalAmount       Decimal
   currency          String      @default("USD")
   customerId        String?
+  /// Guest checkout identity, copied from the cart's session. Lets a guest
+  /// pay for and track an order they placed without an account.
+  sessionId         String?
   shippingAddressId String?
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
@@ -381,6 +384,7 @@ model Order {
   payments        Payment[]
 
   @@index([customerId])
+  @@index([sessionId])
   @@index([shippingAddressId])
 }
 

@@ -2,6 +2,7 @@ import { Request } from 'express';
 import CustomerRepository from '../repositories/customer.repository';
 import { ADMIN_ROLES } from '../middleware/auth.middleware';
 import type { CartOwner } from '../services/cart.service';
+import type { OrderViewer } from '../services/order.service';
 
 /**
  * Resolves the signed-in user to their Customer id, creating the Customer
@@ -22,6 +23,13 @@ export const resolveCustomerId = async (req: Request): Promise<string | undefine
 export const resolveCartOwner = async (req: Request): Promise<CartOwner> => ({
   customerId: await resolveCustomerId(req),
   sessionId: req.headers['x-session-id'] as string | undefined,
+});
+
+/** Identifies the caller for order and payment ownership checks. */
+export const resolveOrderViewer = async (req: Request): Promise<OrderViewer> => ({
+  customerId: await resolveCustomerId(req),
+  sessionId: req.headers['x-session-id'] as string | undefined,
+  isAdmin: isAdmin(req),
 });
 
 export const isAdmin = (req: Request): boolean => !!req.user && ADMIN_ROLES.includes(req.user.role);

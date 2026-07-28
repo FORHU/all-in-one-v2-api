@@ -43,7 +43,10 @@ export default class CartService {
     }
 
     if (!cart) {
-      cart = await CartRepository.createCart(customerId, sessionId);
+      // Never stamp a session id onto a customer's cart: Cart.sessionId is
+      // unique, so reusing one that already belongs to a guest cart would fail
+      // the constraint.
+      cart = await CartRepository.createCart(customerId, customerId ? undefined : sessionId);
     }
 
     return cart;

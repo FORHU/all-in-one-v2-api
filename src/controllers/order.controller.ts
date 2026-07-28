@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import OrderService from '../services/order.service';
 import { responseSuccess, responseError } from '../helpers/response.helper';
 import { parsePagination, pageFromRepo } from '../helpers/pagination.helper';
-import { resolveCustomerId, isAdmin } from '../helpers/requester.helper';
+import { resolveCustomerId, resolveOrderViewer } from '../helpers/requester.helper';
 
 export default class OrderController {
   static async checkout(req: Request, res: Response, next: NextFunction) {
@@ -26,12 +26,7 @@ export default class OrderController {
 
   static async getOrder(req: Request, res: Response, next: NextFunction) {
     try {
-      const customerId = await resolveCustomerId(req);
-      const order = await OrderService.getOrderDetails(req.params.id, {
-        customerId,
-        isAdmin: isAdmin(req),
-      });
-
+      const order = await OrderService.getOrderDetails(req.params.id, await resolveOrderViewer(req));
       return responseSuccess(res, 200, order);
     } catch (error) {
       next(error);

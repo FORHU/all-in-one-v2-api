@@ -1,5 +1,6 @@
 import PaymentRepository from '../repositories/payment.repository';
 import OrderRepository from '../repositories/order.repository';
+import OrderService, { OrderViewer } from './order.service';
 import { PaymentStatus, SyncStatus, OrderStatus } from '@prisma/client';
 import { throwResponse } from '../utils/throw-response';
 
@@ -8,7 +9,7 @@ export default class PaymentService {
     orderId: string;
     provider: string;
     paymentMethod?: string;
-    requester: { customerId?: string; isAdmin: boolean };
+    requester: OrderViewer;
   }) {
     const { orderId, provider, paymentMethod, requester } = params;
 
@@ -17,8 +18,7 @@ export default class PaymentService {
       return throwResponse(404, 'Order not found');
     }
 
-    const isOwner = !!requester.customerId && order.customerId === requester.customerId;
-    if (!requester.isAdmin && !isOwner) {
+    if (!requester.isAdmin && !OrderService.isOrderOwner(order, requester)) {
       return throwResponse(404, 'Order not found');
     }
 

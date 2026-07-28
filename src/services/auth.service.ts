@@ -142,20 +142,21 @@ export default class AuthSvc {
       provider,
     });
 
-    await CacheUtil.set(`user:${user.id}`, user);
-
-    return {
-      accessToken,
-      refreshToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        name: user.name,
-        role: user.role,
-        avatar: user.avatar?.fileUrl,
-        onboardingCompleted: user.onboardingCompleted,
-      },
+    // Build the public shape once and cache *that*. Callers may hand us a full
+    // Prisma User (the refresh path does), which carries the password hash —
+    // that must never reach Redis or the response body.
+    const publicUser = {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      name: user.name,
+      role: user.role,
+      avatar: user.avatar?.fileUrl,
+      onboardingCompleted: user.onboardingCompleted,
     };
+
+    await CacheUtil.set(`user:${user.id}`, publicUser);
+
+    return { accessToken, refreshToken, user: publicUser };
   }
 }
