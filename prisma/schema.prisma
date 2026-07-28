@@ -83,6 +83,30 @@ enum UserRole {
 }
 
 // ==========================================
+// Tenants (Verticals)
+// ==========================================
+
+/// A storefront vertical — e.g. "fashion", "beauty", "sports". Each one gets
+/// its own subdomain, catalog and CMS content, but shares the platform's users,
+/// customers and supplier integrations.
+model Tenant {
+  id        String       @id @default(uuid())
+  slug      String       @unique // subdomain: fashion -> fashion.example.com
+  name      String
+  domain    String?      @unique // optional custom domain
+  status    TenantStatus @default(ACTIVE)
+  settings  Json? // theme, logo, contact details
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+// ==========================================
 // Category & Product Catalog Schema
 // ==========================================
 
@@ -370,6 +394,13 @@ model OrderItem {
 
   order          Order          @relation(fields: [orderId], references: [id])
   productVariant ProductVariant @relation(fields: [productVariantId], references: [id])
+  // Which supplier fulfillment this line was routed to. Null until the order
+  // is split across suppliers.
+  supplierOrder  SupplierOrder? @relation(fields: [supplierOrderId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([productVariantId])
+  @@index([supplierOrderId])
 }
 
 model SupplierOrder {
@@ -384,9 +415,10 @@ model SupplierOrder {
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
 
-  order     Order      @relation(fields: [orderId], references: [id])
-  supplier  Supplier   @relation(fields: [supplierId], references: [id])
+  order     Order       @relation(fields: [orderId], references: [id])
+  supplier  Supplier    @relation(fields: [supplierId], references: [id])
   shipments Shipment[]
+  items     OrderItem[]
 
   @@index([orderId])
   @@index([supplierId])

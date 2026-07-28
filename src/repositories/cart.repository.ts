@@ -71,6 +71,17 @@ export default class CartRepository {
     });
   }
 
+  static async findItemById(cartItemId: string) {
+    return prisma.cartItem.findUnique({
+      where: { id: cartItemId },
+      include: { cart: true },
+    });
+  }
+
+  static async findCartById(cartId: string) {
+    return prisma.cart.findUnique({ where: { id: cartId } });
+  }
+
   static async updateItemQuantity(cartItemId: string, quantity: number) {
     if (quantity <= 0) {
       return prisma.cartItem.delete({

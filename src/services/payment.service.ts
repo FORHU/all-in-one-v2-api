@@ -6,22 +6,28 @@ import { throwResponse } from '../utils/throw-response';
 export default class PaymentService {
   static async createPaymentIntent(params: {
     orderId: string;
-    amount: number;
-    currency?: string;
     provider: string;
     paymentMethod?: string;
+    requester: { customerId?: string; isAdmin: boolean };
   }) {
-    const { orderId, amount, currency = 'PHP', provider, paymentMethod } = params;
+    const { orderId, provider, paymentMethod, requester } = params;
 
     const order = await OrderRepository.findById(orderId);
     if (!order) {
       return throwResponse(404, 'Order not found');
     }
 
+    const isOwner = !!requester.customerId && order.customerId === requester.customerId;
+    if (!requester.isAdmin && !isOwner) {
+      return throwResponse(404, 'Order not found');
+    }
+
+    // Amount and currency are read from the order, never taken from the request
+    // body — otherwise a client can offer to pay 1 for a 10,000 order.
     return PaymentRepository.createPayment({
       order: { connect: { id: orderId } },
-      amount,
-      currency,
+      amount: order.totalAmount,
+      currency: order.currency,
       provider,
       paymentMethod,
       status: PaymentStatus.PENDING,

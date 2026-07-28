@@ -1,11 +1,10 @@
 import { Router } from 'express';
 import { importProduct } from '../controllers/product-import.controller';
-import { authenticate } from '../middleware/auth.middleware';
+import { authenticate, authorize, ADMIN_ROLES } from '../middleware/auth.middleware';
 
 const router = Router();
 
 // POST /api/v2/products/import
-// Ideally, add an admin check middleware here as well.
-router.post('/import', authenticate, importProduct);
+router.post('/import', authenticate, authorize(...ADMIN_ROLES), importProduct);
 
 export default router;

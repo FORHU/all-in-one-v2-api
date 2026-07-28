@@ -3,9 +3,30 @@ dotenv.config();
 
 export const PORT = process.env.PORT || 3002;
 export const NODE_ENV = process.env.NODE_ENV || 'development';
+export const isDev = NODE_ENV === 'development';
 
-export const ACCESS_TOKEN_SECRET = process.env.JWT_SECRET || 'access-secret';
-export const REFRESH_TOKEN_SECRET = process.env.JWT_REFRESH_SECRET || 'refresh-secret';
+/**
+ * Reads a signing secret from the environment.
+ *
+ * Outside development a missing secret is fatal: falling back to a hardcoded
+ * default would let anyone forge an admin token. In development we fall back
+ * loudly so a fresh clone still boots without a .env.
+ */
+const requireSecret = (name: string, devFallback: string): string => {
+  const value = process.env[name];
+  if (value) return value;
+
+  if (!isDev) {
+    throw new Error(`[config] ${name} must be set when NODE_ENV=${NODE_ENV}`);
+  }
+
+  // Logger isn't initialized this early — write directly.
+  process.stderr.write(`[config] WARNING: ${name} is unset, using an insecure development default\n`);
+  return devFallback;
+};
+
+export const ACCESS_TOKEN_SECRET = requireSecret('JWT_SECRET', 'dev-only-access-secret');
+export const REFRESH_TOKEN_SECRET = requireSecret('JWT_REFRESH_SECRET', 'dev-only-refresh-secret');
 export const ACCESS_TOKEN_EXPIRY = process.env.JWT_EXPIRY || '1d';
 export const REFRESH_TOKEN_EXPIRY = '7d';
 
@@ -24,8 +45,6 @@ export const SMTP_HOST = process.env.SMTP_HOST || 'smtp.ethereal.email';
 export const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587');
 export const SMTP_USER = process.env.SMTP_USER || '';
 export const SMTP_PASS = process.env.SMTP_PASS || '';
-
-export const isDev = NODE_ENV === 'development';
 
 export const CJ_BASE_URL =
   process.env.CJ_BASE_URL || 'https://developers.cjdropshipping.com/api2.0/v1';
