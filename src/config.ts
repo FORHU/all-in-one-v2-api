@@ -4,25 +4,26 @@ dotenv.config();
 export const PORT = process.env.PORT || 3002;
 export const NODE_ENV = process.env.NODE_ENV || 'development';
 export const isDev = NODE_ENV === 'development';
+export const isTest = NODE_ENV === 'test';
 
 /**
  * Reads a signing secret from the environment.
  *
- * Outside development a missing secret is fatal: falling back to a hardcoded
- * default would let anyone forge an admin token. In development we fall back
- * loudly so a fresh clone still boots without a .env.
+ * Outside development/test a missing secret is fatal: falling back to a hardcoded
+ * default would let anyone forge an admin token. In development and testing we fall back
+ * loudly so test suites and local dev boot cleanly without a .env file.
  */
 const requireSecret = (name: string, devFallback: string): string => {
   const value = process.env[name];
   if (value) return value;
 
-  if (!isDev) {
+  if (!isDev && !isTest) {
     throw new Error(`[config] ${name} must be set when NODE_ENV=${NODE_ENV}`);
   }
 
   // Logger isn't initialized this early — write directly.
   process.stderr.write(
-    `[config] WARNING: ${name} is unset, using an insecure development default\n`,
+    `[config] WARNING: ${name} is unset, using a fallback secret for ${NODE_ENV}\n`,
   );
   return devFallback;
 };
