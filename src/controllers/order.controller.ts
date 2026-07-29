@@ -2,16 +2,18 @@ import { Request, Response, NextFunction } from 'express';
 import OrderService from '../services/order.service';
 import { responseSuccess, responseError } from '../helpers/response.helper';
 import { parsePagination, pageFromRepo } from '../helpers/pagination.helper';
+import { resolveCustomerId, resolveOrderViewer } from '../helpers/requester.helper';
 
 export default class OrderController {
   static async checkout(req: Request, res: Response, next: NextFunction) {
     try {
-      const customerId = req.user?.id;
-      const { cartId, shippingAddressId, currency } = req.body;
+      const customerId = await resolveCustomerId(req);
+      const sessionId = req.headers['x-session-id'] as string | undefined;
+      const { shippingAddressId, currency } = req.body;
 
       const order = await OrderService.checkoutFromCart({
-        cartId,
         customerId,
+        sessionId,
         shippingAddressId,
         currency,
       });
@@ -24,7 +26,10 @@ export default class OrderController {
 
   static async getOrder(req: Request, res: Response, next: NextFunction) {
     try {
-      const order = await OrderService.getOrderDetails(req.params.id);
+      const order = await OrderService.getOrderDetails(
+        req.params.id,
+        await resolveOrderViewer(req),
+      );
       return responseSuccess(res, 200, order);
     } catch (error) {
       next(error);
@@ -33,7 +38,7 @@ export default class OrderController {
 
   static async getMyOrders(req: Request, res: Response, next: NextFunction) {
     try {
-      const customerId = req.user?.id;
+      const customerId = await resolveCustomerId(req);
       if (!customerId) return responseError(res, 401, 'Unauthorized');
 
       const { page, limit } = parsePagination(req.query as Record<string, unknown>);

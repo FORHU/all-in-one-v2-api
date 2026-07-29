@@ -1,10 +1,14 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../utils/prisma';
 
+/**
+ * Categories belong to a single vertical. Every method takes `tenantId`
+ * explicitly so the compiler flags any caller that forgets to scope.
+ */
 export default class CategoryRepository {
-  static async findById(id: string) {
-    return prisma.category.findUnique({
-      where: { id },
+  static async findById(tenantId: string, id: string) {
+    return prisma.category.findFirst({
+      where: { id, tenantId },
       include: {
         parent: true,
         children: true,
@@ -12,16 +16,16 @@ export default class CategoryRepository {
     });
   }
 
-  static async findBySlug(slug: string) {
+  static async findBySlug(tenantId: string, slug: string) {
     return prisma.category.findUnique({
-      where: { slug },
+      where: { tenantId_slug: { tenantId, slug } },
       include: {
         parent: true,
         children: true,
         products: {
           take: 20,
           include: {
-            images: true,
+            media: true,
             variants: true,
           },
         },
@@ -29,9 +33,9 @@ export default class CategoryRepository {
     });
   }
 
-  static async findAllRoot() {
+  static async findAllRoot(tenantId: string) {
     return prisma.category.findMany({
-      where: { parentId: null },
+      where: { tenantId, parentId: null },
       include: {
         children: true,
       },
@@ -39,22 +43,22 @@ export default class CategoryRepository {
     });
   }
 
-  static async create(data: Prisma.CategoryCreateInput) {
+  static async create(tenantId: string, data: Omit<Prisma.CategoryCreateInput, 'tenant'>) {
     return prisma.category.create({
-      data,
+      data: { ...data, tenant: { connect: { id: tenantId } } },
     });
   }
 
-  static async update(id: string, data: Prisma.CategoryUpdateInput) {
-    return prisma.category.update({
-      where: { id },
-      data,
-    });
+  static async update(tenantId: string, id: string, data: Prisma.CategoryUpdateInput) {
+    // updateMany rather than update: it accepts a non-unique where clause, so
+    // the tenant filter is enforced by the database rather than assumed.
+    await prisma.category.updateMany({ where: { id, tenantId }, data });
+    return this.findById(tenantId, id);
   }
 
-  static async delete(id: string) {
-    return prisma.category.delete({
-      where: { id },
+  static async delete(tenantId: string, id: string) {
+    return prisma.category.deleteMany({
+      where: { id, tenantId },
     });
   }
 }

@@ -1,30 +1,52 @@
 import PaymentRepository from '../repositories/payment.repository';
 import OrderRepository from '../repositories/order.repository';
-import { PaymentStatus, SyncStatus, OrderStatus } from '@prisma/client';
+import OrderService, { OrderViewer } from './order.service';
+import {
+  PaymentStatus,
+  SyncStatus,
+  OrderStatus,
+  PaymentGateway,
+  PaymentChannel,
+  PaymentInstrument,
+} from '@prisma/client';
 import { throwResponse } from '../utils/throw-response';
+import { requireTenantId } from '../utils/async-context';
 
 export default class PaymentService {
   static async createPaymentIntent(params: {
     orderId: string;
-    amount: number;
-    currency?: string;
-    provider: string;
-    paymentMethod?: string;
+    gateway?: PaymentGateway;
+    channel?: PaymentChannel;
+    instrument?: PaymentInstrument;
+    requester: OrderViewer;
   }) {
-    const { orderId, amount, currency = 'PHP', provider, paymentMethod } = params;
+    const {
+      orderId,
+      gateway = PaymentGateway.PAYMONGO,
+      channel = PaymentChannel.CARD,
+      instrument,
+      requester,
+    } = params;
 
-    const order = await OrderRepository.findById(orderId);
+    const order = await OrderRepository.findById(requireTenantId(), orderId);
     if (!order) {
       return throwResponse(404, 'Order not found');
     }
 
+    if (!requester.isAdmin && !OrderService.isOrderOwner(order, requester)) {
+      return throwResponse(404, 'Order not found');
+    }
+
+    // Amount and currency are read from the order, never taken from the request body
     return PaymentRepository.createPayment({
       order: { connect: { id: orderId } },
-      amount,
-      currency,
-      provider,
-      paymentMethod,
-      status: PaymentStatus.PENDING,
+      expectedAmount: order.totalAmount,
+      amount: order.totalAmount,
+      currency: order.currency,
+      gateway,
+      channel,
+      instrument,
+      status: PaymentStatus.CREATED,
     });
   }
 
@@ -49,7 +71,14 @@ export default class PaymentService {
             await PaymentRepository.updatePaymentStatus(payment.id, nextStatus, payload);
 
             if (nextStatus === PaymentStatus.PAID) {
-              await OrderRepository.updateStatus(payment.orderId, OrderStatus.PROCESSING);
+              // Provider callbacks carry no host or session, so there is no
+              // ambient tenant here. Take it from the order the payment points
+              // at — the webhook's own data is the source of truth.
+              await OrderRepository.updateStatus(
+                payment.order.tenantId,
+                payment.orderId,
+                OrderStatus.PROCESSING,
+              );
             }
           }
         }

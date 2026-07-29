@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { UserRole } from '@prisma/client';
 import logger from '../utils/logger';
 import CacheUtil from '../utils/cache.util';
+import { hashPassword, verifyPassword, isLegacyHash } from '../utils/password.util';
 
 interface AuthUserPayload {
   id: string;
@@ -39,10 +40,7 @@ export default class AuthSvc {
       throw { status: 400, message: 'Username is already taken' };
     }
 
-    // Hash password using PBKDF2 (salt:hash)
-    const salt = crypto.randomBytes(16).toString('hex');
-    const hash = crypto.pbkdf2Sync(data.password, salt, 1000, 64, 'sha512').toString('hex');
-    const hashedPassword = `${salt}:${hash}`;
+    const hashedPassword = await hashPassword(data.password);
 
     // Create user (verified by default in simple boilerplate)
     const user = await AuthRepo.createUser({
@@ -66,13 +64,15 @@ export default class AuthSvc {
 
     if (!user.password) throw { status: 401, message: 'Account uses social login' };
 
-    // Verify password
-    const [salt, storedHash] = user.password.split(':');
-    if (!salt || !storedHash) throw { status: 500, message: 'Invalid password format' };
+    const isValid = await verifyPassword(data.password, user.password);
+    if (!isValid) throw { status: 401, message: 'Invalid credentials' };
 
-    const hash = crypto.pbkdf2Sync(data.password, salt, 1000, 64, 'sha512').toString('hex');
-
-    if (storedHash !== hash) throw { status: 401, message: 'Invalid credentials' };
+    // This is the only moment we hold the plaintext, so it's the only chance to
+    // migrate an account off the old weak PBKDF2 hash.
+    if (isLegacyHash(user.password)) {
+      await AuthRepo.updateUser(user.id, { password: await hashPassword(data.password) });
+      logger.info(`Upgraded legacy password hash for user ${user.id}`);
+    }
 
     // Update login status and return response
     const updatedUser = await AuthRepo.updateUserLoginStatus(user.id);
@@ -80,39 +80,34 @@ export default class AuthSvc {
   }
 
   /**
-   * Refresh access token
+   * Refresh access token.
+   *
+   * The presented refresh token is single-use: its session is deleted and a new
+   * token pair is issued. Callers must persist the returned `refreshToken` —
+   * the old one stops working immediately.
    */
   static async refreshToken(refreshToken: string) {
+    let decoded: { userId: string };
+
     try {
-      const decoded = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET) as {
-        userId: string;
-      };
-      const session = await AuthRepo.findValidSession(refreshToken);
-
-      if (!session) throw { status: 401, message: 'Invalid refresh token' };
-
-      const user = await AuthRepo.findUserById(decoded.userId);
-      if (!user) throw { status: 404, message: 'User not found' };
-
-      const accessToken = jwt.sign({ userId: user.id }, ACCESS_TOKEN_SECRET, {
-        expiresIn: ACCESS_TOKEN_EXPIRY as jwt.SignOptions['expiresIn'],
-      });
-
-      return {
-        accessToken,
-        user: {
-          id: user.id,
-          email: user.email,
-          username: user.username,
-          name: user.name,
-          role: user.role,
-          avatar: user.avatar?.fileUrl,
-          onboardingCompleted: user.onboardingCompleted,
-        },
-      };
-    } catch (error) {
+      decoded = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET) as { userId: string };
+    } catch {
       throw { status: 401, message: 'Invalid refresh token' };
     }
+
+    // The token must also correspond to a live session, and that session must
+    // belong to the user the token claims to be.
+    const session = await AuthRepo.findValidSession(refreshToken);
+    if (!session || session.userId !== decoded.userId) {
+      throw { status: 401, message: 'Invalid refresh token' };
+    }
+
+    const user = await AuthRepo.findUserById(decoded.userId);
+    if (!user || user.isDeleted) throw { status: 401, message: 'Invalid refresh token' };
+
+    await AuthRepo.deleteSession(refreshToken);
+
+    return this.generateAuthResponse(user, session.provider || 'local');
   }
 
   /**
@@ -147,20 +142,21 @@ export default class AuthSvc {
       provider,
     });
 
-    await CacheUtil.set(`user:${user.id}`, user);
-
-    return {
-      accessToken,
-      refreshToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        name: user.name,
-        role: user.role,
-        avatar: user.avatar?.fileUrl,
-        onboardingCompleted: user.onboardingCompleted,
-      },
+    // Build the public shape once and cache *that*. Callers may hand us a full
+    // Prisma User (the refresh path does), which carries the password hash —
+    // that must never reach Redis or the response body.
+    const publicUser = {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      name: user.name,
+      role: user.role,
+      avatar: user.avatar?.fileUrl,
+      onboardingCompleted: user.onboardingCompleted,
     };
+
+    await CacheUtil.set(`user:${user.id}`, publicUser);
+
+    return { accessToken, refreshToken, user: publicUser };
   }
 }
