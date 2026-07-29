@@ -1,6 +1,11 @@
 import express from 'express';
 import OrderController from '../controllers/order.controller';
-import { authenticate, optionalAuthenticate, authorize, ADMIN_ROLES } from '../middleware/auth.middleware';
+import {
+  authenticate,
+  optionalAuthenticate,
+  authorize,
+  ADMIN_ROLES,
+} from '../middleware/auth.middleware';
 
 const router = express.Router();
 

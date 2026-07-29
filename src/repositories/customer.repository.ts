@@ -76,7 +76,10 @@ export default class CustomerRepository {
     return prisma.shippingAddress.findUnique({ where: { id } });
   }
 
-  static async addShippingAddress(customerId: string, addressData: Omit<Prisma.ShippingAddressCreateInput, 'customer'>) {
+  static async addShippingAddress(
+    customerId: string,
+    addressData: Omit<Prisma.ShippingAddressCreateInput, 'customer'>,
+  ) {
     return prisma.shippingAddress.create({
       data: {
         ...addressData,

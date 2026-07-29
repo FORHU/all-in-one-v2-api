@@ -45,5 +45,13 @@ export const requireTenantId = (): string => {
 /** Runs `fn` with tenant context attached — used by workers and consumers. */
 export const runWithTenant = <T>(tenantId: string, fn: () => T): T => {
   const current = asyncLocalStorage.getStore();
-  return asyncLocalStorage.run({ ...current, requestId: current?.requestId ?? '', correlationId: current?.correlationId ?? '', tenantId }, fn);
+  return asyncLocalStorage.run(
+    {
+      ...current,
+      requestId: current?.requestId ?? '',
+      correlationId: current?.correlationId ?? '',
+      tenantId,
+    },
+    fn,
+  );
 };

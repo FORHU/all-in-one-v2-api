@@ -34,7 +34,11 @@ export const importProduct = async (req: Request, res: Response, next: NextFunct
       return throwResponse(400, 'No target tenant: pass tenantSlug or call from a storefront host');
     }
 
-    const product = await ProductImportService.importProductToPlatform(tenantId, supplierId, externalId);
+    const product = await ProductImportService.importProductToPlatform(
+      tenantId,
+      supplierId,
+      externalId,
+    );
 
     return res.status(201).json({
       message: 'Product imported successfully and commission applied.',

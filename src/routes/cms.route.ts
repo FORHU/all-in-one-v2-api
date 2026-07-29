@@ -10,7 +10,12 @@ router.get('/announcements', CMSController.getAnnouncements);
 router.get('/faqs', CMSController.getFAQs);
 
 router.post('/banners', authenticate, authorize(...ADMIN_ROLES), CMSController.createBanner);
-router.post('/announcements', authenticate, authorize(...ADMIN_ROLES), CMSController.createAnnouncement);
+router.post(
+  '/announcements',
+  authenticate,
+  authorize(...ADMIN_ROLES),
+  CMSController.createAnnouncement,
+);
 router.post('/faqs', authenticate, authorize(...ADMIN_ROLES), CMSController.createFAQ);
 
 export default router;

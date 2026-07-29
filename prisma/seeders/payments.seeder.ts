@@ -18,7 +18,9 @@ export async function seedPayments(prisma: PrismaClient) {
   });
 
   if (!order) {
-    process.stderr.write('⚠️ No order found to seed payments for. Ensure seedCommerce runs first.\n');
+    process.stderr.write(
+      '⚠️ No order found to seed payments for. Ensure seedCommerce runs first.\n',
+    );
     return;
   }
 
@@ -117,7 +119,9 @@ export async function seedPayments(prisma: PrismaClient) {
         },
       },
     });
-    process.stdout.write(`✅ Seeded Stripe Visa Payment [${stripePayment.id}]: $${stripePayment.amount}\n`);
+    process.stdout.write(
+      `✅ Seeded Stripe Visa Payment [${stripePayment.id}]: $${stripePayment.amount}\n`,
+    );
   }
 
   process.stdout.write('🎉 Payments seeder executed successfully!\n');

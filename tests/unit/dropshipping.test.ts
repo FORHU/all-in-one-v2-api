@@ -38,7 +38,7 @@ describe('Dropshipping Pipeline & Supplier Adapters', () => {
 
     it('should throw an error when requesting an unregistered supplier', () => {
       expect(() => supplierRegistry.get('UNKNOWN_SUPPLIER')).toThrow(
-        'No SupplierAdapter found for supplierId: UNKNOWN_SUPPLIER'
+        'No SupplierAdapter found for supplierId: UNKNOWN_SUPPLIER',
       );
     });
   });

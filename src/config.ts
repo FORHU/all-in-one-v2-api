@@ -21,7 +21,9 @@ const requireSecret = (name: string, devFallback: string): string => {
   }
 
   // Logger isn't initialized this early — write directly.
-  process.stderr.write(`[config] WARNING: ${name} is unset, using an insecure development default\n`);
+  process.stderr.write(
+    `[config] WARNING: ${name} is unset, using an insecure development default\n`,
+  );
   return devFallback;
 };
 
@@ -52,8 +54,11 @@ export const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://guest:guest@loca
 
 // Accepts either naming: MAILER_* (used by this project's .env and
 // docker-compose) or SMTP_* (used by most hosting providers).
-export const SMTP_HOST = process.env.MAILER_TRANSPORT_HOST || process.env.SMTP_HOST || 'smtp.ethereal.email';
-export const SMTP_PORT = parseInt(process.env.MAILER_TRANSPORT_PORT || process.env.SMTP_PORT || '587');
+export const SMTP_HOST =
+  process.env.MAILER_TRANSPORT_HOST || process.env.SMTP_HOST || 'smtp.ethereal.email';
+export const SMTP_PORT = parseInt(
+  process.env.MAILER_TRANSPORT_PORT || process.env.SMTP_PORT || '587',
+);
 export const SMTP_USER = process.env.MAILER_EMAIL || process.env.SMTP_USER || '';
 export const SMTP_PASS = process.env.MAILER_PASSWORD || process.env.SMTP_PASS || '';
 

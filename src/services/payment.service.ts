@@ -1,7 +1,14 @@
 import PaymentRepository from '../repositories/payment.repository';
 import OrderRepository from '../repositories/order.repository';
 import OrderService, { OrderViewer } from './order.service';
-import { PaymentStatus, SyncStatus, OrderStatus, PaymentGateway, PaymentChannel, PaymentInstrument } from '@prisma/client';
+import {
+  PaymentStatus,
+  SyncStatus,
+  OrderStatus,
+  PaymentGateway,
+  PaymentChannel,
+  PaymentInstrument,
+} from '@prisma/client';
 import { throwResponse } from '../utils/throw-response';
 import { requireTenantId } from '../utils/async-context';
 
@@ -13,7 +20,13 @@ export default class PaymentService {
     instrument?: PaymentInstrument;
     requester: OrderViewer;
   }) {
-    const { orderId, gateway = PaymentGateway.PAYMONGO, channel = PaymentChannel.CARD, instrument, requester } = params;
+    const {
+      orderId,
+      gateway = PaymentGateway.PAYMONGO,
+      channel = PaymentChannel.CARD,
+      instrument,
+      requester,
+    } = params;
 
     const order = await OrderRepository.findById(requireTenantId(), orderId);
     if (!order) {
@@ -61,7 +74,11 @@ export default class PaymentService {
               // Provider callbacks carry no host or session, so there is no
               // ambient tenant here. Take it from the order the payment points
               // at — the webhook's own data is the source of truth.
-              await OrderRepository.updateStatus(payment.order.tenantId, payment.orderId, OrderStatus.PROCESSING);
+              await OrderRepository.updateStatus(
+                payment.order.tenantId,
+                payment.orderId,
+                OrderStatus.PROCESSING,
+              );
             }
           }
         }

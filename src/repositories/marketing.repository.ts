@@ -4,7 +4,10 @@ import { buildPage, PageResult } from '../helpers/pagination.helper';
 
 export default class MarketingRepository {
   // --- Social Feeds ---
-  static async createSocialFeed(tenantId: string, data: Omit<Prisma.ProductSocialFeedCreateInput, 'tenant'>) {
+  static async createSocialFeed(
+    tenantId: string,
+    data: Omit<Prisma.ProductSocialFeedCreateInput, 'tenant'>,
+  ) {
     return prisma.productSocialFeed.create({
       data: {
         ...data,
@@ -13,7 +16,11 @@ export default class MarketingRepository {
     });
   }
 
-  static async findSocialFeedsByTenant(tenantId: string, page = 1, limit = 20): Promise<PageResult<unknown>> {
+  static async findSocialFeedsByTenant(
+    tenantId: string,
+    page = 1,
+    limit = 20,
+  ): Promise<PageResult<unknown>> {
     const skip = (page - 1) * limit;
     const where: Prisma.ProductSocialFeedWhereInput = { tenantId };
 
@@ -36,7 +43,11 @@ export default class MarketingRepository {
     });
   }
 
-  static async updateSocialFeed(tenantId: string, id: string, data: Prisma.ProductSocialFeedUpdateInput) {
+  static async updateSocialFeed(
+    tenantId: string,
+    id: string,
+    data: Prisma.ProductSocialFeedUpdateInput,
+  ) {
     return prisma.productSocialFeed.updateMany({
       where: { id, tenantId },
       data,
@@ -44,7 +55,11 @@ export default class MarketingRepository {
   }
 
   // --- Social Ads ---
-  static async createSocialAd(tenantId: string, productId: string, data: Omit<Prisma.ProductSocialAdCreateInput, 'tenant' | 'product'>) {
+  static async createSocialAd(
+    tenantId: string,
+    productId: string,
+    data: Omit<Prisma.ProductSocialAdCreateInput, 'tenant' | 'product'>,
+  ) {
     return prisma.productSocialAd.create({
       data: {
         ...data,
@@ -63,7 +78,7 @@ export default class MarketingRepository {
     platform?: AdSocialPlatform,
     status?: AdSocialStatus,
     page = 1,
-    limit = 20
+    limit = 20,
   ): Promise<PageResult<unknown>> {
     const skip = (page - 1) * limit;
     const where: Prisma.ProductSocialAdWhereInput = {
@@ -117,7 +132,14 @@ export default class MarketingRepository {
   }
 
   // --- Shareable Links ---
-  static async createShareableLink(tenantId: string, productId: string, code: string, utmSource?: string, utmMedium?: string, utmCampaign?: string) {
+  static async createShareableLink(
+    tenantId: string,
+    productId: string,
+    code: string,
+    utmSource?: string,
+    utmMedium?: string,
+    utmCampaign?: string,
+  ) {
     return prisma.shareableSocialLink.create({
       data: {
         tenant: { connect: { id: tenantId } },

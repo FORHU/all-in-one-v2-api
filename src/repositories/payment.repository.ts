@@ -26,7 +26,12 @@ export default class PaymentRepository {
     });
   }
 
-  static async updatePaymentStatus(id: string, status: PaymentStatus, gatewayResponse?: Prisma.InputJsonValue, eventMessage?: string) {
+  static async updatePaymentStatus(
+    id: string,
+    status: PaymentStatus,
+    gatewayResponse?: Prisma.InputJsonValue,
+    eventMessage?: string,
+  ) {
     return prisma.$transaction(async (tx) => {
       const payment = await tx.payment.update({
         where: { id },
@@ -50,7 +55,11 @@ export default class PaymentRepository {
     });
   }
 
-  static async recordWebhookEvent(provider: string, eventType: string, payload: Prisma.InputJsonValue) {
+  static async recordWebhookEvent(
+    provider: string,
+    eventType: string,
+    payload: Prisma.InputJsonValue,
+  ) {
     return prisma.webhookEvent.create({
       data: {
         provider,

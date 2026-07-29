@@ -15,7 +15,12 @@ export default class CategoryService {
     return category;
   }
 
-  static async createCategory(data: { name: string; slug: string; description?: string; parentId?: string }) {
+  static async createCategory(data: {
+    name: string;
+    slug: string;
+    description?: string;
+    parentId?: string;
+  }) {
     const tenantId = requireTenantId();
 
     const existing = await CategoryRepository.findBySlug(tenantId, data.slug);
@@ -25,7 +30,10 @@ export default class CategoryService {
     return CategoryRepository.create(tenantId, data);
   }
 
-  static async updateCategory(id: string, data: { name?: string; slug?: string; description?: string; parentId?: string }) {
+  static async updateCategory(
+    id: string,
+    data: { name?: string; slug?: string; description?: string; parentId?: string },
+  ) {
     const tenantId = requireTenantId();
 
     const category = await CategoryRepository.findById(tenantId, id);

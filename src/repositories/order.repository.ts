@@ -33,7 +33,12 @@ export default class OrderRepository {
     });
   }
 
-  static async findByCustomerId(tenantId: string, customerId: string, page: number = 1, limit: number = 10) {
+  static async findByCustomerId(
+    tenantId: string,
+    customerId: string,
+    page: number = 1,
+    limit: number = 10,
+  ) {
     const skip = (page - 1) * limit;
     const where = { tenantId, customerId };
 

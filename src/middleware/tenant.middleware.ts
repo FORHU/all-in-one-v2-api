@@ -21,10 +21,14 @@ export const slugFromHost = (host: string): string | null => {
 };
 
 const lookupBySlug = async (slug: string): Promise<Tenant | null> =>
-  CacheUtil.remember(`tenant:slug:${slug}`, CACHE_TTL_SECONDS, () => TenantRepository.findBySlug(slug));
+  CacheUtil.remember(`tenant:slug:${slug}`, CACHE_TTL_SECONDS, () =>
+    TenantRepository.findBySlug(slug),
+  );
 
 const lookupByDomain = async (domain: string): Promise<Tenant | null> =>
-  CacheUtil.remember(`tenant:domain:${domain}`, CACHE_TTL_SECONDS, () => TenantRepository.findByDomain(domain));
+  CacheUtil.remember(`tenant:domain:${domain}`, CACHE_TTL_SECONDS, () =>
+    TenantRepository.findByDomain(domain),
+  );
 
 /**
  * Resolves the vertical for the request, in order:

@@ -42,7 +42,10 @@ export default class CMSRepository {
     });
   }
 
-  static async createAnnouncement(tenantId: string, data: Omit<Prisma.AnnouncementCreateInput, 'tenant'>) {
+  static async createAnnouncement(
+    tenantId: string,
+    data: Omit<Prisma.AnnouncementCreateInput, 'tenant'>,
+  ) {
     return prisma.announcement.create({ data: { ...data, tenant: { connect: { id: tenantId } } } });
   }
 

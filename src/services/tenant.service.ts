@@ -39,7 +39,12 @@ export default class TenantService {
     return TenantRepository.listAll();
   }
 
-  static async createTenant(data: { name: string; slug: string; domain?: string; settings?: Prisma.InputJsonValue }) {
+  static async createTenant(data: {
+    name: string;
+    slug: string;
+    domain?: string;
+    settings?: Prisma.InputJsonValue;
+  }) {
     if (RESERVED_SLUGS.has(data.slug)) {
       return throwResponse(422, `Slug '${data.slug}' is reserved`);
     }
@@ -57,7 +62,12 @@ export default class TenantService {
 
   static async updateTenant(
     id: string,
-    data: { name?: string; domain?: string; status?: TenantStatus; settings?: Prisma.InputJsonValue },
+    data: {
+      name?: string;
+      domain?: string;
+      status?: TenantStatus;
+      settings?: Prisma.InputJsonValue;
+    },
   ) {
     const tenant = await TenantRepository.findById(id);
     if (!tenant) {

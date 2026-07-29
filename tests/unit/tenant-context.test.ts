@@ -1,4 +1,9 @@
-import { requireTenantId, getTenantId, runWithTenant, asyncLocalStorage } from '../../src/utils/async-context';
+import {
+  requireTenantId,
+  getTenantId,
+  runWithTenant,
+  asyncLocalStorage,
+} from '../../src/utils/async-context';
 
 describe('tenant context', () => {
   describe('requireTenantId', () => {
@@ -24,9 +29,12 @@ describe('tenant context', () => {
     });
 
     it('returns the tenant when one is present', () => {
-      asyncLocalStorage.run({ requestId: 'r1', correlationId: 'c1', tenantId: 'tenant-abc' }, () => {
-        expect(requireTenantId()).toBe('tenant-abc');
-      });
+      asyncLocalStorage.run(
+        { requestId: 'r1', correlationId: 'c1', tenantId: 'tenant-abc' },
+        () => {
+          expect(requireTenantId()).toBe('tenant-abc');
+        },
+      );
     });
   });
 

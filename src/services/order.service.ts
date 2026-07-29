@@ -21,7 +21,10 @@ export default class OrderService {
    * checkout, where customerId is null — to whoever holds the session id it
    * was placed with.
    */
-  static isOrderOwner(order: { customerId?: string | null; sessionId?: string | null }, viewer: OrderViewer): boolean {
+  static isOrderOwner(
+    order: { customerId?: string | null; sessionId?: string | null },
+    viewer: OrderViewer,
+  ): boolean {
     if (viewer.customerId && order.customerId === viewer.customerId) return true;
     if (viewer.sessionId && order.sessionId && order.sessionId === viewer.sessionId) return true;
     return false;

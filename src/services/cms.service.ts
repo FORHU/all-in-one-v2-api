@@ -23,7 +23,12 @@ export default class CMSService {
     return CMSRepository.getFAQs(requireTenantId(), category);
   }
 
-  static async createBanner(data: { title: string; imageUrl: string; linkUrl?: string; position?: number }) {
+  static async createBanner(data: {
+    title: string;
+    imageUrl: string;
+    linkUrl?: string;
+    position?: number;
+  }) {
     return CMSRepository.createBanner(requireTenantId(), data);
   }
 
@@ -31,7 +36,12 @@ export default class CMSService {
     return CMSRepository.createAnnouncement(requireTenantId(), data);
   }
 
-  static async createFAQ(data: { question: string; answer: string; category?: string; position?: number }) {
+  static async createFAQ(data: {
+    question: string;
+    answer: string;
+    category?: string;
+    position?: number;
+  }) {
     return CMSRepository.createFAQ(requireTenantId(), data);
   }
 }

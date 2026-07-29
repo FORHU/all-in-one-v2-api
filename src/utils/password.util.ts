@@ -33,7 +33,13 @@ const verifyLegacyPassword = (password: string, stored: string): boolean => {
   const [salt, storedHash] = stored.split(':');
   if (!salt || !storedHash) return false;
 
-  const computed = crypto.pbkdf2Sync(password, salt, LEGACY_ITERATIONS, LEGACY_KEYLEN, LEGACY_DIGEST);
+  const computed = crypto.pbkdf2Sync(
+    password,
+    salt,
+    LEGACY_ITERATIONS,
+    LEGACY_KEYLEN,
+    LEGACY_DIGEST,
+  );
   const expected = Buffer.from(storedHash, 'hex');
 
   if (computed.length !== expected.length) return false;

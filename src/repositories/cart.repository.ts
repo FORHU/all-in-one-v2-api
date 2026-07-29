@@ -55,7 +55,12 @@ export default class CartRepository {
     });
   }
 
-  static async addOrUpdateItem(cartId: string, productVariantId: string, quantity: number, unitPrice: Prisma.Decimal | number) {
+  static async addOrUpdateItem(
+    cartId: string,
+    productVariantId: string,
+    quantity: number,
+    unitPrice: Prisma.Decimal | number,
+  ) {
     return prisma.cartItem.upsert({
       where: {
         cartId_productVariantId: {

@@ -6,7 +6,11 @@ import crypto from 'crypto';
 
 export default class MarketingService {
   // --- Social Feeds ---
-  static async createFeed(params: { name: string; platform?: AdSocialPlatform; config?: Prisma.InputJsonValue }) {
+  static async createFeed(params: {
+    name: string;
+    platform?: AdSocialPlatform;
+    config?: Prisma.InputJsonValue;
+  }) {
     const tenantId = requireTenantId();
     return MarketingRepository.createSocialFeed(tenantId, {
       name: params.name,
@@ -68,7 +72,7 @@ export default class MarketingService {
       shortCode,
       params.utmSource || 'social',
       params.utmMedium || 'share_link',
-      params.utmCampaign
+      params.utmCampaign,
     );
   }
 

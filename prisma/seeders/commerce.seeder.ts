@@ -32,7 +32,9 @@ export async function seedCommerce(prisma: PrismaClient) {
   });
 
   if (!customer) {
-    process.stderr.write('⚠️ Customer customer@marketplace.com not found. Ensure seedUsers runs first.\n');
+    process.stderr.write(
+      '⚠️ Customer customer@marketplace.com not found. Ensure seedUsers runs first.\n',
+    );
     return;
   }
 
@@ -71,7 +73,7 @@ export async function seedCommerce(prisma: PrismaClient) {
             sku: 'AM2026-BLK-42',
             title: 'Black / Size 42',
             price: 99.99,
-            baseCost: 45.00,
+            baseCost: 45.0,
             sellingPrice: 99.99,
             calculatedPrice: 99.99,
             stock: 150,

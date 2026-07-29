@@ -26,7 +26,10 @@ export default class OrderController {
 
   static async getOrder(req: Request, res: Response, next: NextFunction) {
     try {
-      const order = await OrderService.getOrderDetails(req.params.id, await resolveOrderViewer(req));
+      const order = await OrderService.getOrderDetails(
+        req.params.id,
+        await resolveOrderViewer(req),
+      );
       return responseSuccess(res, 200, order);
     } catch (error) {
       next(error);

@@ -71,11 +71,7 @@ const ENTERPRISE_MARKETPLACE_TAXONOMY: CategoryNode[] = [
         children: [
           {
             name: 'T-Shirts & Polos',
-            children: [
-              { name: 'Graphic Tees' },
-              { name: 'Polo Shirts' },
-              { name: 'V-Neck Tees' },
-            ],
+            children: [{ name: 'Graphic Tees' }, { name: 'Polo Shirts' }, { name: 'V-Neck Tees' }],
           },
           {
             name: 'Shirts',
@@ -501,7 +497,7 @@ async function seedCategoryBranch(
   tenantId: string,
   node: CategoryNode,
   parentId: string | null = null,
-  prefixSlug = ''
+  prefixSlug = '',
 ) {
   const currentSlug = prefixSlug ? `${prefixSlug}-${slugify(node.name)}` : slugify(node.name);
 
@@ -532,5 +528,7 @@ export async function seedCategories(prisma: PrismaClient) {
     }
   }
 
-  process.stdout.write('🎉 Ultra-Comprehensive Marketplace Category Tree Seeded Successfully across all Tenants!\n');
+  process.stdout.write(
+    '🎉 Ultra-Comprehensive Marketplace Category Tree Seeded Successfully across all Tenants!\n',
+  );
 }
