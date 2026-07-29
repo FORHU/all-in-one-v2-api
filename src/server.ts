@@ -7,8 +7,11 @@ import logger from './utils/logger';
 import { PORT, NODE_ENV } from './config';
 import { prisma } from './utils/prisma';
 import { redis } from './infrastructure/redis';
+import { rabbitmq } from './infrastructure/rabbitmq';
+import { initSocketIO } from './infrastructure/socket';
 
 const server = http.createServer(app);
+initSocketIO(server);
 
 server.listen(PORT, () => {
   logger.info(`Server running on port ${PORT} in ${NODE_ENV} mode`);
@@ -26,6 +29,7 @@ const gracefulShutdown = async (signal: string) => {
 
     try {
       // 2. Disconnect from all infrastructure
+      await rabbitmq.close();
       await redis.close();
       await prisma.$disconnect();
 
