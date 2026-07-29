@@ -31,6 +31,7 @@ model User {
   socialAccounts      SessionSocialAccount[]
   customer            Customer?
   auditLogs           AuditLog[]
+  notifications       Notification[]
 }
 
 model Session {
@@ -65,14 +66,18 @@ model SessionSocialAccount {
 }
 
 model File {
-  id        String    @id @default(uuid())
-  filename  String?
-  fileUrl   String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  metaData  Json?
-  users     User[]    @relation("UserAvatar")
+  id           String            @id @default(uuid())
+  filename     String?
+  fileUrl      String?
+  mimeType     String? // e.g. "application/pdf", "image/gif", "video/mp4"
+  fileSize     Int? // in bytes
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  deletedAt    DateTime?
+  metaData     Json?
+  users        User[]            @relation("UserAvatar")
+  productMedia ProductMedia[]
+  socialAds    ProductSocialAd[]
 }
 
 enum UserRole {
@@ -98,6 +103,32 @@ model Tenant {
   settings  Json? // theme, logo, contact details
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
+
+  categories            Category[]
+  products              Product[]
+  variants              ProductVariant[]
+  pricingRules          PricingRule[]
+  carts                 Cart[]
+  orders                Order[]
+  pages                 Page[]
+  banners               Banner[]
+  announcements         Announcement[]
+  faqs                  FAQ[]
+  productSocialFeeds    ProductSocialFeed[]
+  productSocialAds      ProductSocialAd[]
+  shareableSocialLinks  ShareableSocialLink[]
+  inventoryTransactions InventoryTransaction[]
+  notifications         Notification[]
+  reviews               ProductReview[]
+  wishlists             Wishlist[]
+  coupons               Coupon[]
+  returns               Return[]
+  refunds               Refund[]
+  productSalesStats     ProductSalesStatistic[]
+  categorySalesStats    CategorySalesStatistic[]
+  supplierStats         SupplierStatistic[]
+  customerStats         CustomerStatistic[]
+  dailySalesStats       DailySalesStatistic[]
 }
 
 enum TenantStatus {
@@ -112,24 +143,30 @@ enum TenantStatus {
 
 model Category {
   id          String   @id @default(uuid())
+  tenantId    String
   name        String
-  slug        String   @unique
+  slug        String
   description String?
   parentId    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children Category[] @relation("CategoryHierarchy")
-  products Product[]
+  tenant     Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent     Category?                @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children   Category[]               @relation("CategoryHierarchy")
+  products   Product[]
+  salesStats CategorySalesStatistic[]
 
+  @@unique([tenantId, slug])
   @@index([parentId])
+  @@index([tenantId])
 }
 
 model Product {
   id          String        @id @default(uuid())
+  tenantId    String
   title       String
-  slug        String?       @unique
+  slug        String?
   description String?
   tags        String[]
   status      ProductStatus @default(DRAFT)
@@ -144,11 +181,21 @@ model Product {
   pricingRuleId String?
   pricingRule   PricingRule? @relation(fields: [pricingRuleId], references: [id])
 
-  variants         ProductVariant[]
-  supplierProducts SupplierProduct[]
-  images           ProductImage[]
+  tenant               Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  variants             ProductVariant[]
+  supplierProducts     SupplierProduct[]
+  media                ProductMedia[]
+  socialAds            ProductSocialAd[]
+  shareableSocialLinks ShareableSocialLink[]
+  reviews              ProductReview[]
+  salesStats           ProductSalesStatistic[]
 
+  @@unique([tenantId, slug])
   @@index([categoryId])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, featured])
+  @@index([tenantId, createdAt])
 }
 
 enum ProductStatus {
@@ -160,40 +207,61 @@ enum ProductStatus {
 
 model ProductVariant {
   id              String   @id @default(uuid())
+  tenantId        String
   productId       String
-  sku             String?  @unique
+  sku             String?
   title           String
-  price           Decimal // Legacy / main display price
-  baseCost        Decimal? // Supplier cost
-  sellingPrice    Decimal? // Configured selling price
-  calculatedPrice Decimal? // Price after automated pricing rule markup
+  price           Decimal  @db.Decimal(12, 2) // Legacy / main display price
+  baseCost        Decimal? @db.Decimal(12, 2) // Supplier cost
+  sellingPrice    Decimal? @db.Decimal(12, 2) // Configured selling price
+  calculatedPrice Decimal? @db.Decimal(12, 2) // Price after automated pricing rule markup
   stock           Int      @default(0)
   attributes      Json? // e.g. { color: "red", size: "XL" }
 
-  product          Product           @relation(fields: [productId], references: [id])
-  supplierVariants SupplierVariant[]
-  orderItems       OrderItem[]
-  cartItems        CartItem[]
-  images           ProductImage[]
+  tenant                Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product               Product                 @relation(fields: [productId], references: [id])
+  supplierVariants      SupplierVariant[]
+  orderItems            OrderItem[]
+  cartItems             CartItem[]
+  media                 ProductMedia[]
+  inventoryTransactions InventoryTransaction[]
+  wishlistItems         WishlistItem[]
+  salesStats            ProductSalesStatistic[]
 
+  @@unique([tenantId, sku])
   @@index([productId])
+  @@index([tenantId])
 }
 
-model ProductImage {
-  id               String   @id @default(uuid())
+model ProductMedia {
+  id               String    @id @default(uuid())
   productId        String
   productVariantId String?
+  fileId           String?
   url              String
+  type             MediaType @default(IMAGE)
   altText          String?
-  position         Int      @default(0)
-  isPrimary        Boolean  @default(false)
-  createdAt        DateTime @default(now())
+  position         Int       @default(0)
+  isPrimary        Boolean   @default(false)
+  createdAt        DateTime  @default(now())
 
   product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
   productVariant ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
+  file           File?           @relation(fields: [fileId], references: [id], onDelete: SetNull)
 
   @@index([productId])
   @@index([productVariantId])
+  @@index([fileId])
+}
+
+enum MediaType {
+  IMAGE
+  GIF
+  VIDEO
+  AUDIO
+  DOCUMENT
+  ARCHIVE
+  OTHER
 }
 
 // ==========================================
@@ -213,6 +281,7 @@ model Supplier {
   products    SupplierProduct[]
   orders      SupplierOrder[]
   syncLogs    SupplierSyncLog[]
+  statistics  SupplierStatistic[]
 }
 
 model SupplierCredential {
@@ -297,7 +366,7 @@ model SupplierVariant {
 
 model Customer {
   id        String   @id @default(uuid())
-  userId    String?  @unique
+  userId    String   @unique
   email     String   @unique
   firstName String?
   lastName  String?
@@ -305,15 +374,19 @@ model Customer {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user      User?             @relation(fields: [userId], references: [id])
-  addresses ShippingAddress[]
-  carts     Cart[]
-  orders    Order[]
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  addresses  ShippingAddress[]
+  carts      Cart[]
+  orders     Order[]
+  reviews    ProductReview[]
+  wishlists  Wishlist[]
+  returns    Return[]
+  statistics CustomerStatistic[]
 }
 
 model ShippingAddress {
   id           String   @id @default(uuid())
-  customerId   String?
+  customerId   String
   fullName     String
   addressLine1 String
   addressLine2 String?
@@ -326,7 +399,7 @@ model ShippingAddress {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  customer Customer? @relation(fields: [customerId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   orders   Order[]
 
   @@index([customerId])
@@ -334,15 +407,20 @@ model ShippingAddress {
 
 model Cart {
   id         String   @id @default(uuid())
+  tenantId   String
   customerId String?
-  sessionId  String?  @unique
+  sessionId  String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  customer Customer?  @relation(fields: [customerId], references: [id])
+  tenant   Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer Customer?  @relation(fields: [customerId], references: [id], onDelete: Cascade)
   items    CartItem[]
 
+  @@unique([tenantId, customerId])
+  @@unique([tenantId, sessionId])
   @@index([customerId])
+  @@index([tenantId])
 }
 
 model CartItem {
@@ -366,26 +444,30 @@ model CartItem {
 
 model Order {
   id                String      @id @default(uuid())
+  tenantId          String
   status            OrderStatus @default(PENDING)
-  totalAmount       Decimal
+  totalAmount       Decimal     @db.Decimal(12, 2)
   currency          String      @default("USD")
   customerId        String?
-  /// Guest checkout identity, copied from the cart's session. Lets a guest
-  /// pay for and track an order they placed without an account.
   sessionId         String?
   shippingAddressId String?
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
+  tenant          Tenant           @relation(fields: [tenantId], references: [id])
   customer        Customer?        @relation(fields: [customerId], references: [id])
   shippingAddress ShippingAddress? @relation(fields: [shippingAddressId], references: [id])
   items           OrderItem[]
   supplierOrders  SupplierOrder[] // 1 order -> N supplier fulfillments
   payments        Payment[]
+  returns         Return[]
+  refunds         Refund[]
 
+  @@index([tenantId])
   @@index([customerId])
-  @@index([sessionId])
   @@index([shippingAddressId])
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
 }
 
 model OrderItem {
@@ -447,21 +529,46 @@ model Shipment {
 }
 
 model Payment {
-  id            String        @id @default(uuid())
-  orderId       String
-  amount        Decimal
-  currency      String        @default("PHP")
-  provider      String // e.g. "PAYMONGO", "STRIPE", "PAYPAL"
-  paymentMethod String? // e.g. "GCASH", "CARD", "GRAB_PAY"
-  status        PaymentStatus @default(PENDING)
-  transactionId String?       @unique
-  rawPayload    Json?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id                   String             @id @default(uuid())
+  orderId              String
+  gateway              PaymentGateway     @default(PAYMONGO)
+  channel              PaymentChannel     @default(CARD)
+  instrument           PaymentInstrument?
+  expectedAmount       Decimal            @db.Decimal(18, 2)
+  amount               Decimal            @db.Decimal(18, 2)
+  currency             String             @default("PHP")
+  status               PaymentStatus      @default(CREATED)
+  version              Int                @default(1)
+  idempotencyKey       String?            @unique
+  gatewayTransactionId String?
+  gatewayPaymentId     String?
+  gatewayResponse      Json?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
 
-  order Order @relation(fields: [orderId], references: [id])
+  order    Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  attempts PaymentAttempt[]
+  events   PaymentEvent[]
 
   @@index([orderId])
+  @@index([status])
+  @@index([gateway])
+  @@index([createdAt])
+  @@index([gatewayTransactionId])
+}
+
+model PaymentEvent {
+  id        String        @id @default(uuid())
+  paymentId String
+  status    PaymentStatus
+  message   String?
+  data      Json?
+  createdAt DateTime      @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@index([createdAt])
 }
 
 model WebhookEvent {
@@ -495,13 +602,16 @@ enum SupplierOrderStatus {
 }
 
 enum PaymentStatus {
+  CREATED
   PENDING
-  AUTHORIZED
+  PROCESSING
+  WAITING_CONFIRMATION
   PAID
-  PARTIALLY_REFUNDED
-  REFUNDED
   FAILED
   CANCELLED
+  REFUNDED
+  VOID
+  EXPIRED
 }
 
 enum ShipmentStatus {
@@ -584,7 +694,8 @@ enum LogLevel {
 
 model PricingRule {
   id            String     @id @default(uuid())
-  name          String     @unique
+  tenantId      String
+  name          String
   markupType    MarkupType
   markupValue   Decimal
   minimumProfit Decimal?
@@ -592,7 +703,11 @@ model PricingRule {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   products Product[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
 }
 
 enum MarkupType {
@@ -611,15 +726,28 @@ enum SyncStatus {
 // ==========================================
 
 model Page {
-  id          String   @id @default(uuid())
-  slug        String   @unique
+  id          String     @id @default(uuid())
+  tenantId    String
+  slug        String
   title       String
-  status      String   @default("DRAFT")
+  status      PageStatus @default(DRAFT)
   seoMetadata Json?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
+  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   sections PageSection[]
+
+  // Every vertical gets its own /about, /contact, etc.
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@index([tenantId, status])
+}
+
+enum PageStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
 }
 
 model PageSection {
@@ -638,6 +766,7 @@ model PageSection {
 
 model Banner {
   id        String   @id @default(uuid())
+  tenantId  String
   title     String
   imageUrl  String
   linkUrl   String?
@@ -645,23 +774,463 @@ model Banner {
   position  Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }
 
 model Announcement {
   id        String   @id @default(uuid())
+  tenantId  String
   content   String
   linkUrl   String?
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }
 
 model FAQ {
   id        String   @id @default(uuid())
+  tenantId  String
   question  String
   answer    String
   category  String?
   position  Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+// ==========================================
+// Marketing & Ad Distribution Schema
+// ==========================================
+
+model ProductSocialFeed {
+  id           String           @id @default(uuid())
+  tenantId     String
+  name         String // e.g. "Google Merchant Feed", "Meta Catalog"
+  platform     AdSocialPlatform @default(META)
+  feedUrl      String? // Public XML / JSON feed endpoint
+  isActive     Boolean          @default(true)
+  config       Json? // Category mapping, pricing overrides
+  lastSyncedAt DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+model ProductSocialAd {
+  id               String           @id @default(uuid())
+  tenantId         String
+  productId        String
+  mediaFileId      String? // Video creative or image banner file
+  mediaUrl         String? // Direct URL or fallback for ad creative
+  title            String
+  headline         String?
+  description      String?
+  platform         AdSocialPlatform @default(META)
+  externalAdId     String? // Ad ID on Meta Ads / Google Ads API
+  status           AdSocialStatus   @default(DRAFT)
+  adUrl            String? // Target URL with UTM params
+  dailyBudget      Decimal?         @db.Decimal(12, 2)
+  totalSpend       Decimal?         @default(0) @db.Decimal(12, 2)
+  clicksCount      Int              @default(0)
+  conversionsCount Int              @default(0)
+  revenueGenerated Decimal?         @default(0) @db.Decimal(18, 2)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  mediaFile File?   @relation(fields: [mediaFileId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([productId])
+  @@index([mediaFileId])
+}
+
+model ShareableSocialLink {
+  id          String   @id @default(uuid())
+  tenantId    String
+  productId   String
+  code        String   @unique // Short tracking code e.g. "x89f2a"
+  utmSource   String? // e.g. "facebook", "tiktok", "instagram"
+  utmMedium   String? // e.g. "ad", "influencer", "story"
+  utmCampaign String? // e.g. "summer_sale"
+  clicks      Int      @default(0)
+  conversions Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([productId])
+}
+
+enum AdSocialPlatform {
+  META
+  GOOGLE
+  TIKTOK
+  PINTEREST
+  CUSTOM
+}
+
+enum AdSocialStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+// ==========================================
+// Operational & Production Enhancements
+// ==========================================
+
+model InventoryTransaction {
+  id               String                   @id @default(uuid())
+  tenantId         String
+  productVariantId String
+  type             InventoryTransactionType
+  quantity         Int // Positive (restock/return) or negative (sale)
+  previousStock    Int
+  newStock         Int
+  referenceId      String? // e.g. orderId or supplierSyncLogId
+  notes            String?
+  createdAt        DateTime                 @default(now())
+
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productVariant ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([productVariantId])
+}
+
+enum InventoryTransactionType {
+  PURCHASE
+  SALE
+  RETURN
+  SUPPLIER_SYNC
+  MANUAL_ADJUSTMENT
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  tenantId  String
+  userId    String
+  type      NotificationType @default(SYSTEM_ALERT)
+  title     String
+  message   String
+  isRead    Boolean          @default(false)
+  data      Json?
+  createdAt DateTime         @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([userId])
+}
+
+enum NotificationType {
+  ORDER_STATUS
+  PAYMENT_CONFIRMED
+  SHIPMENT_TRACKING
+  SYSTEM_ALERT
+  PROMOTION
+}
+
+model ProductReview {
+  id            String   @id @default(uuid())
+  tenantId      String
+  productId     String
+  customerId    String
+  rating        Int
+  title         String?
+  comment       String?
+  isVerified    Boolean  @default(false)
+  merchantReply String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product  Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  customer Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  images   ReviewImage[]
+
+  @@index([tenantId])
+  @@index([productId])
+  @@index([customerId])
+}
+
+model ReviewImage {
+  id        String   @id @default(uuid())
+  reviewId  String
+  url       String
+  createdAt DateTime @default(now())
+
+  review ProductReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId])
+}
+
+model Wishlist {
+  id         String   @id @default(uuid())
+  tenantId   String
+  customerId String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  items    WishlistItem[]
+
+  @@unique([tenantId, customerId])
+  @@index([tenantId])
+  @@index([customerId])
+}
+
+model WishlistItem {
+  id               String   @id @default(uuid())
+  wishlistId       String
+  productVariantId String
+  createdAt        DateTime @default(now())
+
+  wishlist       Wishlist       @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  productVariant ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+
+  @@unique([wishlistId, productVariantId])
+}
+
+model Coupon {
+  id            String       @id @default(uuid())
+  tenantId      String
+  code          String
+  discountType  DiscountType @default(PERCENTAGE)
+  discountValue Decimal      @db.Decimal(12, 2)
+  minOrderValue Decimal?     @db.Decimal(12, 2)
+  maxDiscount   Decimal?     @db.Decimal(12, 2)
+  usageLimit    Int?
+  usageCount    Int          @default(0)
+  expiresAt     DateTime?
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  FREE_SHIPPING
+}
+
+model Return {
+  id         String       @id @default(uuid())
+  tenantId   String
+  orderId    String
+  customerId String
+  reason     String
+  status     ReturnStatus @default(PENDING)
+  notes      String?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  refund   Refund?
+
+  @@index([tenantId])
+  @@index([orderId])
+  @@index([customerId])
+}
+
+model Refund {
+  id            String       @id @default(uuid())
+  tenantId      String
+  orderId       String
+  returnId      String?      @unique
+  amount        Decimal      @db.Decimal(12, 2)
+  reason        String?
+  status        RefundStatus @default(PENDING)
+  transactionId String?      @unique
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  order  Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  return Return? @relation(fields: [returnId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([orderId])
+}
+
+model PaymentAttempt {
+  id           String        @id @default(uuid())
+  paymentId    String
+  amount       Decimal       @db.Decimal(12, 2)
+  status       PaymentStatus @default(PENDING)
+  errorMessage String?
+  rawResponse  Json?
+  createdAt    DateTime      @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+}
+
+enum ReturnStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RECEIVED
+  COMPLETED
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum PaymentGateway {
+  PAYMONGO
+  STRIPE
+  PAYPAL
+  XENDIT
+  MAYA
+}
+
+enum PaymentChannel {
+  CARD
+  EWALLET
+  BANK_TRANSFER
+  QR
+  CASH_ON_DELIVERY
+}
+
+enum PaymentInstrument {
+  VISA
+  MASTERCARD
+  AMEX
+  GCASH
+  MAYA
+  BPI
+  BDO
+  METROBANK
+  QRPH
+}
+
+// ==========================================
+// Enterprise Admin Dashboard Analytics Schema
+// ==========================================
+
+model ProductSalesStatistic {
+  id               String    @id @default(uuid())
+  tenantId         String
+  productId        String
+  productVariantId String?
+  totalSold        Int       @default(0)
+  totalRevenue     Decimal   @default(0) @db.Decimal(18, 2)
+  totalOrders      Int       @default(0)
+  lastSoldAt       DateTime?
+  updatedAt        DateTime  @updatedAt
+
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productVariant ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, productVariantId])
+  @@index([tenantId])
+  @@index([productId])
+  @@index([tenantId, totalSold])
+}
+
+model CategorySalesStatistic {
+  id                String   @id @default(uuid())
+  tenantId          String
+  categoryId        String
+  totalRevenue      Decimal  @default(0) @db.Decimal(18, 2)
+  totalOrders       Int      @default(0)
+  totalProductsSold Int      @default(0)
+  updatedAt         DateTime @updatedAt
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, categoryId])
+  @@index([tenantId])
+  @@index([categoryId])
+}
+
+model SupplierStatistic {
+  id               String   @id @default(uuid())
+  tenantId         String
+  supplierId       String
+  productsImported Int      @default(0)
+  totalOrders      Int      @default(0)
+  totalRevenue     Decimal  @default(0) @db.Decimal(18, 2)
+  failedOrders     Int      @default(0)
+  avgDeliveryDays  Decimal? @db.Decimal(5, 2)
+  updatedAt        DateTime @updatedAt
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, supplierId])
+  @@index([tenantId])
+  @@index([supplierId])
+}
+
+model CustomerStatistic {
+  id            String    @id @default(uuid())
+  tenantId      String
+  customerId    String
+  lifetimeSpend Decimal   @default(0) @db.Decimal(18, 2)
+  totalOrders   Int       @default(0)
+  avgOrderValue Decimal   @default(0) @db.Decimal(12, 2)
+  lastOrderedAt DateTime?
+  updatedAt     DateTime  @updatedAt
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, customerId])
+  @@index([tenantId])
+  @@index([customerId])
+  @@index([tenantId, lifetimeSpend])
+}
+
+model DailySalesStatistic {
+  id                   String   @id @default(uuid())
+  tenantId             String
+  date                 DateTime @db.Date
+  ordersCount          Int      @default(0)
+  revenueAmount        Decimal  @default(0) @db.Decimal(18, 2)
+  bestSellingProductId String?
+  updatedAt            DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, date])
+  @@index([tenantId])
+  @@index([tenantId, date])
 }
