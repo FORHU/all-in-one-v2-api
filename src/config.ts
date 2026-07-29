@@ -32,6 +32,15 @@ export const REFRESH_TOKEN_EXPIRY = '7d';
 
 export const DATABASE_URL = process.env.DATABASE_URL;
 
+/**
+ * Apex domain the verticals live under. `fashion.example.com` resolves to the
+ * tenant with slug "fashion".
+ */
+export const ROOT_DOMAIN = process.env.ROOT_DOMAIN || 'localhost';
+
+/** Tenant used when a request carries no resolvable host (local dev, curl). */
+export const DEFAULT_TENANT_SLUG = process.env.DEFAULT_TENANT_SLUG || '';
+
 export const REDIS_HOST = process.env.REDIS_HOST || 'localhost';
 export const REDIS_PORT = parseInt(process.env.REDIS_PORT || '6379');
 export const REDIS_PASSWORD = process.env.REDIS_PASSWORD || undefined;
@@ -41,10 +50,12 @@ export const WORKER_HEALTH_PORT = parseInt(process.env.WORKER_HEALTH_PORT || '80
 
 export const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672';
 
-export const SMTP_HOST = process.env.SMTP_HOST || 'smtp.ethereal.email';
-export const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587');
-export const SMTP_USER = process.env.SMTP_USER || '';
-export const SMTP_PASS = process.env.SMTP_PASS || '';
+// Accepts either naming: MAILER_* (used by this project's .env and
+// docker-compose) or SMTP_* (used by most hosting providers).
+export const SMTP_HOST = process.env.MAILER_TRANSPORT_HOST || process.env.SMTP_HOST || 'smtp.ethereal.email';
+export const SMTP_PORT = parseInt(process.env.MAILER_TRANSPORT_PORT || process.env.SMTP_PORT || '587');
+export const SMTP_USER = process.env.MAILER_EMAIL || process.env.SMTP_USER || '';
+export const SMTP_PASS = process.env.MAILER_PASSWORD || process.env.SMTP_PASS || '';
 
 export const CJ_BASE_URL =
   process.env.CJ_BASE_URL || 'https://developers.cjdropshipping.com/api2.0/v1';
