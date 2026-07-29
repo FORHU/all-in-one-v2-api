@@ -12,6 +12,7 @@ import orderRoute from './order.route';
 import paymentRoute from './payment.route';
 import cmsRoute from './cms.route';
 import tenantRoute from './tenant.route';
+import marketingRoute from './marketing.routes';
 
 const router = express.Router();
 
@@ -33,6 +34,7 @@ router.use('/v2/orders', orderRoute);
 router.use('/v2/payments', paymentRoute);
 router.use('/v2/cms', cmsRoute);
 router.use('/v2/tenants', tenantRoute);
+router.use('/v2/marketing', marketingRoute);
 router.use('/health', healthRouter);
 
 export default router;

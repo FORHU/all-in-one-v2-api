@@ -11,6 +11,11 @@ jest.mock('../../src/utils/prisma', () => ({
   prisma: {
     $queryRaw: jest.fn().mockResolvedValue([{ '?column?': 1 }]),
     $disconnect: jest.fn().mockResolvedValue(undefined),
+    // Tenant resolution runs on every request, including health probes.
+    tenant: {
+      findUnique: jest.fn().mockResolvedValue(null),
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
   },
 }));
 

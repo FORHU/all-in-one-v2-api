@@ -6,12 +6,13 @@ import { resolveOrderViewer } from '../helpers/requester.helper';
 export default class PaymentController {
   static async createIntent(req: Request, res: Response, next: NextFunction) {
     try {
-      const { orderId, provider = 'PAYMONGO', paymentMethod } = req.body;
+      const { orderId, gateway, channel, instrument } = req.body;
 
       const payment = await PaymentService.createPaymentIntent({
         orderId,
-        provider,
-        paymentMethod,
+        gateway,
+        channel,
+        instrument,
         requester: await resolveOrderViewer(req),
       });
 

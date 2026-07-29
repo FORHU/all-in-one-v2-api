@@ -7,6 +7,7 @@ import setup from './setup';
 import cors from 'cors';
 import { errorHandler } from './middleware/error.middleware';
 import { correlationMiddleware } from './middleware/correlation.middleware';
+import { resolveTenant } from './middleware/tenant.middleware';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './utils/swagger';
 
@@ -38,6 +39,10 @@ if (!isDev) app.use(limiter);
 // Set up security headers
 app.use(helmet());
 app.disable('x-powered-by');
+
+// Resolve the vertical (fashion/beauty/sports) before any route runs. Must come
+// after correlationMiddleware, which creates the context store it writes into.
+app.use(resolveTenant);
 
 // API Routes
 app.use('/api', router);

@@ -1,11 +1,15 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../utils/prisma';
 
+/**
+ * CMS content is per-vertical: fashion and beauty each have their own
+ * homepage, banners and FAQs. Every method is scoped by `tenantId`.
+ */
 export default class CMSRepository {
   // Page
-  static async getPageBySlug(slug: string) {
+  static async getPageBySlug(tenantId: string, slug: string) {
     return prisma.page.findUnique({
-      where: { slug },
+      where: { tenantId_slug: { tenantId, slug } },
       include: {
         sections: {
           orderBy: { position: 'asc' },
@@ -14,43 +18,43 @@ export default class CMSRepository {
     });
   }
 
-  static async createPage(data: Prisma.PageCreateInput) {
-    return prisma.page.create({ data });
+  static async createPage(tenantId: string, data: Omit<Prisma.PageCreateInput, 'tenant'>) {
+    return prisma.page.create({ data: { ...data, tenant: { connect: { id: tenantId } } } });
   }
 
   // Banners
-  static async getActiveBanners() {
+  static async getActiveBanners(tenantId: string) {
     return prisma.banner.findMany({
-      where: { isActive: true },
+      where: { tenantId, isActive: true },
       orderBy: { position: 'asc' },
     });
   }
 
-  static async createBanner(data: Prisma.BannerCreateInput) {
-    return prisma.banner.create({ data });
+  static async createBanner(tenantId: string, data: Omit<Prisma.BannerCreateInput, 'tenant'>) {
+    return prisma.banner.create({ data: { ...data, tenant: { connect: { id: tenantId } } } });
   }
 
   // Announcements
-  static async getActiveAnnouncements() {
+  static async getActiveAnnouncements(tenantId: string) {
     return prisma.announcement.findMany({
-      where: { isActive: true },
+      where: { tenantId, isActive: true },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  static async createAnnouncement(data: Prisma.AnnouncementCreateInput) {
-    return prisma.announcement.create({ data });
+  static async createAnnouncement(tenantId: string, data: Omit<Prisma.AnnouncementCreateInput, 'tenant'>) {
+    return prisma.announcement.create({ data: { ...data, tenant: { connect: { id: tenantId } } } });
   }
 
   // FAQs
-  static async getFAQs(category?: string) {
+  static async getFAQs(tenantId: string, category?: string) {
     return prisma.fAQ.findMany({
-      where: category ? { category } : undefined,
+      where: { tenantId, ...(category ? { category } : {}) },
       orderBy: { position: 'asc' },
     });
   }
 
-  static async createFAQ(data: Prisma.FAQCreateInput) {
-    return prisma.fAQ.create({ data });
+  static async createFAQ(tenantId: string, data: Omit<Prisma.FAQCreateInput, 'tenant'>) {
+    return prisma.fAQ.create({ data: { ...data, tenant: { connect: { id: tenantId } } } });
   }
 }

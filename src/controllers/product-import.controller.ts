@@ -1,14 +1,18 @@
 import { Request, Response, NextFunction } from 'express';
 import Joi from 'joi';
 import { ProductImportService } from '../services/product-import.service';
+import TenantRepository from '../repositories/tenant.repository';
 import { throwResponse } from '../utils/throw-response';
+import { getTenantId } from '../utils/async-context';
 
 export const importProduct = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    // In a real scenario, this endpoint should be protected by an Admin middleware
     const schema = Joi.object({
       supplierId: Joi.string().required(),
       externalId: Joi.string().required(),
+      // Which vertical receives the product. Optional when the request already
+      // resolves to one (e.g. the admin is on fashion.example.com).
+      tenantSlug: Joi.string().optional(),
     });
 
     const { error, value } = schema.validate(req.body);
@@ -17,9 +21,20 @@ export const importProduct = async (req: Request, res: Response, next: NextFunct
       return throwResponse(400, 'Invalid import parameters', { details: error.details });
     }
 
-    const { supplierId, externalId } = value;
+    const { supplierId, externalId, tenantSlug } = value;
 
-    const product = await ProductImportService.importProductToPlatform(supplierId, externalId);
+    let tenantId = getTenantId();
+    if (tenantSlug) {
+      const tenant = await TenantRepository.findBySlug(tenantSlug);
+      if (!tenant) return throwResponse(404, `Tenant '${tenantSlug}' not found`);
+      tenantId = tenant.id;
+    }
+
+    if (!tenantId) {
+      return throwResponse(400, 'No target tenant: pass tenantSlug or call from a storefront host');
+    }
+
+    const product = await ProductImportService.importProductToPlatform(tenantId, supplierId, externalId);
 
     return res.status(201).json({
       message: 'Product imported successfully and commission applied.',

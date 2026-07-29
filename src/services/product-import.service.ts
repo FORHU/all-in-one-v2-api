@@ -9,7 +9,7 @@ export class ProductImportService {
    * Imports a product from a supplier into the centralized platform database.
    * Applies the platform's commission/markup to the cost price.
    */
-  static async importProductToPlatform(supplierId: string, externalId: string) {
+  static async importProductToPlatform(tenantId: string, supplierId: string, externalId: string) {
     const adapter = supplierRegistry.get(supplierId);
     if (!adapter) {
       return throwResponse(404, `Supplier ${supplierId} not found`);
@@ -49,6 +49,8 @@ export class ProductImportService {
     });
 
     if (existing) {
+      // SupplierProduct is unique per (supplier, externalId), so a given
+      // supplier item lives in exactly one vertical.
       return throwResponse(409, `Product ${externalId} is already imported.`);
     }
 
@@ -60,6 +62,7 @@ export class ProductImportService {
       // Create the platform Product
       const product = await tx.product.create({
         data: {
+          tenantId,
           title,
           description,
           status: ProductStatus.PUBLISHED,
@@ -81,6 +84,7 @@ export class ProductImportService {
       // Create a single default variant (real implementation would loop over rawProduct variants)
       const productVariant = await tx.productVariant.create({
         data: {
+          tenantId,
           productId: product.id,
           title: 'Default Title',
           price: finalSellingPrice,

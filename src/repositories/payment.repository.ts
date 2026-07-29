@@ -11,9 +11,9 @@ export default class PaymentRepository {
     });
   }
 
-  static async findByTransactionId(transactionId: string) {
-    return prisma.payment.findUnique({
-      where: { transactionId },
+  static async findByTransactionId(gatewayTransactionId: string) {
+    return prisma.payment.findFirst({
+      where: { gatewayTransactionId },
       include: {
         order: true,
       },
@@ -26,13 +26,27 @@ export default class PaymentRepository {
     });
   }
 
-  static async updatePaymentStatus(id: string, status: PaymentStatus, rawPayload?: Prisma.InputJsonValue) {
-    return prisma.payment.update({
-      where: { id },
-      data: {
-        status,
-        ...(rawPayload ? { rawPayload } : {}),
-      },
+  static async updatePaymentStatus(id: string, status: PaymentStatus, gatewayResponse?: Prisma.InputJsonValue, eventMessage?: string) {
+    return prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.update({
+        where: { id },
+        data: {
+          status,
+          version: { increment: 1 },
+          ...(gatewayResponse ? { gatewayResponse } : {}),
+        },
+      });
+
+      await tx.paymentEvent.create({
+        data: {
+          paymentId: id,
+          status,
+          message: eventMessage || `Payment status changed to ${status}`,
+          ...(gatewayResponse ? { data: gatewayResponse } : {}),
+        },
+      });
+
+      return payment;
     });
   }
 

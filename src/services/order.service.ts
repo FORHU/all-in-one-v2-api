@@ -3,6 +3,7 @@ import CartRepository from '../repositories/cart.repository';
 import CustomerRepository from '../repositories/customer.repository';
 import { OrderStatus } from '@prisma/client';
 import { throwResponse } from '../utils/throw-response';
+import { requireTenantId } from '../utils/async-context';
 
 /**
  * Who is asking to see an order: a signed-in customer, a guest holding the
@@ -20,14 +21,14 @@ export default class OrderService {
    * checkout, where customerId is null — to whoever holds the session id it
    * was placed with.
    */
-  static isOrderOwner(order: { customerId: string | null; sessionId: string | null }, viewer: OrderViewer): boolean {
+  static isOrderOwner(order: { customerId?: string | null; sessionId?: string | null }, viewer: OrderViewer): boolean {
     if (viewer.customerId && order.customerId === viewer.customerId) return true;
-    if (viewer.sessionId && order.sessionId === viewer.sessionId) return true;
+    if (viewer.sessionId && order.sessionId && order.sessionId === viewer.sessionId) return true;
     return false;
   }
 
   static async getOrderDetails(orderId: string, viewer: OrderViewer) {
-    const order = await OrderRepository.findById(orderId);
+    const order = await OrderRepository.findById(requireTenantId(), orderId);
     if (!order) {
       return throwResponse(404, 'Order not found');
     }
@@ -41,8 +42,9 @@ export default class OrderService {
     return order;
   }
 
+  /** Orders for this customer *in the current vertical* only. */
   static async getCustomerOrders(customerId: string, page: number = 1, limit: number = 10) {
-    return OrderRepository.findByCustomerId(customerId, page, limit);
+    return OrderRepository.findByCustomerId(requireTenantId(), customerId, page, limit);
   }
 
   static async checkoutFromCart(params: {
@@ -57,12 +59,14 @@ export default class OrderService {
       return throwResponse(400, 'A signed-in customer or an x-session-id header is required');
     }
 
-    // Resolve the cart from the caller's own identity. Taking a cartId from the
-    // request body would let anyone check out — and then clear — another
-    // shopper's cart.
+    const tenantId = requireTenantId();
+
+    // Resolve the cart from the caller's own identity, within this vertical.
+    // Taking a cartId from the request body would let anyone check out — and
+    // then clear — another shopper's cart.
     const cart = customerId
-      ? await CartRepository.findByCustomerId(customerId)
-      : await CartRepository.findBySessionId(sessionId as string);
+      ? await CartRepository.findByCustomerId(tenantId, customerId)
+      : await CartRepository.findBySessionId(tenantId, sessionId as string);
 
     if (!cart || cart.items.length === 0) {
       return throwResponse(400, 'Cart is empty');
@@ -81,6 +85,7 @@ export default class OrderService {
     }, 0);
 
     const order = await OrderRepository.createOrder({
+      tenant: { connect: { id: tenantId } },
       totalAmount,
       currency,
       status: OrderStatus.PENDING,
@@ -110,10 +115,12 @@ export default class OrderService {
       return throwResponse(400, `Invalid order status '${status}'`);
     }
 
-    const order = await OrderRepository.findById(orderId);
+    const tenantId = requireTenantId();
+
+    const order = await OrderRepository.findById(tenantId, orderId);
     if (!order) {
       return throwResponse(404, 'Order not found');
     }
-    return OrderRepository.updateStatus(orderId, status);
+    return OrderRepository.updateStatus(tenantId, orderId, status);
   }
 }

@@ -1,13 +1,14 @@
 import CategoryRepository from '../repositories/category.repository';
 import { throwResponse } from '../utils/throw-response';
+import { requireTenantId } from '../utils/async-context';
 
 export default class CategoryService {
   static async getRootCategories() {
-    return CategoryRepository.findAllRoot();
+    return CategoryRepository.findAllRoot(requireTenantId());
   }
 
   static async getCategoryBySlug(slug: string) {
-    const category = await CategoryRepository.findBySlug(slug);
+    const category = await CategoryRepository.findBySlug(requireTenantId(), slug);
     if (!category) {
       return throwResponse(404, `Category '${slug}' not found`);
     }
@@ -15,26 +16,32 @@ export default class CategoryService {
   }
 
   static async createCategory(data: { name: string; slug: string; description?: string; parentId?: string }) {
-    const existing = await CategoryRepository.findBySlug(data.slug);
+    const tenantId = requireTenantId();
+
+    const existing = await CategoryRepository.findBySlug(tenantId, data.slug);
     if (existing) {
       return throwResponse(400, `Category slug '${data.slug}' already exists`);
     }
-    return CategoryRepository.create(data);
+    return CategoryRepository.create(tenantId, data);
   }
 
   static async updateCategory(id: string, data: { name?: string; slug?: string; description?: string; parentId?: string }) {
-    const category = await CategoryRepository.findById(id);
+    const tenantId = requireTenantId();
+
+    const category = await CategoryRepository.findById(tenantId, id);
     if (!category) {
       return throwResponse(404, 'Category not found');
     }
-    return CategoryRepository.update(id, data);
+    return CategoryRepository.update(tenantId, id, data);
   }
 
   static async deleteCategory(id: string) {
-    const category = await CategoryRepository.findById(id);
+    const tenantId = requireTenantId();
+
+    const category = await CategoryRepository.findById(tenantId, id);
     if (!category) {
       return throwResponse(404, 'Category not found');
     }
-    return CategoryRepository.delete(id);
+    return CategoryRepository.delete(tenantId, id);
   }
 }
