@@ -98,7 +98,7 @@ export class CartService {
     return this.addItemToCart(input);
   }
 
-  static async updateCartItemQuantity(cartItemId: string, quantity: number, owner: CartOwner) {
+  static async updateCartItemQuantity(cartItemId: string, quantity: number, _owner: CartOwner) {
     if (quantity <= 0) {
       return prisma.commerceCartItem.delete({
         where: { id: cartItemId },
@@ -117,7 +117,12 @@ export class CartService {
     });
   }
 
-  static async removeItem(tenantId: string, itemId: string, customerId?: string, sessionId?: string) {
+  static async removeItem(
+    tenantId: string,
+    itemId: string,
+    customerId?: string,
+    sessionId?: string,
+  ) {
     return this.removeItemFromCart(itemId, { customerId, sessionId });
   }
 }

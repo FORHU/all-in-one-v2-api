@@ -28,8 +28,9 @@ export function initSocketIO(server: HttpServer): SocketIOServer {
           logger.warn(`⚠️ Socket.io Redis adapter setup warning: ${err.message}`);
         });
     }
-  } catch (err: any) {
-    logger.warn(`⚠️ Socket.io Redis adapter skipped: ${err?.message || err}`);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.warn(`⚠️ Socket.io Redis adapter skipped: ${message}`);
   }
 
   io.on('connection', (socket) => {

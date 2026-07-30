@@ -1,4 +1,4 @@
-import { ProductStatus } from '@prisma/client';
+import { ProductStatus, Prisma } from '@prisma/client';
 import { prisma } from '../utils/prisma';
 import logger from '../utils/logger';
 
@@ -6,7 +6,11 @@ export class ProductImportService {
   /**
    * Import or sync a product from a supplier payload into the catalog.
    */
-  static async importProduct(tenantId: string, supplierName: string, externalData: any) {
+  static async importProduct(
+    tenantId: string,
+    supplierName: string,
+    externalData: Record<string, unknown>,
+  ) {
     const dbSupplier = await prisma.supplierPartner.findUnique({
       where: { name: supplierName },
     });
@@ -15,20 +19,12 @@ export class ProductImportService {
       throw new Error(`Supplier ${supplierName} not found`);
     }
 
-    const externalId = externalData.pid || externalData.externalId;
-    const title = externalData.productNameEn || externalData.title;
+    const externalId = String(externalData.pid || externalData.externalId || '');
+    const title = String(externalData.productNameEn || externalData.title || 'Imported Product');
 
-    const existing = await prisma.supplierProduct.findUnique({
-      where: {
-        supplierId_externalId: {
-          supplierId: dbSupplier.id,
-          externalId,
-        },
-      },
-    });
-
-    const costPrice = externalData.costPrice || 10.0;
-    const sellingPrice = externalData.sellingPrice || costPrice * 1.5;
+    const costPrice = Number(externalData.costPrice) || 10.0;
+    const description = String(externalData.description || 'Imported product from supplier');
+    const rawJson = externalData as unknown as Prisma.InputJsonValue;
 
     const importedProduct = await prisma.$transaction(async (tx) => {
       // 1. Create or Update Catalog Product
@@ -36,19 +32,25 @@ export class ProductImportService {
         where: {
           tenantId_slug: {
             tenantId,
-            slug: title.toLowerCase().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-'),
+            slug: title
+              .toLowerCase()
+              .replace(/[^\w\s-]/g, '')
+              .replace(/[\s_-]+/g, '-'),
           },
         },
         update: {
           title,
-          description: externalData.description || 'Imported product from supplier',
+          description,
           status: ProductStatus.PUBLISHED,
         },
         create: {
           tenantId,
           title,
-          slug: title.toLowerCase().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-'),
-          description: externalData.description || 'Imported product from supplier',
+          slug: title
+            .toLowerCase()
+            .replace(/[^\w\s-]/g, '')
+            .replace(/[\s_-]+/g, '-'),
+          description,
           status: ProductStatus.PUBLISHED,
         },
       });
@@ -64,7 +66,7 @@ export class ProductImportService {
         update: {
           productId: product.id,
           costPrice,
-          rawData: externalData,
+          rawData: rawJson,
           lastSyncedAt: new Date(),
         },
         create: {
@@ -72,7 +74,7 @@ export class ProductImportService {
           productId: product.id,
           externalId,
           costPrice,
-          rawData: externalData,
+          rawData: rawJson,
           lastSyncedAt: new Date(),
         },
       });

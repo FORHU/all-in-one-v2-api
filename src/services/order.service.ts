@@ -15,6 +15,12 @@ export interface OrderViewer {
   isAdmin: boolean;
 }
 
+interface CartItemLike {
+  productVariantId: string;
+  quantity: number;
+  unitPrice: unknown;
+}
+
 export default class OrderService {
   /**
    * An order belongs to the signed-in customer who placed it, or — for guest
@@ -82,7 +88,7 @@ export default class OrderService {
       }
     }
 
-    const totalAmount = cart.items.reduce((acc: number, item: any) => {
+    const totalAmount = cart.items.reduce((acc: number, item: CartItemLike) => {
       const price = Number(item.unitPrice);
       return acc + price * item.quantity;
     }, 0);
@@ -97,10 +103,10 @@ export default class OrderService {
       ...(customerId ? { customer: { connect: { id: customerId } } } : { sessionId }),
       ...(shippingAddressId ? { shippingAddress: { connect: { id: shippingAddressId } } } : {}),
       items: {
-        create: cart.items.map((item: any) => ({
+        create: cart.items.map((item: CartItemLike) => ({
           productVariantId: item.productVariantId,
           quantity: item.quantity,
-          unitPrice: item.unitPrice,
+          unitPrice: Number(item.unitPrice),
         })),
       },
     });

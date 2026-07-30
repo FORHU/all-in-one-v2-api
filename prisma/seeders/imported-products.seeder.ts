@@ -82,16 +82,37 @@ export async function seedImportedProducts(prisma: PrismaClient) {
       externalSku: 'CJ-SKU-GAME-MOUSE',
       title: 'Ergonomic RGB Wireless Gaming Mouse',
       slug: 'ergonomic-rgb-wireless-gaming-mouse',
-      description: 'High precision 16000 DPI rechargeable gaming mouse with 7-mode RGB illumination and lag-free wireless technology.',
-      costPrice: 8.50,
+      description:
+        'High precision 16000 DPI rechargeable gaming mouse with 7-mode RGB illumination and lag-free wireless technology.',
+      costPrice: 8.5,
       sellingPrice: 29.99,
-      shippingEstimate: 3.50,
+      shippingEstimate: 3.5,
       imageUrl: 'https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7',
       variants: [
-        { externalId: 'CJ-VAR-101-A', sku: 'GM-101-BLK', title: 'Matte Black / 16000 DPI', costPrice: 8.50, sellingPrice: 29.99, stock: 450 },
-        { externalId: 'CJ-VAR-101-B', sku: 'GM-101-WHT', title: 'Cyber White / 16000 DPI', costPrice: 9.00, sellingPrice: 31.99, stock: 300 },
+        {
+          externalId: 'CJ-VAR-101-A',
+          sku: 'GM-101-BLK',
+          title: 'Matte Black / 16000 DPI',
+          costPrice: 8.5,
+          sellingPrice: 29.99,
+          stock: 450,
+        },
+        {
+          externalId: 'CJ-VAR-101-B',
+          sku: 'GM-101-WHT',
+          title: 'Cyber White / 16000 DPI',
+          costPrice: 9.0,
+          sellingPrice: 31.99,
+          stock: 300,
+        },
       ],
-      rawData: { productNameEn: 'Ergonomic RGB Wireless Gaming Mouse', categoryName: 'Gaming Accessories', weight: '0.25kg', score: 9.2, verdict: 'SELL' },
+      rawData: {
+        productNameEn: 'Ergonomic RGB Wireless Gaming Mouse',
+        categoryName: 'Gaming Accessories',
+        weight: '0.25kg',
+        score: 9.2,
+        verdict: 'SELL',
+      },
     },
     {
       tenantId: TENANT_IDS.ELECTRONICS,
@@ -100,16 +121,37 @@ export async function seedImportedProducts(prisma: PrismaClient) {
       externalSku: 'CJ-SKU-HEAD-ANC',
       title: 'Active Noise Cancelling Wireless Headphones',
       slug: 'active-noise-cancelling-wireless-headphones',
-      description: 'Premium over-ear Bluetooth headphones with 40-hour battery life, active noise cancellation, and high-res audio drivers.',
-      costPrice: 28.00,
-      sellingPrice: 79.50,
-      shippingEstimate: 5.00,
+      description:
+        'Premium over-ear Bluetooth headphones with 40-hour battery life, active noise cancellation, and high-res audio drivers.',
+      costPrice: 28.0,
+      sellingPrice: 79.5,
+      shippingEstimate: 5.0,
       imageUrl: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e',
       variants: [
-        { externalId: 'CJ-VAR-102-A', sku: 'ANC-102-BLK', title: 'Midnight Black', costPrice: 28.00, sellingPrice: 79.50, stock: 120 },
-        { externalId: 'CJ-VAR-102-B', sku: 'ANC-102-SLV', title: 'Silver Platinum', costPrice: 29.50, sellingPrice: 84.99, stock: 95 },
+        {
+          externalId: 'CJ-VAR-102-A',
+          sku: 'ANC-102-BLK',
+          title: 'Midnight Black',
+          costPrice: 28.0,
+          sellingPrice: 79.5,
+          stock: 120,
+        },
+        {
+          externalId: 'CJ-VAR-102-B',
+          sku: 'ANC-102-SLV',
+          title: 'Silver Platinum',
+          costPrice: 29.5,
+          sellingPrice: 84.99,
+          stock: 95,
+        },
       ],
-      rawData: { productNameEn: 'Active Noise Cancelling Wireless Headphones', categoryName: 'Audio', weight: '0.45kg', score: 8.5, verdict: 'SELL' },
+      rawData: {
+        productNameEn: 'Active Noise Cancelling Wireless Headphones',
+        categoryName: 'Audio',
+        weight: '0.45kg',
+        score: 8.5,
+        verdict: 'SELL',
+      },
     },
     {
       tenantId: TENANT_IDS.ELECTRONICS,
@@ -118,16 +160,37 @@ export async function seedImportedProducts(prisma: PrismaClient) {
       externalSku: 'CJ-SKU-KEY-MECH',
       title: 'Compact 75% Mechanical RGB Keyboard',
       slug: 'compact-75-mechanical-rgb-keyboard',
-      description: 'Hot-swappable mechanical keyboard with custom lubricated switches, PBT keycaps, and tri-mode connectivity (Bluetooth/2.4G/Type-C).',
-      costPrice: 22.50,
+      description:
+        'Hot-swappable mechanical keyboard with custom lubricated switches, PBT keycaps, and tri-mode connectivity (Bluetooth/2.4G/Type-C).',
+      costPrice: 22.5,
       sellingPrice: 59.99,
-      shippingEstimate: 4.20,
+      shippingEstimate: 4.2,
       imageUrl: 'https://images.unsplash.com/photo-1587829741301-dc798b83add3',
       variants: [
-        { externalId: 'CJ-VAR-103-A', sku: 'KB-103-RED', title: 'Red Linear Switch / Grey', costPrice: 22.50, sellingPrice: 59.99, stock: 200 },
-        { externalId: 'CJ-VAR-103-B', sku: 'KB-103-BRN', title: 'Brown Tactile Switch / White', costPrice: 23.00, sellingPrice: 62.99, stock: 180 },
+        {
+          externalId: 'CJ-VAR-103-A',
+          sku: 'KB-103-RED',
+          title: 'Red Linear Switch / Grey',
+          costPrice: 22.5,
+          sellingPrice: 59.99,
+          stock: 200,
+        },
+        {
+          externalId: 'CJ-VAR-103-B',
+          sku: 'KB-103-BRN',
+          title: 'Brown Tactile Switch / White',
+          costPrice: 23.0,
+          sellingPrice: 62.99,
+          stock: 180,
+        },
       ],
-      rawData: { productNameEn: 'Compact 75% Mechanical RGB Keyboard', categoryName: 'Computer Peripherals', weight: '0.75kg', score: 8.9, verdict: 'SELL' },
+      rawData: {
+        productNameEn: 'Compact 75% Mechanical RGB Keyboard',
+        categoryName: 'Computer Peripherals',
+        weight: '0.75kg',
+        score: 8.9,
+        verdict: 'SELL',
+      },
     },
     {
       tenantId: TENANT_IDS.ELECTRONICS,
@@ -136,15 +199,29 @@ export async function seedImportedProducts(prisma: PrismaClient) {
       externalSku: 'CJ-SKU-CAM-4K',
       title: 'Ultra HD 4K Streaming Webcam with Ring Light',
       slug: 'ultra-hd-4k-streaming-webcam-ring-light',
-      description: 'Auto-focus 4K webcam with dual noise-reducing microphones and built-in 3-level adjustable LED ring light for video calls and streaming.',
-      costPrice: 16.00,
+      description:
+        'Auto-focus 4K webcam with dual noise-reducing microphones and built-in 3-level adjustable LED ring light for video calls and streaming.',
+      costPrice: 16.0,
       sellingPrice: 49.99,
-      shippingEstimate: 3.00,
+      shippingEstimate: 3.0,
       imageUrl: 'https://images.unsplash.com/photo-1585060544812-6b45742d762f',
       variants: [
-        { externalId: 'CJ-VAR-104-A', sku: 'CAM-104-BLK', title: 'Matte Black 4K', costPrice: 16.00, sellingPrice: 49.99, stock: 310 },
+        {
+          externalId: 'CJ-VAR-104-A',
+          sku: 'CAM-104-BLK',
+          title: 'Matte Black 4K',
+          costPrice: 16.0,
+          sellingPrice: 49.99,
+          stock: 310,
+        },
       ],
-      rawData: { productNameEn: 'Ultra HD 4K Streaming Webcam', categoryName: 'Cameras & Optics', weight: '0.30kg', score: 7.8, verdict: 'TEST' },
+      rawData: {
+        productNameEn: 'Ultra HD 4K Streaming Webcam',
+        categoryName: 'Cameras & Optics',
+        weight: '0.30kg',
+        score: 7.8,
+        verdict: 'TEST',
+      },
     },
 
     // --- FASHION & APPAREL ---
@@ -155,16 +232,37 @@ export async function seedImportedProducts(prisma: PrismaClient) {
       externalSku: 'CJ-SKU-SNEAK-AIR',
       title: 'Urban Air Cushion Breathable Running Sneakers',
       slug: 'urban-air-cushion-breathable-running-sneakers',
-      description: 'Ultra-lightweight mesh athletic sneakers with shock-absorbing air cushion heel for maximum daily comfort.',
-      costPrice: 18.00,
+      description:
+        'Ultra-lightweight mesh athletic sneakers with shock-absorbing air cushion heel for maximum daily comfort.',
+      costPrice: 18.0,
       sellingPrice: 59.99,
-      shippingEstimate: 4.50,
+      shippingEstimate: 4.5,
       imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff',
       variants: [
-        { externalId: 'CJ-VAR-201-A', sku: 'SNK-201-BLK-42', title: 'Black / Size 42', costPrice: 18.00, sellingPrice: 59.99, stock: 150 },
-        { externalId: 'CJ-VAR-201-B', sku: 'SNK-201-RED-43', title: 'Crimson Red / Size 43', costPrice: 18.00, sellingPrice: 59.99, stock: 120 },
+        {
+          externalId: 'CJ-VAR-201-A',
+          sku: 'SNK-201-BLK-42',
+          title: 'Black / Size 42',
+          costPrice: 18.0,
+          sellingPrice: 59.99,
+          stock: 150,
+        },
+        {
+          externalId: 'CJ-VAR-201-B',
+          sku: 'SNK-201-RED-43',
+          title: 'Crimson Red / Size 43',
+          costPrice: 18.0,
+          sellingPrice: 59.99,
+          stock: 120,
+        },
       ],
-      rawData: { productNameEn: 'Urban Air Cushion Running Sneakers', categoryName: 'Footwear', weight: '0.65kg', score: 9.0, verdict: 'SELL' },
+      rawData: {
+        productNameEn: 'Urban Air Cushion Running Sneakers',
+        categoryName: 'Footwear',
+        weight: '0.65kg',
+        score: 9.0,
+        verdict: 'SELL',
+      },
     },
     {
       tenantId: TENANT_IDS.FASHION,
@@ -173,16 +271,37 @@ export async function seedImportedProducts(prisma: PrismaClient) {
       externalSku: 'CJ-SKU-HOODIE-OVER',
       title: 'Heavyweight Fleece Oversized Streetwear Hoodie',
       slug: 'heavyweight-fleece-oversized-streetwear-hoodie',
-      description: '450GSM cotton blend French terry fleece oversized hoodie with drop-shoulder fit and double-layered hood.',
-      costPrice: 15.50,
-      sellingPrice: 48.00,
-      shippingEstimate: 4.00,
+      description:
+        '450GSM cotton blend French terry fleece oversized hoodie with drop-shoulder fit and double-layered hood.',
+      costPrice: 15.5,
+      sellingPrice: 48.0,
+      shippingEstimate: 4.0,
       imageUrl: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2',
       variants: [
-        { externalId: 'CJ-VAR-202-A', sku: 'HD-202-GRY-L', title: 'Heather Grey / Large', costPrice: 15.50, sellingPrice: 48.00, stock: 250 },
-        { externalId: 'CJ-VAR-202-B', sku: 'HD-202-BLK-XL', title: 'Washed Black / XL', costPrice: 15.50, sellingPrice: 48.00, stock: 210 },
+        {
+          externalId: 'CJ-VAR-202-A',
+          sku: 'HD-202-GRY-L',
+          title: 'Heather Grey / Large',
+          costPrice: 15.5,
+          sellingPrice: 48.0,
+          stock: 250,
+        },
+        {
+          externalId: 'CJ-VAR-202-B',
+          sku: 'HD-202-BLK-XL',
+          title: 'Washed Black / XL',
+          costPrice: 15.5,
+          sellingPrice: 48.0,
+          stock: 210,
+        },
       ],
-      rawData: { productNameEn: 'Heavyweight Fleece Oversized Hoodie', categoryName: 'Apparel', weight: '0.70kg', score: 8.7, verdict: 'SELL' },
+      rawData: {
+        productNameEn: 'Heavyweight Fleece Oversized Hoodie',
+        categoryName: 'Apparel',
+        weight: '0.70kg',
+        score: 8.7,
+        verdict: 'SELL',
+      },
     },
 
     // --- HEALTH & WELLNESS ---
@@ -193,15 +312,29 @@ export async function seedImportedProducts(prisma: PrismaClient) {
       externalSku: 'CJ-SKU-WATCH-FIT',
       title: 'Smart Fitness Tracker with SpO2 & Heart Rate Monitor',
       slug: 'smart-fitness-tracker-spo2-heart-rate',
-      description: 'Waterproof smartwatch monitoring 24/7 heart rate, blood oxygen levels, sleep stages, and 30+ sport modes.',
-      costPrice: 14.20,
-      sellingPrice: 45.00,
-      shippingEstimate: 2.80,
+      description:
+        'Waterproof smartwatch monitoring 24/7 heart rate, blood oxygen levels, sleep stages, and 30+ sport modes.',
+      costPrice: 14.2,
+      sellingPrice: 45.0,
+      shippingEstimate: 2.8,
       imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30',
       variants: [
-        { externalId: 'CJ-VAR-301-A', sku: 'FIT-301-BLK', title: 'Graphite Black Strap', costPrice: 14.20, sellingPrice: 45.00, stock: 210 },
+        {
+          externalId: 'CJ-VAR-301-A',
+          sku: 'FIT-301-BLK',
+          title: 'Graphite Black Strap',
+          costPrice: 14.2,
+          sellingPrice: 45.0,
+          stock: 210,
+        },
       ],
-      rawData: { productNameEn: 'Smart Fitness Tracker with SpO2 Sensor', categoryName: 'Wearables', weight: '0.15kg', score: 7.4, verdict: 'TEST' },
+      rawData: {
+        productNameEn: 'Smart Fitness Tracker with SpO2 Sensor',
+        categoryName: 'Wearables',
+        weight: '0.15kg',
+        score: 7.4,
+        verdict: 'TEST',
+      },
     },
     {
       tenantId: TENANT_IDS.HEALTH_WELLNESS,
@@ -210,15 +343,29 @@ export async function seedImportedProducts(prisma: PrismaClient) {
       externalSku: 'CJ-SKU-GUN-MASSAGE',
       title: 'Deep Tissue Percussion Muscle Massage Gun',
       slug: 'deep-tissue-percussion-muscle-massage-gun',
-      description: 'Quiet brushless motor massage gun with 30 speed levels and 6 interchangeable massage heads for athletic recovery.',
-      costPrice: 19.50,
-      sellingPrice: 65.00,
-      shippingEstimate: 3.80,
+      description:
+        'Quiet brushless motor massage gun with 30 speed levels and 6 interchangeable massage heads for athletic recovery.',
+      costPrice: 19.5,
+      sellingPrice: 65.0,
+      shippingEstimate: 3.8,
       imageUrl: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b',
       variants: [
-        { externalId: 'CJ-VAR-302-A', sku: 'MSG-302-BLK', title: 'Matte Black Pro Edition', costPrice: 19.50, sellingPrice: 65.00, stock: 175 },
+        {
+          externalId: 'CJ-VAR-302-A',
+          sku: 'MSG-302-BLK',
+          title: 'Matte Black Pro Edition',
+          costPrice: 19.5,
+          sellingPrice: 65.0,
+          stock: 175,
+        },
       ],
-      rawData: { productNameEn: 'Deep Tissue Massage Gun', categoryName: 'Fitness Equipment', weight: '0.90kg', score: 8.8, verdict: 'SELL' },
+      rawData: {
+        productNameEn: 'Deep Tissue Massage Gun',
+        categoryName: 'Fitness Equipment',
+        weight: '0.90kg',
+        score: 8.8,
+        verdict: 'SELL',
+      },
     },
 
     // --- HOME & GARDEN ---
@@ -229,15 +376,29 @@ export async function seedImportedProducts(prisma: PrismaClient) {
       externalSku: 'CJ-SKU-DIFF-HUMID',
       title: 'Ultrasonic Cool Mist Aromatherapy Diffuser 500ml',
       slug: 'ultrasonic-cool-mist-aromatherapy-diffuser-500ml',
-      description: 'Whisper-quiet essential oil diffuser with 7 ambient LED light settings and auto waterless shut-off feature.',
-      costPrice: 9.80,
+      description:
+        'Whisper-quiet essential oil diffuser with 7 ambient LED light settings and auto waterless shut-off feature.',
+      costPrice: 9.8,
       sellingPrice: 32.99,
-      shippingEstimate: 3.20,
+      shippingEstimate: 3.2,
       imageUrl: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd',
       variants: [
-        { externalId: 'CJ-VAR-401-A', sku: 'DIF-401-WOD', title: 'Natural Grain Wood', costPrice: 9.80, sellingPrice: 32.99, stock: 400 },
+        {
+          externalId: 'CJ-VAR-401-A',
+          sku: 'DIF-401-WOD',
+          title: 'Natural Grain Wood',
+          costPrice: 9.8,
+          sellingPrice: 32.99,
+          stock: 400,
+        },
       ],
-      rawData: { productNameEn: 'Ultrasonic Cool Mist Aromatherapy Diffuser', categoryName: 'Home Decor', weight: '0.40kg', score: 8.3, verdict: 'SELL' },
+      rawData: {
+        productNameEn: 'Ultrasonic Cool Mist Aromatherapy Diffuser',
+        categoryName: 'Home Decor',
+        weight: '0.40kg',
+        score: 8.3,
+        verdict: 'SELL',
+      },
     },
     {
       tenantId: TENANT_IDS.HOME_GARDEN,
@@ -246,15 +407,29 @@ export async function seedImportedProducts(prisma: PrismaClient) {
       externalSku: 'CJ-SKU-LAMP-DESK',
       title: 'Dimmable LED Desk Lamp with Wireless Charging Pad',
       slug: 'dimmable-led-desk-lamp-wireless-charging',
-      description: 'Modern minimalist desk lamp with 5 color temperatures, touch slider control, and 10W wireless smartphone charger base.',
-      costPrice: 12.40,
+      description:
+        'Modern minimalist desk lamp with 5 color temperatures, touch slider control, and 10W wireless smartphone charger base.',
+      costPrice: 12.4,
       sellingPrice: 39.99,
-      shippingEstimate: 3.10,
+      shippingEstimate: 3.1,
       imageUrl: 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c',
       variants: [
-        { externalId: 'CJ-VAR-402-A', sku: 'LMP-402-WHT', title: 'Nordic White', costPrice: 12.40, sellingPrice: 39.99, stock: 220 },
+        {
+          externalId: 'CJ-VAR-402-A',
+          sku: 'LMP-402-WHT',
+          title: 'Nordic White',
+          costPrice: 12.4,
+          sellingPrice: 39.99,
+          stock: 220,
+        },
       ],
-      rawData: { productNameEn: 'Dimmable LED Desk Lamp', categoryName: 'Lighting', weight: '0.55kg', score: 8.1, verdict: 'SELL' },
+      rawData: {
+        productNameEn: 'Dimmable LED Desk Lamp',
+        categoryName: 'Lighting',
+        weight: '0.55kg',
+        score: 8.1,
+        verdict: 'SELL',
+      },
     },
 
     // --- BEAUTY & PERSONAL CARE ---
@@ -265,15 +440,29 @@ export async function seedImportedProducts(prisma: PrismaClient) {
       externalSku: 'CJ-SKU-CLEAN-FACIAL',
       title: 'Waterproof Sonic Facial Cleansing Brush',
       slug: 'waterproof-sonic-facial-cleansing-brush',
-      description: 'Hygienic food-grade silicone facial scrubber with 8 vibration intensities for deep pore cleansing and exfoliation.',
-      costPrice: 6.20,
+      description:
+        'Hygienic food-grade silicone facial scrubber with 8 vibration intensities for deep pore cleansing and exfoliation.',
+      costPrice: 6.2,
       sellingPrice: 24.99,
-      shippingEstimate: 2.10,
+      shippingEstimate: 2.1,
       imageUrl: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e',
       variants: [
-        { externalId: 'CJ-VAR-501-A', sku: 'FAC-501-PNK', title: 'Rose Pink', costPrice: 6.20, sellingPrice: 24.99, stock: 600 },
+        {
+          externalId: 'CJ-VAR-501-A',
+          sku: 'FAC-501-PNK',
+          title: 'Rose Pink',
+          costPrice: 6.2,
+          sellingPrice: 24.99,
+          stock: 600,
+        },
       ],
-      rawData: { productNameEn: 'Sonic Facial Cleansing Brush', categoryName: 'Skincare Tools', weight: '0.12kg', score: 8.6, verdict: 'SELL' },
+      rawData: {
+        productNameEn: 'Sonic Facial Cleansing Brush',
+        categoryName: 'Skincare Tools',
+        weight: '0.12kg',
+        score: 8.6,
+        verdict: 'SELL',
+      },
     },
 
     // --- SPORTS & OUTDOORS ---
@@ -284,15 +473,29 @@ export async function seedImportedProducts(prisma: PrismaClient) {
       externalSku: 'CJ-SKU-BOT-VACUUM',
       title: 'Double-Wall Vacuum Insulated Stainless Steel Bottle 32oz',
       slug: 'double-wall-vacuum-insulated-bottle-32oz',
-      description: 'Leakproof sports water bottle keeping drinks ice cold for 24 hours or piping hot for 12 hours.',
-      costPrice: 7.50,
+      description:
+        'Leakproof sports water bottle keeping drinks ice cold for 24 hours or piping hot for 12 hours.',
+      costPrice: 7.5,
       sellingPrice: 27.99,
-      shippingEstimate: 2.90,
+      shippingEstimate: 2.9,
       imageUrl: 'https://images.unsplash.com/photo-1602143407151-7111542de6e8',
       variants: [
-        { externalId: 'CJ-VAR-601-A', sku: 'BOT-601-BLK', title: 'Matte Black 32oz', costPrice: 7.50, sellingPrice: 27.99, stock: 380 },
+        {
+          externalId: 'CJ-VAR-601-A',
+          sku: 'BOT-601-BLK',
+          title: 'Matte Black 32oz',
+          costPrice: 7.5,
+          sellingPrice: 27.99,
+          stock: 380,
+        },
       ],
-      rawData: { productNameEn: 'Vacuum Insulated Stainless Steel Bottle', categoryName: 'Outdoor Gear', weight: '0.35kg', score: 8.4, verdict: 'SELL' },
+      rawData: {
+        productNameEn: 'Vacuum Insulated Stainless Steel Bottle',
+        categoryName: 'Outdoor Gear',
+        weight: '0.35kg',
+        score: 8.4,
+        verdict: 'SELL',
+      },
     },
   ];
 
@@ -416,7 +619,9 @@ export async function seedImportedProducts(prisma: PrismaClient) {
     }
 
     importedCount++;
-    process.stdout.write(`  ✓ Product [${product.id}] -> Category [${categoryId}] (${item.categoryName}) for Tenant [${item.tenantId}]: ${product.title}\n`);
+    process.stdout.write(
+      `  ✓ Product [${product.id}] -> Category [${categoryId}] (${item.categoryName}) for Tenant [${item.tenantId}]: ${product.title}\n`,
+    );
   }
 
   // 3. Auto-fix any unmapped legacy products in database
@@ -431,7 +636,9 @@ export async function seedImportedProducts(prisma: PrismaClient) {
         where: { id: unmapped.id },
         data: { categoryId: fallbackCatId },
       });
-      process.stdout.write(`  🔧 Auto-assigned Category [${fallbackCatId}] to unmapped Product [${unmapped.id}]: ${unmapped.title}\n`);
+      process.stdout.write(
+        `  🔧 Auto-assigned Category [${fallbackCatId}] to unmapped Product [${unmapped.id}]: ${unmapped.title}\n`,
+      );
     }
   }
 
@@ -458,11 +665,13 @@ export async function seedImportedProducts(prisma: PrismaClient) {
       supplierId: cjSupplier.id,
       productsImported: importedCount,
       totalOrders: 12,
-      totalRevenue: 1450.00,
+      totalRevenue: 1450.0,
     },
   });
 
-  process.stdout.write(`🎉 Full Catalog & Category Mapping Completed! Seeded ${importedCount} products cleanly linked to categories in v2-api.\n`);
+  process.stdout.write(
+    `🎉 Full Catalog & Category Mapping Completed! Seeded ${importedCount} products cleanly linked to categories in v2-api.\n`,
+  );
 }
 
 export default seedImportedProducts;

@@ -7,7 +7,7 @@ export class UserService {
   static async getUserProfile(userId: string) {
     const user = await UserRepository.findById(userId);
     if (!user) return throwResponse(404, 'User not found');
-    const { password, ...rest } = user;
+    const { password: _password, ...rest } = user;
     return rest;
   }
 
@@ -27,7 +27,7 @@ export class UserService {
     }
 
     const user = await UserRepository.create(data);
-    const { password, ...rest } = user;
+    const { password: _password, ...rest } = user;
     return rest;
   }
 
@@ -40,7 +40,7 @@ export class UserService {
     }
 
     const updated = await UserRepository.update(userId, data);
-    const { password, ...rest } = updated;
+    const { password: _password, ...rest } = updated;
     return rest;
   }
 

@@ -46,7 +46,9 @@ export default class CMSRepository {
     tenantId: string,
     data: Omit<Prisma.CmsAnnouncementCreateInput, 'tenant'>,
   ) {
-    return prisma.cmsAnnouncement.create({ data: { ...data, tenant: { connect: { id: tenantId } } } });
+    return prisma.cmsAnnouncement.create({
+      data: { ...data, tenant: { connect: { id: tenantId } } },
+    });
   }
 
   // FAQs
