@@ -9,13 +9,29 @@ import { prisma } from './utils/prisma';
 import { redis } from './infrastructure/redis';
 import { rabbitmq } from './infrastructure/rabbitmq';
 import { initSocketIO } from './infrastructure/socket';
+import setup from './setup';
 
 const server = http.createServer(app);
-initSocketIO(server);
 
-server.listen(PORT, () => {
-  logger.info(`Server running on port ${PORT} in ${NODE_ENV} mode`);
-});
+async function startServer() {
+  try {
+    // 1. Await database and infrastructure connections
+    await setup();
+
+    // 2. Initialize socket.io adapter
+    initSocketIO(server);
+
+    // 3. Start listening on configured port
+    server.listen(PORT, () => {
+      logger.info(`🚀 Server running on port ${PORT} in ${NODE_ENV} mode`);
+    });
+  } catch (err) {
+    logger.error('❌ Failed to start server:', err);
+    process.exit(1);
+  }
+}
+
+startServer();
 
 const gracefulShutdown = async (signal: string) => {
   logger.info(`[Shutdown] ${signal} received. Starting graceful shutdown...`);

@@ -8,7 +8,7 @@ import { prisma } from '../utils/prisma';
  */
 export default class OrderRepository {
   static async findById(tenantId: string, id: string) {
-    return prisma.order.findFirst({
+    return prisma.commerceOrder.findFirst({
       where: { id, tenantId },
       include: {
         customer: true,
@@ -43,7 +43,7 @@ export default class OrderRepository {
     const where = { tenantId, customerId };
 
     const [orders, total] = await Promise.all([
-      prisma.order.findMany({
+      prisma.commerceOrder.findMany({
         where,
         skip,
         take: limit,
@@ -53,7 +53,7 @@ export default class OrderRepository {
           payments: true,
         },
       }),
-      prisma.order.count({ where }),
+      prisma.commerceOrder.count({ where }),
     ]);
 
     // Key must be `data` — pageFromRepo() maps `data`/`users` to `items`, and
@@ -67,8 +67,8 @@ export default class OrderRepository {
     };
   }
 
-  static async createOrder(data: Prisma.OrderCreateInput) {
-    return prisma.order.create({
+  static async createOrder(data: Prisma.CommerceOrderCreateInput) {
+    return prisma.commerceOrder.create({
       data,
       include: {
         items: true,
@@ -80,7 +80,7 @@ export default class OrderRepository {
   static async updateStatus(tenantId: string, id: string, status: OrderStatus) {
     // updateMany accepts a non-unique where clause, so the tenant filter is
     // applied by the database rather than trusted from the caller.
-    await prisma.order.updateMany({ where: { id, tenantId }, data: { status } });
+    await prisma.commerceOrder.updateMany({ where: { id, tenantId }, data: { status } });
     return this.findById(tenantId, id);
   }
 }

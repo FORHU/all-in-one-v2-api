@@ -7,7 +7,7 @@ import { prisma } from '../utils/prisma';
  */
 export default class CartRepository {
   static async findByCustomerId(tenantId: string, customerId: string) {
-    return prisma.cart.findFirst({
+    return prisma.commerceCart.findFirst({
       where: { tenantId, customerId },
       include: {
         items: {
@@ -25,7 +25,7 @@ export default class CartRepository {
   }
 
   static async findBySessionId(tenantId: string, sessionId: string) {
-    return prisma.cart.findUnique({
+    return prisma.commerceCart.findUnique({
       where: { tenantId_sessionId: { tenantId, sessionId } },
       include: {
         items: {
@@ -43,7 +43,7 @@ export default class CartRepository {
   }
 
   static async createCart(tenantId: string, customerId?: string, sessionId?: string) {
-    return prisma.cart.create({
+    return prisma.commerceCart.create({
       data: {
         tenantId,
         customerId,
@@ -61,7 +61,7 @@ export default class CartRepository {
     quantity: number,
     unitPrice: Prisma.Decimal | number,
   ) {
-    return prisma.cartItem.upsert({
+    return prisma.commerceCartItem.upsert({
       where: {
         cartId_productVariantId: {
           cartId,
@@ -84,37 +84,37 @@ export default class CartRepository {
   // Cart items inherit their tenant through the parent cart, which is included
   // here so the caller can check both ownership and vertical in one go.
   static async findItemById(cartItemId: string) {
-    return prisma.cartItem.findUnique({
+    return prisma.commerceCartItem.findUnique({
       where: { id: cartItemId },
       include: { cart: true },
     });
   }
 
   static async findCartById(tenantId: string, cartId: string) {
-    return prisma.cart.findFirst({ where: { id: cartId, tenantId } });
+    return prisma.commerceCart.findFirst({ where: { id: cartId, tenantId } });
   }
 
   static async updateItemQuantity(cartItemId: string, quantity: number) {
     if (quantity <= 0) {
-      return prisma.cartItem.delete({
+      return prisma.commerceCartItem.delete({
         where: { id: cartItemId },
       });
     }
 
-    return prisma.cartItem.update({
+    return prisma.commerceCartItem.update({
       where: { id: cartItemId },
       data: { quantity },
     });
   }
 
   static async removeItem(cartItemId: string) {
-    return prisma.cartItem.delete({
+    return prisma.commerceCartItem.delete({
       where: { id: cartItemId },
     });
   }
 
   static async clearCart(cartId: string) {
-    return prisma.cartItem.deleteMany({
+    return prisma.commerceCartItem.deleteMany({
       where: { cartId },
     });
   }

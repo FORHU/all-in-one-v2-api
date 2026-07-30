@@ -1,112 +1,88 @@
-import { ProductStatus } from '@prisma/client';
-import { supplierRegistry } from '../suppliers/supplier.registry';
+import { ProductStatus, Prisma } from '@prisma/client';
 import { prisma } from '../utils/prisma';
-import { throwResponse } from '../utils/throw-response';
-import { PricingUtil } from '../utils/pricing.util';
+import logger from '../utils/logger';
 
 export class ProductImportService {
   /**
-   * Imports a product from a supplier into the centralized platform database.
-   * Applies the platform's commission/markup to the cost price.
+   * Import or sync a product from a supplier payload into the catalog.
    */
-  static async importProductToPlatform(tenantId: string, supplierId: string, externalId: string) {
-    const adapter = supplierRegistry.get(supplierId);
-    if (!adapter) {
-      return throwResponse(404, `Supplier ${supplierId} not found`);
-    }
-
-    // 1. Fetch full details from supplier
-    const rawProduct = await adapter.getProduct(externalId);
-    if (!rawProduct) {
-      return throwResponse(404, `Product ${externalId} not found on ${supplierId}`);
-    }
-
-    // For the sake of this implementation, we need to extract the basic details.
-    // In production, the adapter interface would enforce a `NormalizedProductDetail` type.
-    // We'll do a loose extraction similar to what we did in the search service.
-    const rawObj = rawProduct as Record<string, unknown>;
-    const title = String(rawObj?.title || rawObj?.productNameEn || 'Imported Product');
-    const description = String(rawObj?.description || '');
-    const costPrice = parseFloat(String(rawObj?.sellPrice || rawObj?.price || 0));
-
-    // Get the supplier DB record
-    const dbSupplier = await prisma.supplier.findUnique({
-      where: { name: supplierId },
+  static async importProduct(
+    tenantId: string,
+    supplierName: string,
+    externalData: Record<string, unknown>,
+  ) {
+    const dbSupplier = await prisma.supplierPartner.findUnique({
+      where: { name: supplierName },
     });
 
     if (!dbSupplier) {
-      return throwResponse(404, `Supplier ${supplierId} is not configured in the database.`);
+      throw new Error(`Supplier ${supplierName} not found`);
     }
 
-    // Check if already imported
-    const existing = await prisma.supplierProduct.findUnique({
-      where: {
-        supplierId_externalId: {
-          supplierId: dbSupplier.id,
-          externalId,
-        },
-      },
-    });
+    const externalId = String(externalData.pid || externalData.externalId || '');
+    const title = String(externalData.productNameEn || externalData.title || 'Imported Product');
 
-    if (existing) {
-      // SupplierProduct is unique per (supplier, externalId), so a given
-      // supplier item lives in exactly one vertical.
-      return throwResponse(409, `Product ${externalId} is already imported.`);
-    }
+    const costPrice = Number(externalData.costPrice) || 10.0;
+    const description = String(externalData.description || 'Imported product from supplier');
+    const rawJson = externalData as unknown as Prisma.InputJsonValue;
 
-    // Calculate final selling price
-    const finalSellingPrice = PricingUtil.calculatePlatformPrice(costPrice);
-
-    // 2. Save everything in a transaction
     const importedProduct = await prisma.$transaction(async (tx) => {
-      // Create the platform Product
-      const product = await tx.product.create({
-        data: {
+      // 1. Create or Update Catalog Product
+      const product = await tx.catalogProduct.upsert({
+        where: {
+          tenantId_slug: {
+            tenantId,
+            slug: title
+              .toLowerCase()
+              .replace(/[^\w\s-]/g, '')
+              .replace(/[\s_-]+/g, '-'),
+          },
+        },
+        update: {
+          title,
+          description,
+          status: ProductStatus.PUBLISHED,
+        },
+        create: {
           tenantId,
           title,
+          slug: title
+            .toLowerCase()
+            .replace(/[^\w\s-]/g, '')
+            .replace(/[\s_-]+/g, '-'),
           description,
           status: ProductStatus.PUBLISHED,
         },
       });
 
-      // Create the SupplierProduct mapping
-      const supplierProduct = await tx.supplierProduct.create({
-        data: {
+      // 2. Link Supplier Product
+      await tx.supplierProduct.upsert({
+        where: {
+          supplierId_externalId: {
+            supplierId: dbSupplier.id,
+            externalId,
+          },
+        },
+        update: {
+          productId: product.id,
+          costPrice,
+          rawData: rawJson,
+          lastSyncedAt: new Date(),
+        },
+        create: {
           supplierId: dbSupplier.id,
           productId: product.id,
           externalId,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          rawData: rawProduct as any,
           costPrice,
-        },
-      });
-
-      // Create a single default variant (real implementation would loop over rawProduct variants)
-      const productVariant = await tx.productVariant.create({
-        data: {
-          tenantId,
-          productId: product.id,
-          title: 'Default Title',
-          price: finalSellingPrice,
-          stock: 999, // default
-        },
-      });
-
-      // Create SupplierVariant mapping
-      await tx.supplierVariant.create({
-        data: {
-          supplierProductId: supplierProduct.id,
-          productVariantId: productVariant.id,
-          externalId: externalId + '-var', // dummy mapping
-          costPrice,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          rawData: rawProduct as any,
+          rawData: rawJson,
+          lastSyncedAt: new Date(),
         },
       });
 
       return product;
     });
 
+    logger.info(`Imported product ${importedProduct.id} from supplier ${supplierName}`);
     return importedProduct;
   }
 }

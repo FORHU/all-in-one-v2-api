@@ -3,7 +3,6 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import router from './routes';
 import { isDev } from './config';
-import setup from './setup';
 import cors from 'cors';
 import { errorHandler } from './middleware/error.middleware';
 import { correlationMiddleware } from './middleware/correlation.middleware';
@@ -61,11 +60,5 @@ if (isDev) {
 
 // Error Handling
 app.use(errorHandler);
-
-// Run setup
-setup().catch((err) => {
-  // Use process.stderr directly here — logger may not be initialized yet
-  process.stderr.write(`Setup failed: ${err}\n`);
-});
 
 export default app;

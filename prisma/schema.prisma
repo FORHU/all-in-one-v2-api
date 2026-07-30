@@ -7,34 +7,36 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ==========================================
-// User & Auth Schema
-// ==========================================
+// ==============================================================================
+// 1. USER & AUTHENTICATION SCHEMA
+// ==============================================================================
 
-model User {
-  id                  String                 @id @default(uuid())
-  email               String                 @unique
+model AuthUser {
+  id                  String              @id @default(uuid())
+  email               String              @unique
   password            String? // Optional for social-only users
   name                String?
-  username            String                 @unique
-  role                UserRole               @default(USER)
-  isActive            Boolean                @default(true)
+  username            String              @unique
+  role                UserRole            @default(USER)
+  isActive            Boolean             @default(true)
   lastLoginAt         DateTime?
-  createdAt           DateTime               @default(now())
-  updatedAt           DateTime               @updatedAt
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
   avatarId            String?
-  isDeleted           Boolean                @default(false)
-  isEmailVerified     Boolean                @default(true)
-  onboardingCompleted Boolean                @default(false)
-  avatar              File?                  @relation("UserAvatar", fields: [avatarId], references: [id])
-  sessions            Session[]
-  socialAccounts      SessionSocialAccount[]
-  customer            Customer?
+  isDeleted           Boolean             @default(false)
+  isEmailVerified     Boolean             @default(true)
+  onboardingCompleted Boolean             @default(false)
+  avatar              AuthFile?           @relation("UserAvatar", fields: [avatarId], references: [id])
+  sessions            AuthSession[]
+  socialAccounts      AuthSocialAccount[]
+  customer            CommerceCustomer?
   auditLogs           AuditLog[]
   notifications       Notification[]
+
+  @@map("auth_users")
 }
 
-model Session {
+model AuthSession {
   id                String   @id @default(uuid())
   userId            String
   createdAt         DateTime @default(now())
@@ -43,12 +45,13 @@ model Session {
   provider          String?
   providerAvatarUrl String?
 
-  user User @relation(fields: [userId], references: [id])
+  user AuthUser @relation(fields: [userId], references: [id])
 
   @@index([userId])
+  @@map("auth_sessions")
 }
 
-model SessionSocialAccount {
+model AuthSocialAccount {
   id             String    @id @default(uuid())
   userId         String
   platform       String
@@ -60,24 +63,27 @@ model SessionSocialAccount {
   avatarUrl      String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
-  user           User      @relation(fields: [userId], references: [id])
+  user           AuthUser  @relation(fields: [userId], references: [id])
 
   @@unique([userId, platform])
+  @@map("auth_social_accounts")
 }
 
-model File {
-  id           String            @id @default(uuid())
+model AuthFile {
+  id           String                @id @default(uuid())
   filename     String?
   fileUrl      String?
   mimeType     String? // e.g. "application/pdf", "image/gif", "video/mp4"
   fileSize     Int? // in bytes
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
   deletedAt    DateTime?
   metaData     Json?
-  users        User[]            @relation("UserAvatar")
-  productMedia ProductMedia[]
-  socialAds    ProductSocialAd[]
+  users        AuthUser[]            @relation("UserAvatar")
+  productMedia CatalogProductMedia[]
+  socialAds    MarketingSocialAd[]
+
+  @@map("auth_files")
 }
 
 enum UserRole {
@@ -87,9 +93,9 @@ enum UserRole {
   DEVELOPER
 }
 
-// ==========================================
-// Tenants (Verticals)
-// ==========================================
+// ==============================================================================
+// 2. TENANCY & STOREFRONT VERTICALS
+// ==============================================================================
 
 /// A storefront vertical — e.g. "fashion", "beauty", "sports". Each one gets
 /// its own subdomain, catalog and CMS content, but shares the platform's users,
@@ -104,19 +110,19 @@ model Tenant {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
-  categories            Category[]
-  products              Product[]
-  variants              ProductVariant[]
-  pricingRules          PricingRule[]
-  carts                 Cart[]
-  orders                Order[]
-  pages                 Page[]
-  banners               Banner[]
-  announcements         Announcement[]
-  faqs                  FAQ[]
-  productSocialFeeds    ProductSocialFeed[]
-  productSocialAds      ProductSocialAd[]
-  shareableSocialLinks  ShareableSocialLink[]
+  categories            CatalogCategory[]
+  products              CatalogProduct[]
+  variants              CatalogProductVariant[]
+  pricingRules          CatalogPricingRule[]
+  carts                 CommerceCart[]
+  orders                CommerceOrder[]
+  pages                 CmsPage[]
+  banners               CmsBanner[]
+  announcements         CmsAnnouncement[]
+  faqs                  CmsFAQ[]
+  productSocialFeeds    MarketingSocialFeed[]
+  productSocialAds      MarketingSocialAd[]
+  shareableSocialLinks  MarketingShareableLink[]
   inventoryTransactions InventoryTransaction[]
   notifications         Notification[]
   reviews               ProductReview[]
@@ -124,11 +130,13 @@ model Tenant {
   coupons               Coupon[]
   returns               Return[]
   refunds               Refund[]
-  productSalesStats     ProductSalesStatistic[]
-  categorySalesStats    CategorySalesStatistic[]
-  supplierStats         SupplierStatistic[]
-  customerStats         CustomerStatistic[]
-  dailySalesStats       DailySalesStatistic[]
+  productSalesStats     AnalyticsProductSales[]
+  categorySalesStats    AnalyticsCategorySales[]
+  supplierStats         AnalyticsSupplier[]
+  customerStats         AnalyticsCustomer[]
+  dailySalesStats       AnalyticsDailySales[]
+
+  @@map("tenants")
 }
 
 enum TenantStatus {
@@ -137,11 +145,11 @@ enum TenantStatus {
   DELETED
 }
 
-// ==========================================
-// Category & Product Catalog Schema
-// ==========================================
+// ==============================================================================
+// 3. CATEGORY & PRODUCT CATALOG SCHEMA
+// ==============================================================================
 
-model Category {
+model CatalogCategory {
   id          String   @id @default(uuid())
   tenantId    String
   name        String
@@ -152,17 +160,18 @@ model Category {
   updatedAt   DateTime @updatedAt
 
   tenant     Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  parent     Category?                @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children   Category[]               @relation("CategoryHierarchy")
-  products   Product[]
-  salesStats CategorySalesStatistic[]
+  parent     CatalogCategory?         @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children   CatalogCategory[]        @relation("CategoryHierarchy")
+  products   CatalogProduct[]
+  salesStats AnalyticsCategorySales[]
 
   @@unique([tenantId, slug])
   @@index([parentId])
   @@index([tenantId])
+  @@map("catalog_categories")
 }
 
-model Product {
+model CatalogProduct {
   id          String        @id @default(uuid())
   tenantId    String
   title       String
@@ -176,19 +185,19 @@ model Product {
   updatedAt   DateTime      @updatedAt
 
   categoryId String?
-  category   Category? @relation(fields: [categoryId], references: [id])
+  category   CatalogCategory? @relation(fields: [categoryId], references: [id])
 
   pricingRuleId String?
-  pricingRule   PricingRule? @relation(fields: [pricingRuleId], references: [id])
+  pricingRule   CatalogPricingRule? @relation(fields: [pricingRuleId], references: [id])
 
-  tenant               Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  variants             ProductVariant[]
+  tenant               Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  variants             CatalogProductVariant[]
   supplierProducts     SupplierProduct[]
-  media                ProductMedia[]
-  socialAds            ProductSocialAd[]
-  shareableSocialLinks ShareableSocialLink[]
+  media                CatalogProductMedia[]
+  socialAds            MarketingSocialAd[]
+  shareableSocialLinks MarketingShareableLink[]
   reviews              ProductReview[]
-  salesStats           ProductSalesStatistic[]
+  salesStats           AnalyticsProductSales[]
 
   @@unique([tenantId, slug])
   @@index([categoryId])
@@ -196,6 +205,7 @@ model Product {
   @@index([tenantId, status])
   @@index([tenantId, featured])
   @@index([tenantId, createdAt])
+  @@map("catalog_products")
 }
 
 enum ProductStatus {
@@ -205,7 +215,7 @@ enum ProductStatus {
   ARCHIVED
 }
 
-model ProductVariant {
+model CatalogProductVariant {
   id              String   @id @default(uuid())
   tenantId        String
   productId       String
@@ -219,21 +229,22 @@ model ProductVariant {
   attributes      Json? // e.g. { color: "red", size: "XL" }
 
   tenant                Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  product               Product                 @relation(fields: [productId], references: [id])
+  product               CatalogProduct          @relation(fields: [productId], references: [id])
   supplierVariants      SupplierVariant[]
-  orderItems            OrderItem[]
-  cartItems             CartItem[]
-  media                 ProductMedia[]
+  orderItems            CommerceOrderItem[]
+  cartItems             CommerceCartItem[]
+  media                 CatalogProductMedia[]
   inventoryTransactions InventoryTransaction[]
   wishlistItems         WishlistItem[]
-  salesStats            ProductSalesStatistic[]
+  salesStats            AnalyticsProductSales[]
 
   @@unique([tenantId, sku])
   @@index([productId])
   @@index([tenantId])
+  @@map("catalog_product_variants")
 }
 
-model ProductMedia {
+model CatalogProductMedia {
   id               String    @id @default(uuid())
   productId        String
   productVariantId String?
@@ -245,13 +256,14 @@ model ProductMedia {
   isPrimary        Boolean   @default(false)
   createdAt        DateTime  @default(now())
 
-  product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
-  productVariant ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
-  file           File?           @relation(fields: [fileId], references: [id], onDelete: SetNull)
+  product        CatalogProduct         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productVariant CatalogProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
+  file           AuthFile?              @relation(fields: [fileId], references: [id], onDelete: SetNull)
 
   @@index([productId])
   @@index([productVariantId])
   @@index([fileId])
+  @@map("catalog_product_media")
 }
 
 enum MediaType {
@@ -264,11 +276,11 @@ enum MediaType {
   OTHER
 }
 
-// ==========================================
-// Multi-Supplier Dropshipping Schema
-// ==========================================
+// ==============================================================================
+// 4. MULTI-SUPPLIER DROPSHIPPING SCHEMA
+// ==============================================================================
 
-model Supplier {
+model SupplierPartner {
   id          String   @id @default(uuid())
   name        String   @unique // e.g. "cj-dropshipping", "aliexpress", "zendrop"
   displayName String
@@ -279,9 +291,11 @@ model Supplier {
 
   credentials SupplierCredential[]
   products    SupplierProduct[]
-  orders      SupplierOrder[]
+  orders      CommerceSupplierOrder[]
   syncLogs    SupplierSyncLog[]
-  statistics  SupplierStatistic[]
+  statistics  AnalyticsSupplier[]
+
+  @@map("supplier_partners")
 }
 
 model SupplierCredential {
@@ -297,9 +311,10 @@ model SupplierCredential {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  supplier SupplierPartner @relation(fields: [supplierId], references: [id], onDelete: Cascade)
 
   @@index([supplierId])
+  @@map("supplier_credentials")
 }
 
 model SupplierSyncLog {
@@ -313,9 +328,10 @@ model SupplierSyncLog {
   startedAt        DateTime   @default(now())
   completedAt      DateTime?
 
-  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  supplier SupplierPartner @relation(fields: [supplierId], references: [id], onDelete: Cascade)
 
   @@index([supplierId])
+  @@map("supplier_sync_logs")
 }
 
 model SupplierProduct {
@@ -333,13 +349,14 @@ model SupplierProduct {
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
 
-  supplier Supplier          @relation(fields: [supplierId], references: [id])
-  product  Product?          @relation(fields: [productId], references: [id])
+  supplier SupplierPartner   @relation(fields: [supplierId], references: [id])
+  product  CatalogProduct?   @relation(fields: [productId], references: [id])
   variants SupplierVariant[]
 
   @@unique([supplierId, externalId])
   @@index([supplierId])
   @@index([productId])
+  @@map("supplier_products")
 }
 
 model SupplierVariant {
@@ -354,17 +371,18 @@ model SupplierVariant {
   lastSyncError     String?
   lastSyncedAt      DateTime?
 
-  supplierProduct SupplierProduct @relation(fields: [supplierProductId], references: [id])
-  productVariant  ProductVariant? @relation(fields: [productVariantId], references: [id])
+  supplierProduct SupplierProduct        @relation(fields: [supplierProductId], references: [id])
+  productVariant  CatalogProductVariant? @relation(fields: [productVariantId], references: [id])
 
   @@unique([supplierProductId, externalId])
+  @@map("supplier_variants")
 }
 
-// ==========================================
-// Commerce: Customer, Cart & Shipping Address
-// ==========================================
+// ==============================================================================
+// 5. COMMERCE: CUSTOMERS, CARTS & SHIPPING
+// ==============================================================================
 
-model Customer {
+model CommerceCustomer {
   id        String   @id @default(uuid())
   userId    String   @unique
   email     String   @unique
@@ -374,17 +392,19 @@ model Customer {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  addresses  ShippingAddress[]
-  carts      Cart[]
-  orders     Order[]
+  user       AuthUser                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  addresses  CommerceShippingAddress[]
+  carts      CommerceCart[]
+  orders     CommerceOrder[]
   reviews    ProductReview[]
   wishlists  Wishlist[]
   returns    Return[]
-  statistics CustomerStatistic[]
+  statistics AnalyticsCustomer[]
+
+  @@map("commerce_customers")
 }
 
-model ShippingAddress {
+model CommerceShippingAddress {
   id           String   @id @default(uuid())
   customerId   String
   fullName     String
@@ -399,13 +419,14 @@ model ShippingAddress {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  orders   Order[]
+  customer CommerceCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  orders   CommerceOrder[]
 
   @@index([customerId])
+  @@map("commerce_shipping_addresses")
 }
 
-model Cart {
+model CommerceCart {
   id         String   @id @default(uuid())
   tenantId   String
   customerId String?
@@ -413,17 +434,18 @@ model Cart {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  tenant   Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  customer Customer?  @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  items    CartItem[]
+  tenant   Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer CommerceCustomer?  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  items    CommerceCartItem[]
 
   @@unique([tenantId, customerId])
   @@unique([tenantId, sessionId])
   @@index([customerId])
   @@index([tenantId])
+  @@map("commerce_carts")
 }
 
-model CartItem {
+model CommerceCartItem {
   id               String   @id @default(uuid())
   cartId           String
   productVariantId String
@@ -432,17 +454,18 @@ model CartItem {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  cart           Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  productVariant ProductVariant @relation(fields: [productVariantId], references: [id])
+  cart           CommerceCart          @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productVariant CatalogProductVariant @relation(fields: [productVariantId], references: [id])
 
   @@unique([cartId, productVariantId])
+  @@map("commerce_cart_items")
 }
 
-// ==========================================
-// Commerce: Orders, Payments & Fulfillment
-// ==========================================
+// ==============================================================================
+// 6. COMMERCE: ORDERS, PAYMENTS & FULFILLMENT
+// ==============================================================================
 
-model Order {
+model CommerceOrder {
   id                String      @id @default(uuid())
   tenantId          String
   status            OrderStatus @default(PENDING)
@@ -454,12 +477,12 @@ model Order {
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
-  tenant          Tenant           @relation(fields: [tenantId], references: [id])
-  customer        Customer?        @relation(fields: [customerId], references: [id])
-  shippingAddress ShippingAddress? @relation(fields: [shippingAddressId], references: [id])
-  items           OrderItem[]
-  supplierOrders  SupplierOrder[] // 1 order -> N supplier fulfillments
-  payments        Payment[]
+  tenant          Tenant                   @relation(fields: [tenantId], references: [id])
+  customer        CommerceCustomer?        @relation(fields: [customerId], references: [id])
+  shippingAddress CommerceShippingAddress? @relation(fields: [shippingAddressId], references: [id])
+  items           CommerceOrderItem[]
+  supplierOrders  CommerceSupplierOrder[] // 1 order -> N supplier fulfillments
+  payments        CommercePayment[]
   returns         Return[]
   refunds         Refund[]
 
@@ -468,9 +491,10 @@ model Order {
   @@index([shippingAddressId])
   @@index([tenantId, status])
   @@index([tenantId, createdAt])
+  @@map("commerce_orders")
 }
 
-model OrderItem {
+model CommerceOrderItem {
   id               String  @id @default(uuid())
   orderId          String
   productVariantId String
@@ -478,18 +502,17 @@ model OrderItem {
   unitPrice        Decimal
   supplierOrderId  String?
 
-  order          Order          @relation(fields: [orderId], references: [id])
-  productVariant ProductVariant @relation(fields: [productVariantId], references: [id])
-  // Which supplier fulfillment this line was routed to. Null until the order
-  // is split across suppliers.
-  supplierOrder  SupplierOrder? @relation(fields: [supplierOrderId], references: [id], onDelete: SetNull)
+  order          CommerceOrder          @relation(fields: [orderId], references: [id])
+  productVariant CatalogProductVariant  @relation(fields: [productVariantId], references: [id])
+  supplierOrder  CommerceSupplierOrder? @relation(fields: [supplierOrderId], references: [id], onDelete: SetNull)
 
   @@index([orderId])
   @@index([productVariantId])
   @@index([supplierOrderId])
+  @@map("commerce_order_items")
 }
 
-model SupplierOrder {
+model CommerceSupplierOrder {
   id          String              @id @default(uuid())
   orderId     String
   supplierId  String
@@ -501,16 +524,17 @@ model SupplierOrder {
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
 
-  order     Order       @relation(fields: [orderId], references: [id])
-  supplier  Supplier    @relation(fields: [supplierId], references: [id])
-  shipments Shipment[]
-  items     OrderItem[]
+  order     CommerceOrder       @relation(fields: [orderId], references: [id])
+  supplier  SupplierPartner     @relation(fields: [supplierId], references: [id])
+  shipments CommerceShipment[]
+  items     CommerceOrderItem[]
 
   @@index([orderId])
   @@index([supplierId])
+  @@map("commerce_supplier_orders")
 }
 
-model Shipment {
+model CommerceShipment {
   id                String         @id @default(uuid())
   supplierOrderId   String
   trackingNumber    String?
@@ -523,12 +547,13 @@ model Shipment {
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
-  supplierOrder SupplierOrder @relation(fields: [supplierOrderId], references: [id], onDelete: Cascade)
+  supplierOrder CommerceSupplierOrder @relation(fields: [supplierOrderId], references: [id], onDelete: Cascade)
 
   @@index([supplierOrderId])
+  @@map("commerce_shipments")
 }
 
-model Payment {
+model CommercePayment {
   id                   String             @id @default(uuid())
   orderId              String
   gateway              PaymentGateway     @default(PAYMONGO)
@@ -546,18 +571,19 @@ model Payment {
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
 
-  order    Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  attempts PaymentAttempt[]
-  events   PaymentEvent[]
+  order    CommerceOrder            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  attempts CommercePaymentAttempt[]
+  events   CommercePaymentEvent[]
 
   @@index([orderId])
   @@index([status])
   @@index([gateway])
   @@index([createdAt])
   @@index([gatewayTransactionId])
+  @@map("commerce_payments")
 }
 
-model PaymentEvent {
+model CommercePaymentEvent {
   id        String        @id @default(uuid())
   paymentId String
   status    PaymentStatus
@@ -565,13 +591,14 @@ model PaymentEvent {
   data      Json?
   createdAt DateTime      @default(now())
 
-  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  payment CommercePayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 
   @@index([paymentId])
   @@index([createdAt])
+  @@map("commerce_payment_events")
 }
 
-model WebhookEvent {
+model CommerceWebhookEvent {
   id           String     @id @default(uuid())
   provider     String // e.g. "PAYMONGO", "CJ_DROPSHIPPING"
   eventType    String
@@ -580,6 +607,8 @@ model WebhookEvent {
   errorMessage String?
   processedAt  DateTime?
   createdAt    DateTime   @default(now())
+
+  @@map("commerce_webhook_events")
 }
 
 enum OrderStatus {
@@ -625,9 +654,9 @@ enum ShipmentStatus {
   RETURNED
 }
 
-// ==========================================
-// Background Jobs & Operations
-// ==========================================
+// ==============================================================================
+// 7. BACKGROUND JOBS & OPERATIONAL AUDITING
+// ==============================================================================
 
 model Job {
   id          String    @id @default(uuid())
@@ -642,6 +671,8 @@ model Job {
   completedAt DateTime?
 
   logs JobLog[]
+
+  @@map("jobs")
 }
 
 model JobLog {
@@ -655,6 +686,7 @@ model JobLog {
   job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@index([jobId])
+  @@map("job_logs")
 }
 
 model AuditLog {
@@ -667,9 +699,10 @@ model AuditLog {
   ipAddress String?
   createdAt DateTime @default(now())
 
-  user User? @relation(fields: [userId], references: [id])
+  user AuthUser? @relation(fields: [userId], references: [id])
 
   @@index([userId])
+  @@map("audit_logs")
 }
 
 enum JobStatus {
@@ -688,11 +721,11 @@ enum LogLevel {
   DEBUG
 }
 
-// ==========================================
-// Centralized Marketplace Additions
-// ==========================================
+// ==============================================================================
+// 8. CENTRALIZED MARKETPLACE & PRICING RULES
+// ==============================================================================
 
-model PricingRule {
+model CatalogPricingRule {
   id            String     @id @default(uuid())
   tenantId      String
   name          String
@@ -703,11 +736,12 @@ model PricingRule {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
-  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  products Product[]
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  products CatalogProduct[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
+  @@map("catalog_pricing_rules")
 }
 
 enum MarkupType {
@@ -721,11 +755,11 @@ enum SyncStatus {
   FAILED
 }
 
-// ==========================================
-// CMS (Content Management System) Models
-// ==========================================
+// ==============================================================================
+// 9. CMS (CONTENT MANAGEMENT SYSTEM) MODELS
+// ==============================================================================
 
-model Page {
+model CmsPage {
   id          String     @id @default(uuid())
   tenantId    String
   slug        String
@@ -735,13 +769,13 @@ model Page {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
-  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  sections PageSection[]
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sections CmsPageSection[]
 
-  // Every vertical gets its own /about, /contact, etc.
   @@unique([tenantId, slug])
   @@index([tenantId])
   @@index([tenantId, status])
+  @@map("cms_pages")
 }
 
 enum PageStatus {
@@ -750,7 +784,7 @@ enum PageStatus {
   ARCHIVED
 }
 
-model PageSection {
+model CmsPageSection {
   id        String   @id @default(uuid())
   pageId    String
   type      String // e.g. "HERO", "FEATURE_GRID", "TESTIMONIALS"
@@ -759,12 +793,13 @@ model PageSection {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  page Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  page CmsPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
 
   @@index([pageId])
+  @@map("cms_page_sections")
 }
 
-model Banner {
+model CmsBanner {
   id        String   @id @default(uuid())
   tenantId  String
   title     String
@@ -778,9 +813,10 @@ model Banner {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
+  @@map("cms_banners")
 }
 
-model Announcement {
+model CmsAnnouncement {
   id        String   @id @default(uuid())
   tenantId  String
   content   String
@@ -792,9 +828,10 @@ model Announcement {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
+  @@map("cms_announcements")
 }
 
-model FAQ {
+model CmsFAQ {
   id        String   @id @default(uuid())
   tenantId  String
   question  String
@@ -807,13 +844,14 @@ model FAQ {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
+  @@map("cms_faqs")
 }
 
-// ==========================================
-// Marketing & Ad Distribution Schema
-// ==========================================
+// ==============================================================================
+// 10. MARKETING & AD DISTRIBUTION SCHEMA
+// ==============================================================================
 
-model ProductSocialFeed {
+model MarketingSocialFeed {
   id           String           @id @default(uuid())
   tenantId     String
   name         String // e.g. "Google Merchant Feed", "Meta Catalog"
@@ -828,9 +866,10 @@ model ProductSocialFeed {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
+  @@map("marketing_social_feeds")
 }
 
-model ProductSocialAd {
+model MarketingSocialAd {
   id               String           @id @default(uuid())
   tenantId         String
   productId        String
@@ -851,16 +890,17 @@ model ProductSocialAd {
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
-  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  mediaFile File?   @relation(fields: [mediaFileId], references: [id], onDelete: SetNull)
+  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product   CatalogProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  mediaFile AuthFile?      @relation(fields: [mediaFileId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@index([productId])
   @@index([mediaFileId])
+  @@map("marketing_social_ads")
 }
 
-model ShareableSocialLink {
+model MarketingShareableLink {
   id          String   @id @default(uuid())
   tenantId    String
   productId   String
@@ -873,11 +913,12 @@ model ShareableSocialLink {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tenant  Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product CatalogProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@index([productId])
+  @@map("marketing_shareable_links")
 }
 
 enum AdSocialPlatform {
@@ -895,9 +936,9 @@ enum AdSocialStatus {
   ARCHIVED
 }
 
-// ==========================================
-// Operational & Production Enhancements
-// ==========================================
+// ==============================================================================
+// 11. INVENTORY, REVIEWS & CUSTOMER ENGAGEMENT
+// ==============================================================================
 
 model InventoryTransaction {
   id               String                   @id @default(uuid())
@@ -911,11 +952,12 @@ model InventoryTransaction {
   notes            String?
   createdAt        DateTime                 @default(now())
 
-  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  productVariant ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+  tenant         Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productVariant CatalogProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@index([productVariantId])
+  @@map("inventory_transactions")
 }
 
 enum InventoryTransactionType {
@@ -937,11 +979,12 @@ model Notification {
   data      Json?
   createdAt DateTime         @default(now())
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@index([userId])
+  @@map("notifications")
 }
 
 enum NotificationType {
@@ -965,14 +1008,15 @@ model ProductReview {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  product  Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
-  customer Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product  CatalogProduct   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  customer CommerceCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   images   ReviewImage[]
 
   @@index([tenantId])
   @@index([productId])
   @@index([customerId])
+  @@map("product_reviews")
 }
 
 model ReviewImage {
@@ -984,6 +1028,7 @@ model ReviewImage {
   review ProductReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
 
   @@index([reviewId])
+  @@map("review_images")
 }
 
 model Wishlist {
@@ -993,13 +1038,14 @@ model Wishlist {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  customer Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer CommerceCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   items    WishlistItem[]
 
   @@unique([tenantId, customerId])
   @@index([tenantId])
   @@index([customerId])
+  @@map("wishlists")
 }
 
 model WishlistItem {
@@ -1008,10 +1054,11 @@ model WishlistItem {
   productVariantId String
   createdAt        DateTime @default(now())
 
-  wishlist       Wishlist       @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
-  productVariant ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+  wishlist       Wishlist              @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  productVariant CatalogProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
 
   @@unique([wishlistId, productVariantId])
+  @@map("wishlist_items")
 }
 
 model Coupon {
@@ -1033,6 +1080,7 @@ model Coupon {
 
   @@unique([tenantId, code])
   @@index([tenantId])
+  @@map("coupons")
 }
 
 enum DiscountType {
@@ -1052,14 +1100,15 @@ model Return {
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
 
-  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  order    CommerceOrder    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customer CommerceCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   refund   Refund?
 
   @@index([tenantId])
   @@index([orderId])
   @@index([customerId])
+  @@map("returns")
 }
 
 model Refund {
@@ -1074,15 +1123,16 @@ model Refund {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
-  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  order  Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  return Return? @relation(fields: [returnId], references: [id], onDelete: SetNull)
+  tenant Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  order  CommerceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  return Return?       @relation(fields: [returnId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@index([orderId])
+  @@map("refunds")
 }
 
-model PaymentAttempt {
+model CommercePaymentAttempt {
   id           String        @id @default(uuid())
   paymentId    String
   amount       Decimal       @db.Decimal(12, 2)
@@ -1091,9 +1141,10 @@ model PaymentAttempt {
   rawResponse  Json?
   createdAt    DateTime      @default(now())
 
-  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  payment CommercePayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 
   @@index([paymentId])
+  @@map("commerce_payment_attempts")
 }
 
 enum ReturnStatus {
@@ -1139,11 +1190,11 @@ enum PaymentInstrument {
   QRPH
 }
 
-// ==========================================
-// Enterprise Admin Dashboard Analytics Schema
-// ==========================================
+// ==============================================================================
+// 12. ENTERPRISE ADMIN DASHBOARD ANALYTICS
+// ==============================================================================
 
-model ProductSalesStatistic {
+model AnalyticsProductSales {
   id               String    @id @default(uuid())
   tenantId         String
   productId        String
@@ -1154,17 +1205,18 @@ model ProductSalesStatistic {
   lastSoldAt       DateTime?
   updatedAt        DateTime  @updatedAt
 
-  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
-  productVariant ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
+  tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product        CatalogProduct         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productVariant CatalogProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
 
   @@unique([tenantId, productVariantId])
   @@index([tenantId])
   @@index([productId])
   @@index([tenantId, totalSold])
+  @@map("analytics_product_sales")
 }
 
-model CategorySalesStatistic {
+model AnalyticsCategorySales {
   id                String   @id @default(uuid())
   tenantId          String
   categoryId        String
@@ -1173,15 +1225,16 @@ model CategorySalesStatistic {
   totalProductsSold Int      @default(0)
   updatedAt         DateTime @updatedAt
 
-  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category CatalogCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, categoryId])
   @@index([tenantId])
   @@index([categoryId])
+  @@map("analytics_category_sales")
 }
 
-model SupplierStatistic {
+model AnalyticsSupplier {
   id               String   @id @default(uuid())
   tenantId         String
   supplierId       String
@@ -1192,15 +1245,16 @@ model SupplierStatistic {
   avgDeliveryDays  Decimal? @db.Decimal(5, 2)
   updatedAt        DateTime @updatedAt
 
-  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier SupplierPartner @relation(fields: [supplierId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, supplierId])
   @@index([tenantId])
   @@index([supplierId])
+  @@map("analytics_suppliers")
 }
 
-model CustomerStatistic {
+model AnalyticsCustomer {
   id            String    @id @default(uuid())
   tenantId      String
   customerId    String
@@ -1210,16 +1264,17 @@ model CustomerStatistic {
   lastOrderedAt DateTime?
   updatedAt     DateTime  @updatedAt
 
-  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer CommerceCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, customerId])
   @@index([tenantId])
   @@index([customerId])
   @@index([tenantId, lifetimeSpend])
+  @@map("analytics_customers")
 }
 
-model DailySalesStatistic {
+model AnalyticsDailySales {
   id                   String   @id @default(uuid())
   tenantId             String
   date                 DateTime @db.Date
@@ -1233,4 +1288,5 @@ model DailySalesStatistic {
   @@unique([tenantId, date])
   @@index([tenantId])
   @@index([tenantId, date])
+  @@map("analytics_daily_sales")
 }

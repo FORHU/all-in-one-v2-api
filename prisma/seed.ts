@@ -4,19 +4,21 @@ import { seedTenants } from './seeders/tenants.seeder';
 import { seedCategories } from './seeders/categories.seeder';
 import { seedCommerce } from './seeders/commerce.seeder';
 import { seedPayments } from './seeders/payments.seeder';
+import { seedImportedProducts } from './seeders/imported-products.seeder';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  process.stdout.write('🌱 Starting modular database seeding...\n');
+  process.stdout.write('🌱 Starting modular database seeding in all-in-one-v2-api...\n');
 
   try {
     await seedUsers(prisma);
     await seedTenants(prisma);
     await seedCategories(prisma);
     await seedCommerce(prisma);
+    await seedImportedProducts(prisma);
     await seedPayments(prisma);
-    process.stdout.write('🎉 All seeder modules executed successfully!\n');
+    process.stdout.write('🎉 All seeder modules executed successfully in v2-api!\n');
   } catch (error) {
     process.stderr.write(`❌ Seeding failed: ${error}\n`);
     process.exit(1);

@@ -1,52 +1,60 @@
 import { Prisma } from '@prisma/client';
-import UserRepository from '../repositories/user.repository';
-import { rabbitmq } from '../infrastructure/rabbitmq';
-import { ROUTING_KEYS } from '../events/routing-keys';
+import bcrypt from 'bcryptjs';
+import { UserRepository } from '../repositories/user.repository';
+import { throwResponse } from '../utils/throw-response';
 
-export default class UserService {
-  /**
-   * Get user by ID
-   */
-  static async getUser(id: string) {
-    const user = await UserRepository.findById(id);
-    if (!user) {
-      throw { status: 404, message: 'User not found' };
-    }
-    const { password: _, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+export class UserService {
+  static async getUserProfile(userId: string) {
+    const user = await UserRepository.findById(userId);
+    if (!user) return throwResponse(404, 'User not found');
+    const { password: _password, ...rest } = user;
+    return rest;
   }
 
-  /**
-   * List users hehe
-   */
+  static async getUser(userId: string) {
+    return this.getUserProfile(userId);
+  }
+
+  static async createUser(data: Prisma.AuthUserCreateInput) {
+    const existingEmail = await UserRepository.findByEmail(data.email);
+    if (existingEmail) return throwResponse(409, 'Email is already registered');
+
+    const existingUsername = await UserRepository.findByUsername(data.username);
+    if (existingUsername) return throwResponse(409, 'Username is already taken');
+
+    if (data.password) {
+      data.password = await bcrypt.hash(data.password, 10);
+    }
+
+    const user = await UserRepository.create(data);
+    const { password: _password, ...rest } = user;
+    return rest;
+  }
+
+  static async updateUser(userId: string, data: Prisma.AuthUserUpdateInput) {
+    const user = await UserRepository.findById(userId);
+    if (!user) return throwResponse(404, 'User not found');
+
+    if (data.password && typeof data.password === 'string') {
+      data.password = await bcrypt.hash(data.password, 10);
+    }
+
+    const updated = await UserRepository.update(userId, data);
+    const { password: _password, ...rest } = updated;
+    return rest;
+  }
+
+  static async deleteUser(userId: string) {
+    const user = await UserRepository.findById(userId);
+    if (!user) return throwResponse(404, 'User not found');
+
+    await UserRepository.softDelete(userId);
+    return { message: 'User deleted successfully' };
+  }
+
   static async listUsers(page?: number, limit?: number) {
     return UserRepository.findAll(page, limit);
   }
-
-  /**
-   * Create user and publish event
-   */
-  static async createUser(data: Prisma.UserCreateInput) {
-    // 1. Business Logic / Database Action
-    const user = await UserRepository.create(data);
-
-    // 2. Publish Domain Event
-    await rabbitmq.publish(ROUTING_KEYS.USER_CREATED, {
-      userId: user.id,
-      email: user.email,
-      timestamp: new Date().toISOString(),
-    });
-
-    // We can also trigger an email asynchronously
-    await rabbitmq.publish(ROUTING_KEYS.EMAIL_SEND_REQUESTED, {
-      userId: user.id,
-      email: user.email,
-      subject: 'Welcome to our platform!',
-      body: 'Thanks for signing up.',
-    });
-
-    // 3. Return DTO to controller
-    const { password: _, ...userWithoutPassword } = user;
-    return userWithoutPassword;
-  }
 }
+
+export default UserService;
