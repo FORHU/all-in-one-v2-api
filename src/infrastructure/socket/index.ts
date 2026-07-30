@@ -14,18 +14,22 @@ export function initSocketIO(server: HttpServer): SocketIOServer {
     },
   });
 
-  const pubClient = redisConnection.getClient();
-  if (pubClient && pubClient.isOpen) {
-    const subClient = pubClient.duplicate();
-    subClient
-      .connect()
-      .then(() => {
-        io?.adapter(createAdapter(pubClient, subClient));
-        logger.info('🔌 Socket.io Redis adapter connected');
-      })
-      .catch((err) => {
-        logger.warn(`⚠️ Socket.io Redis adapter setup warning: ${err.message}`);
-      });
+  try {
+    const pubClient = redisConnection.getClient();
+    if (pubClient && pubClient.isOpen) {
+      const subClient = pubClient.duplicate();
+      subClient
+        .connect()
+        .then(() => {
+          io?.adapter(createAdapter(pubClient, subClient));
+          logger.info('🔌 Socket.io Redis adapter connected');
+        })
+        .catch((err) => {
+          logger.warn(`⚠️ Socket.io Redis adapter setup warning: ${err.message}`);
+        });
+    }
+  } catch (err: any) {
+    logger.warn(`⚠️ Socket.io Redis adapter skipped: ${err?.message || err}`);
   }
 
   io.on('connection', (socket) => {

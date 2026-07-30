@@ -42,6 +42,11 @@ class RabbitMQConnection {
       logger.info('[RabbitMQ] Connected and channel established.');
     } catch (error) {
       logger.error('[RabbitMQ] Failed to connect:', error);
+      if (this.reconnectAttempts === 0) {
+        // Schedule async reconnect in background but throw on initial connect so startup is aware
+        this.scheduleReconnect();
+        throw error;
+      }
       this.scheduleReconnect();
     }
   }
@@ -60,7 +65,7 @@ class RabbitMQConnection {
       `[RabbitMQ] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`,
     );
 
-    setTimeout(() => this.connect(), delay);
+    setTimeout(() => this.connect().catch(() => {}), delay);
   }
 
   public getChannel(): Channel {
