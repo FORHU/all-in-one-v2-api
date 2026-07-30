@@ -6,9 +6,9 @@ export default class MarketingRepository {
   // --- Social Feeds ---
   static async createSocialFeed(
     tenantId: string,
-    data: Omit<Prisma.ProductSocialFeedCreateInput, 'tenant'>,
+    data: Omit<Prisma.MarketingSocialFeedCreateInput, 'tenant'>,
   ) {
-    return prisma.productSocialFeed.create({
+    return prisma.marketingSocialFeed.create({
       data: {
         ...data,
         tenant: { connect: { id: tenantId } },
@@ -22,23 +22,23 @@ export default class MarketingRepository {
     limit = 20,
   ): Promise<PageResult<unknown>> {
     const skip = (page - 1) * limit;
-    const where: Prisma.ProductSocialFeedWhereInput = { tenantId };
+    const where: Prisma.MarketingSocialFeedWhereInput = { tenantId };
 
     const [items, total] = await Promise.all([
-      prisma.productSocialFeed.findMany({
+      prisma.marketingSocialFeed.findMany({
         where,
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
       }),
-      prisma.productSocialFeed.count({ where }),
+      prisma.marketingSocialFeed.count({ where }),
     ]);
 
     return buildPage(items, total, { page, limit });
   }
 
   static async findSocialFeedById(tenantId: string, id: string) {
-    return prisma.productSocialFeed.findFirst({
+    return prisma.marketingSocialFeed.findFirst({
       where: { id, tenantId },
     });
   }
@@ -46,9 +46,9 @@ export default class MarketingRepository {
   static async updateSocialFeed(
     tenantId: string,
     id: string,
-    data: Prisma.ProductSocialFeedUpdateInput,
+    data: Prisma.MarketingSocialFeedUpdateInput,
   ) {
-    return prisma.productSocialFeed.updateMany({
+    return prisma.marketingSocialFeed.updateMany({
       where: { id, tenantId },
       data,
     });
@@ -58,9 +58,9 @@ export default class MarketingRepository {
   static async createSocialAd(
     tenantId: string,
     productId: string,
-    data: Omit<Prisma.ProductSocialAdCreateInput, 'tenant' | 'product'>,
+    data: Omit<Prisma.MarketingSocialAdCreateInput, 'tenant' | 'product'>,
   ) {
-    return prisma.productSocialAd.create({
+    return prisma.marketingSocialAd.create({
       data: {
         ...data,
         tenant: { connect: { id: tenantId } },
@@ -81,14 +81,14 @@ export default class MarketingRepository {
     limit = 20,
   ): Promise<PageResult<unknown>> {
     const skip = (page - 1) * limit;
-    const where: Prisma.ProductSocialAdWhereInput = {
+    const where: Prisma.MarketingSocialAdWhereInput = {
       tenantId,
       ...(platform ? { platform } : {}),
       ...(status ? { status } : {}),
     };
 
     const [items, total] = await Promise.all([
-      prisma.productSocialAd.findMany({
+      prisma.marketingSocialAd.findMany({
         where,
         skip,
         take: limit,
@@ -98,14 +98,14 @@ export default class MarketingRepository {
         },
         orderBy: { createdAt: 'desc' },
       }),
-      prisma.productSocialAd.count({ where }),
+      prisma.marketingSocialAd.count({ where }),
     ]);
 
     return buildPage(items, total, { page, limit, filters: { platform, status } });
   }
 
   static async findSocialAdById(tenantId: string, id: string) {
-    return prisma.productSocialAd.findFirst({
+    return prisma.marketingSocialAd.findFirst({
       where: { id, tenantId },
       include: {
         product: true,
@@ -115,14 +115,14 @@ export default class MarketingRepository {
   }
 
   static async recordAdClick(id: string) {
-    return prisma.productSocialAd.update({
+    return prisma.marketingSocialAd.update({
       where: { id },
       data: { clicksCount: { increment: 1 } },
     });
   }
 
   static async recordAdConversion(id: string, revenue: number) {
-    return prisma.productSocialAd.update({
+    return prisma.marketingSocialAd.update({
       where: { id },
       data: {
         conversionsCount: { increment: 1 },
@@ -140,7 +140,7 @@ export default class MarketingRepository {
     utmMedium?: string,
     utmCampaign?: string,
   ) {
-    return prisma.shareableSocialLink.create({
+    return prisma.marketingShareableLink.create({
       data: {
         tenant: { connect: { id: tenantId } },
         product: { connect: { id: productId } },
@@ -156,7 +156,7 @@ export default class MarketingRepository {
   }
 
   static async findShareableLinkByCode(code: string) {
-    return prisma.shareableSocialLink.findUnique({
+    return prisma.marketingShareableLink.findUnique({
       where: { code },
       include: {
         product: true,
@@ -165,7 +165,7 @@ export default class MarketingRepository {
   }
 
   static async recordLinkClick(code: string) {
-    return prisma.shareableSocialLink.update({
+    return prisma.marketingShareableLink.update({
       where: { code },
       data: { clicks: { increment: 1 } },
     });

@@ -14,7 +14,7 @@ export async function seedCommerce(prisma: PrismaClient) {
 
   // 1. Seed Supplier (Valid UUID)
   const supplierId = '7d890123-4567-4890-a123-456789abcdef';
-  const supplier = await prisma.supplier.upsert({
+  const supplier = await prisma.supplierPartner.upsert({
     where: { id: supplierId },
     update: {},
     create: {
@@ -27,7 +27,7 @@ export async function seedCommerce(prisma: PrismaClient) {
   process.stdout.write(`✅ Seeded Supplier: ${supplier.displayName}\n`);
 
   // 2. Find Customer
-  const customer = await prisma.customer.findFirst({
+  const customer = await prisma.commerceCustomer.findFirst({
     where: { email: 'customer@marketplace.com' },
   });
 
@@ -40,7 +40,7 @@ export async function seedCommerce(prisma: PrismaClient) {
 
   // 3. Seed Category (Valid UUID)
   const categoryId = 'd8a94b12-3210-4e89-a123-56789abcde01';
-  const category = await prisma.category.upsert({
+  const category = await prisma.catalogCategory.upsert({
     where: { id: categoryId },
     update: {},
     create: {
@@ -54,7 +54,7 @@ export async function seedCommerce(prisma: PrismaClient) {
   // 4. Seed Product & Variant (Valid UUIDs)
   const productId = 'e7b90123-4567-4890-a123-456789abcdef';
   const variantId = 'b1234567-89ab-4cde-f012-3456789abcde';
-  const product = await prisma.product.upsert({
+  const product = await prisma.catalogProduct.upsert({
     where: { id: productId },
     update: {
       categoryId: category.id,
@@ -104,7 +104,7 @@ export async function seedCommerce(prisma: PrismaClient) {
   // 5. Seed Order with Supplier Order & Shipment (Valid UUIDs)
   const orderId = 'o1122334-4455-4667-8899-aabbccddeeff';
   const supplierOrderId = 's3344556-6677-4889-9900-112233445566';
-  await prisma.order.upsert({
+  await prisma.commerceOrder.upsert({
     where: { id: orderId },
     update: {},
     create: {
@@ -146,7 +146,7 @@ export async function seedCommerce(prisma: PrismaClient) {
   });
 
   // 6. Seed Admin Analytics Statistics
-  await prisma.productSalesStatistic.upsert({
+  await prisma.analyticsProductSales.upsert({
     where: { tenantId_productVariantId: { tenantId, productVariantId: variantId } },
     update: { totalSold: 2, totalRevenue: 199.98, totalOrders: 1 },
     create: {
@@ -160,7 +160,7 @@ export async function seedCommerce(prisma: PrismaClient) {
     },
   });
 
-  await prisma.dailySalesStatistic.upsert({
+  await prisma.analyticsDailySales.upsert({
     where: { tenantId_date: { tenantId, date: new Date() } },
     update: { ordersCount: 1, revenueAmount: 199.98 },
     create: {

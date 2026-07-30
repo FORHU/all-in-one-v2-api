@@ -3,7 +3,7 @@ import { prisma } from '../utils/prisma';
 
 export default class AuthRepo {
   static async findUserByEmailOrUsername(email: string, username: string) {
-    return prisma.user.findFirst({
+    return prisma.authUser.findFirst({
       where: {
         OR: [{ email }, { username }],
         isDeleted: false,
@@ -17,7 +17,7 @@ export default class AuthRepo {
     username: string;
     name?: string;
   }) {
-    return prisma.user.create({
+    return prisma.authUser.create({
       data: {
         email: data.email,
         password: data.password,
@@ -40,7 +40,7 @@ export default class AuthRepo {
   }
 
   static async findUserByEmail(email: string) {
-    return prisma.user.findFirst({
+    return prisma.authUser.findFirst({
       where: {
         email,
         isDeleted: false,
@@ -56,7 +56,7 @@ export default class AuthRepo {
   }
 
   static async updateUserLoginStatus(userId: string) {
-    return prisma.user.update({
+    return prisma.authUser.update({
       where: {
         id: userId,
         isDeleted: false,
@@ -85,7 +85,7 @@ export default class AuthRepo {
   }
 
   static async findUserById(userId: string) {
-    return prisma.user.findFirst({
+    return prisma.authUser.findFirst({
       where: {
         id: userId,
         isDeleted: false,
@@ -101,7 +101,7 @@ export default class AuthRepo {
   }
 
   static async findUserByUsername(username: string) {
-    return prisma.user.findFirst({
+    return prisma.authUser.findFirst({
       where: {
         username,
         isDeleted: false,
@@ -117,7 +117,7 @@ export default class AuthRepo {
     providerUserId?: string;
     providerAvatarUrl?: string;
   }) {
-    return prisma.session.create({
+    return prisma.authSession.create({
       data: {
         ...data,
       },
@@ -125,7 +125,7 @@ export default class AuthRepo {
   }
 
   static async findValidSession(refreshToken: string) {
-    return prisma.session.findFirst({
+    return prisma.authSession.findFirst({
       where: {
         refreshToken,
         expiresAt: {
@@ -139,15 +139,15 @@ export default class AuthRepo {
   }
 
   static async deleteSession(refreshToken: string) {
-    return prisma.session.deleteMany({
+    return prisma.authSession.deleteMany({
       where: {
         refreshToken,
       },
     });
   }
 
-  static async updateUser(userId: string, data: Prisma.UserUpdateInput) {
-    return prisma.user.update({
+  static async updateUser(userId: string, data: Prisma.AuthUserUpdateInput) {
+    return prisma.authUser.update({
       where: {
         id: userId,
       },
@@ -156,7 +156,7 @@ export default class AuthRepo {
   }
 
   static async getAuthUser(userId: string) {
-    return prisma.user.findUnique({
+    return prisma.authUser.findUnique({
       where: {
         id: userId,
       },

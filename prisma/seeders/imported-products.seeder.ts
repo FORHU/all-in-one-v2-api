@@ -14,7 +14,7 @@ export async function seedImportedProducts(prisma: PrismaClient) {
 
   // 1. Ensure Suppliers exist
   const cjSupplierId = '7d890123-4567-4890-a123-456789abcdef';
-  const cjSupplier = await prisma.supplier.upsert({
+  const cjSupplier = await prisma.supplierPartner.upsert({
     where: { id: cjSupplierId },
     update: { isActive: true },
     create: {
@@ -30,7 +30,7 @@ export async function seedImportedProducts(prisma: PrismaClient) {
   });
 
   const aliSupplierId = '8a901234-5678-4901-b234-567890abcdef';
-  await prisma.supplier.upsert({
+  await prisma.supplierPartner.upsert({
     where: { id: aliSupplierId },
     update: { isActive: true },
     create: {
@@ -46,7 +46,7 @@ export async function seedImportedProducts(prisma: PrismaClient) {
     const slug = slugify(categoryName);
 
     // Try finding existing category by name or slug under this tenant
-    const existing = await prisma.category.findFirst({
+    const existing = await prisma.catalogCategory.findFirst({
       where: {
         tenantId,
         OR: [
@@ -59,7 +59,7 @@ export async function seedImportedProducts(prisma: PrismaClient) {
     if (existing) return existing.id;
 
     // Create new category if not found
-    const created = await prisma.category.upsert({
+    const created = await prisma.catalogCategory.upsert({
       where: { tenantId_slug: { tenantId, slug } },
       update: { name: categoryName },
       create: {
@@ -303,7 +303,7 @@ export async function seedImportedProducts(prisma: PrismaClient) {
     const categoryId = await resolveCategory(item.tenantId, item.categoryName);
 
     // B. Seed Store Catalog Product & Variants linked to categoryId
-    const product = await prisma.product.upsert({
+    const product = await prisma.catalogProduct.upsert({
       where: { tenantId_slug: { tenantId: item.tenantId, slug: item.slug } },
       update: {
         title: item.title,
@@ -365,7 +365,7 @@ export async function seedImportedProducts(prisma: PrismaClient) {
 
     // D. Seed ProductVariants & SupplierVariants
     for (const v of item.variants) {
-      const productVariant = await prisma.productVariant.upsert({
+      const productVariant = await prisma.catalogProductVariant.upsert({
         where: { tenantId_sku: { tenantId: item.tenantId, sku: v.sku } },
         update: {
           price: v.sellingPrice,
@@ -420,14 +420,14 @@ export async function seedImportedProducts(prisma: PrismaClient) {
   }
 
   // 3. Auto-fix any unmapped legacy products in database
-  const unmappedProducts = await prisma.product.findMany({
+  const unmappedProducts = await prisma.catalogProduct.findMany({
     where: { categoryId: null },
   });
 
   if (unmappedProducts.length > 0) {
     for (const unmapped of unmappedProducts) {
       const fallbackCatId = await resolveCategory(unmapped.tenantId, "Men's Sneakers");
-      await prisma.product.update({
+      await prisma.catalogProduct.update({
         where: { id: unmapped.id },
         data: { categoryId: fallbackCatId },
       });
@@ -447,7 +447,7 @@ export async function seedImportedProducts(prisma: PrismaClient) {
     },
   });
 
-  await prisma.supplierStatistic.upsert({
+  await prisma.analyticsSupplier.upsert({
     where: { tenantId_supplierId: { tenantId: TENANT_IDS.FASHION, supplierId: cjSupplier.id } },
     update: {
       productsImported: importedCount,

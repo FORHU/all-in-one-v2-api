@@ -3,7 +3,7 @@ import { prisma } from '../utils/prisma';
 
 export default class PaymentRepository {
   static async findById(id: string) {
-    return prisma.payment.findUnique({
+    return prisma.commercePayment.findUnique({
       where: { id },
       include: {
         order: true,
@@ -12,7 +12,7 @@ export default class PaymentRepository {
   }
 
   static async findByTransactionId(gatewayTransactionId: string) {
-    return prisma.payment.findFirst({
+    return prisma.commercePayment.findFirst({
       where: { gatewayTransactionId },
       include: {
         order: true,
@@ -20,8 +20,8 @@ export default class PaymentRepository {
     });
   }
 
-  static async createPayment(data: Prisma.PaymentCreateInput) {
-    return prisma.payment.create({
+  static async createPayment(data: Prisma.CommercePaymentCreateInput) {
+    return prisma.commercePayment.create({
       data,
     });
   }
@@ -33,7 +33,7 @@ export default class PaymentRepository {
     eventMessage?: string,
   ) {
     return prisma.$transaction(async (tx) => {
-      const payment = await tx.payment.update({
+      const payment = await tx.commercePayment.update({
         where: { id },
         data: {
           status,
@@ -42,7 +42,7 @@ export default class PaymentRepository {
         },
       });
 
-      await tx.paymentEvent.create({
+      await tx.commercePaymentEvent.create({
         data: {
           paymentId: id,
           status,
@@ -60,7 +60,7 @@ export default class PaymentRepository {
     eventType: string,
     payload: Prisma.InputJsonValue,
   ) {
-    return prisma.webhookEvent.create({
+    return prisma.commerceWebhookEvent.create({
       data: {
         provider,
         eventType,
@@ -71,7 +71,7 @@ export default class PaymentRepository {
   }
 
   static async updateWebhookStatus(id: string, status: SyncStatus, errorMessage?: string) {
-    return prisma.webhookEvent.update({
+    return prisma.commerceWebhookEvent.update({
       where: { id },
       data: {
         status,

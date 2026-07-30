@@ -2,62 +2,69 @@ import {
   PrismaClient,
   PaymentGateway,
   PaymentChannel,
-  PaymentInstrument,
   PaymentStatus,
+  PaymentInstrument,
 } from '@prisma/client';
-
-export const PAYMENT_DEMO_GCASH_ID = 'p5566778-8990-4112-a334-556677889900';
-export const PAYMENT_DEMO_STRIPE_ID = 'p6677889-9001-4223-b445-667788990011';
+import { TENANT_IDS } from './tenants.seeder';
 
 export async function seedPayments(prisma: PrismaClient) {
   process.stdout.write('🌱 Seeding Payments, PaymentEvents & PaymentAttempts...\n');
 
-  // Find demo order
-  const order = await prisma.order.findFirst({
-    orderBy: { createdAt: 'desc' },
+  const tenantId = TENANT_IDS.FASHION;
+  const order = await prisma.commerceOrder.findFirst({
+    where: { tenantId },
   });
 
   if (!order) {
     process.stderr.write(
-      '⚠️ No order found to seed payments for. Ensure seedCommerce runs first.\n',
+      '⚠️ Order not found for fashion tenant. Ensure seedCommerce runs first.\n',
     );
     return;
   }
 
-  // 1. Seed PayMongo GCash E-Wallet Payment
-  const existingGcashPayment = await prisma.payment.findUnique({
-    where: { id: PAYMENT_DEMO_GCASH_ID },
+  // 1. Seed GCash Payment with PaymentEvents & PaymentAttempt
+  const gcashPaymentId = 'p5566778-8990-4112-a334-556677889900';
+  const existingGcashPayment = await prisma.commercePayment.findUnique({
+    where: { id: gcashPaymentId },
   });
 
   if (!existingGcashPayment) {
-    const gcashPayment = await prisma.payment.create({
+    const gcashPayment = await prisma.commercePayment.create({
       data: {
-        id: PAYMENT_DEMO_GCASH_ID,
+        id: gcashPaymentId,
         orderId: order.id,
         gateway: PaymentGateway.PAYMONGO,
         channel: PaymentChannel.EWALLET,
         instrument: PaymentInstrument.GCASH,
         expectedAmount: order.totalAmount,
         amount: order.totalAmount,
-        currency: 'USD',
+        currency: 'PHP',
         status: PaymentStatus.PAID,
-        version: 2,
-        idempotencyKey: 'idem_key_paymongo_99182',
-        gatewayTransactionId: 'paymongo_tx_88912301',
-        gatewayPaymentId: 'pay_src_gcash_00192',
+        gatewayTransactionId: 'pay_gcash_tx_998124',
+        gatewayPaymentId: 'pay_gcash_py_772183',
+        gatewayResponse: {
+          id: 'pay_gcash_py_772183',
+          type: 'payment',
+          attributes: {
+            amount: 19998,
+            currency: 'PHP',
+            status: 'paid',
+            source: { type: 'gcash' },
+          },
+        },
         events: {
           create: [
             {
               status: PaymentStatus.CREATED,
-              message: 'Payment intent initialized via PayMongo GCash',
+              message: 'Payment intent created via PayMongo GCash',
             },
             {
-              status: PaymentStatus.PROCESSING,
-              message: 'Customer redirected to GCash authorization page',
+              status: PaymentStatus.PENDING,
+              message: 'Awaiting customer e-wallet authentication',
             },
             {
               status: PaymentStatus.PAID,
-              message: 'Webhook callback verified: Payment completed successfully',
+              message: 'GCash payment captured successfully',
             },
           ],
         },
@@ -66,24 +73,25 @@ export async function seedPayments(prisma: PrismaClient) {
             {
               amount: order.totalAmount,
               status: PaymentStatus.PAID,
-              rawResponse: { status: 'succeeded', transactionId: 'paymongo_tx_88912301' },
+              rawResponse: { referenceNo: 'GCASH-REF-88912' },
             },
           ],
         },
       },
     });
-    process.stdout.write(`✅ Seeded GCash Payment [${gcashPayment.id}]: $${gcashPayment.amount}\n`);
+    process.stdout.write(`✅ Seeded GCash Payment [${gcashPayment.id}]: $${order.totalAmount}\n`);
   }
 
-  // 2. Seed Stripe Credit Card Payment
-  const existingStripePayment = await prisma.payment.findUnique({
-    where: { id: PAYMENT_DEMO_STRIPE_ID },
+  // 2. Seed Credit Card Payment
+  const cardPaymentId = 'p6677889-9001-4223-b445-667788990011';
+  const existingStripePayment = await prisma.commercePayment.findUnique({
+    where: { id: cardPaymentId },
   });
 
   if (!existingStripePayment) {
-    const stripePayment = await prisma.payment.create({
+    const stripePayment = await prisma.commercePayment.create({
       data: {
-        id: PAYMENT_DEMO_STRIPE_ID,
+        id: cardPaymentId,
         orderId: order.id,
         gateway: PaymentGateway.STRIPE,
         channel: PaymentChannel.CARD,
@@ -92,37 +100,24 @@ export async function seedPayments(prisma: PrismaClient) {
         amount: order.totalAmount,
         currency: 'USD',
         status: PaymentStatus.PAID,
-        version: 2,
-        idempotencyKey: 'idem_key_stripe_77182',
-        gatewayTransactionId: 'pi_3MtwB2LkdIwHu7ix0rW0A5a7',
-        gatewayPaymentId: 'ch_3MtwB2LkdIwHu7ix0rW0A5a7',
+        gatewayTransactionId: 'ch_stripe_tx_334912',
+        gatewayPaymentId: 'pi_stripe_py_112938',
         events: {
           create: [
             {
-              status: PaymentStatus.CREATED,
-              message: 'Stripe PaymentIntent created for Visa card ending in 4242',
-            },
-            {
               status: PaymentStatus.PAID,
-              message: 'Stripe webhook payment_intent.succeeded received',
-            },
-          ],
-        },
-        attempts: {
-          create: [
-            {
-              amount: order.totalAmount,
-              status: PaymentStatus.PAID,
-              rawResponse: { status: 'succeeded', id: 'pi_3MtwB2LkdIwHu7ix0rW0A5a7' },
+              message: 'Stripe card authorization & capture successful',
             },
           ],
         },
       },
     });
     process.stdout.write(
-      `✅ Seeded Stripe Visa Payment [${stripePayment.id}]: $${stripePayment.amount}\n`,
+      `✅ Seeded Stripe Visa Payment [${stripePayment.id}]: $${order.totalAmount}\n`,
     );
   }
 
   process.stdout.write('🎉 Payments seeder executed successfully!\n');
 }
+
+export default seedPayments;

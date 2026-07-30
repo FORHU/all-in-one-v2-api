@@ -34,7 +34,7 @@ export const importProduct = async (req: Request, res: Response, next: NextFunct
       return throwResponse(400, 'No target tenant: pass tenantSlug or call from a storefront host');
     }
 
-    const product = await ProductImportService.importProductToPlatform(
+    const product = await ProductImportService.importProduct(
       tenantId,
       supplierId,
       externalId,

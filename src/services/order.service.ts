@@ -82,7 +82,7 @@ export default class OrderService {
       }
     }
 
-    const totalAmount = cart.items.reduce((acc, item) => {
+    const totalAmount = cart.items.reduce((acc: number, item: any) => {
       const price = Number(item.unitPrice);
       return acc + price * item.quantity;
     }, 0);
@@ -97,7 +97,7 @@ export default class OrderService {
       ...(customerId ? { customer: { connect: { id: customerId } } } : { sessionId }),
       ...(shippingAddressId ? { shippingAddress: { connect: { id: shippingAddressId } } } : {}),
       items: {
-        create: cart.items.map((item) => ({
+        create: cart.items.map((item: any) => ({
           productVariantId: item.productVariantId,
           quantity: item.quantity,
           unitPrice: item.unitPrice,

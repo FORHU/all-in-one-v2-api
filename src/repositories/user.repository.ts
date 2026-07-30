@@ -1,75 +1,58 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../utils/prisma';
 
-export default class UserRepository {
-  /**
-   * Find a user by ID
-   */
+export class UserRepository {
   static async findById(id: string) {
-    return prisma.user.findFirst({
+    return prisma.authUser.findFirst({
       where: { id, isDeleted: false },
+      include: { avatar: true },
     });
   }
 
-  /**
-   * Find a user by email
-   */
   static async findByEmail(email: string) {
-    return prisma.user.findFirst({
+    return prisma.authUser.findFirst({
       where: { email, isDeleted: false },
     });
   }
 
-  /**
-   * Create a new user
-   */
-  static async create(data: Prisma.UserCreateInput) {
-    return prisma.user.create({
+  static async findByUsername(username: string) {
+    return prisma.authUser.findFirst({
+      where: { username, isDeleted: false },
+    });
+  }
+
+  static async create(data: Prisma.AuthUserCreateInput) {
+    return prisma.authUser.create({
       data,
     });
   }
 
-  /**
-   * Update user details
-   */
-  static async update(id: string, data: Prisma.UserUpdateInput) {
-    return prisma.user.update({
+  static async update(id: string, data: Prisma.AuthUserUpdateInput) {
+    return prisma.authUser.update({
       where: { id },
-      data: { ...data, updatedAt: new Date() },
+      data,
     });
   }
 
-  /**
-   * Soft delete a user
-   */
   static async softDelete(id: string) {
-    return prisma.user.update({
+    return prisma.authUser.update({
       where: { id },
-      data: { isDeleted: true, isActive: false },
+      data: { isDeleted: true },
     });
   }
 
-  /**
-   * List all users (paginated)
-   */
-  static async findAll(page: number = 1, limit: number = 10) {
+  static async findAll(page = 1, limit = 10) {
     const skip = (page - 1) * limit;
-    const [users, total] = await Promise.all([
-      prisma.user.findMany({
+    const [data, total] = await Promise.all([
+      prisma.authUser.findMany({
         where: { isDeleted: false },
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
       }),
-      prisma.user.count({ where: { isDeleted: false } }),
+      prisma.authUser.count({ where: { isDeleted: false } }),
     ]);
 
-    return {
-      users,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 }

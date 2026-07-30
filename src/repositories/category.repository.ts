@@ -7,7 +7,7 @@ import { prisma } from '../utils/prisma';
  */
 export default class CategoryRepository {
   static async findById(tenantId: string, id: string) {
-    return prisma.category.findFirst({
+    return prisma.catalogCategory.findFirst({
       where: { id, tenantId },
       include: {
         parent: true,
@@ -17,7 +17,7 @@ export default class CategoryRepository {
   }
 
   static async findBySlug(tenantId: string, slug: string) {
-    return prisma.category.findUnique({
+    return prisma.catalogCategory.findUnique({
       where: { tenantId_slug: { tenantId, slug } },
       include: {
         parent: true,
@@ -34,7 +34,7 @@ export default class CategoryRepository {
   }
 
   static async findAllRoot(tenantId: string) {
-    return prisma.category.findMany({
+    return prisma.catalogCategory.findMany({
       where: { tenantId, parentId: null },
       include: {
         children: true,
@@ -43,21 +43,21 @@ export default class CategoryRepository {
     });
   }
 
-  static async create(tenantId: string, data: Omit<Prisma.CategoryCreateInput, 'tenant'>) {
-    return prisma.category.create({
+  static async create(tenantId: string, data: Omit<Prisma.CatalogCategoryCreateInput, 'tenant'>) {
+    return prisma.catalogCategory.create({
       data: { ...data, tenant: { connect: { id: tenantId } } },
     });
   }
 
-  static async update(tenantId: string, id: string, data: Prisma.CategoryUpdateInput) {
+  static async update(tenantId: string, id: string, data: Prisma.CatalogCategoryUpdateInput) {
     // updateMany rather than update: it accepts a non-unique where clause, so
     // the tenant filter is enforced by the database rather than assumed.
-    await prisma.category.updateMany({ where: { id, tenantId }, data });
+    await prisma.catalogCategory.updateMany({ where: { id, tenantId }, data });
     return this.findById(tenantId, id);
   }
 
   static async delete(tenantId: string, id: string) {
-    return prisma.category.deleteMany({
+    return prisma.catalogCategory.deleteMany({
       where: { id, tenantId },
     });
   }

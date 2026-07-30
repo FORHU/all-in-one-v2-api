@@ -5,7 +5,7 @@ import { supplierRegistry } from '../suppliers/supplier.registry';
 import logger from '../utils/logger';
 import { workerMetrics } from '../utils/worker-metrics';
 import { prisma } from '../utils/prisma';
-import { PricingUtil } from '../utils/pricing.util';
+import { calculateVariantPrice } from '../utils/pricing.util';
 
 interface SyncPayload {
   jobId: string;
@@ -35,7 +35,7 @@ export const startProductSyncConsumer = async () => {
         const adapter = supplierRegistry.get(supplierId);
 
         // Fetch supplier model from DB to link correctly
-        const supplierModel = await prisma.supplier.findUnique({
+        const supplierModel = await prisma.supplierPartner.findUnique({
           where: { name: supplierId },
         });
 
@@ -68,7 +68,8 @@ export const startProductSyncConsumer = async () => {
               });
 
               const rule = existingMapping?.product?.pricingRule;
-              const finalSellingPrice = PricingUtil.calculatePlatformPrice(costPrice, rule);
+              const priceResult = calculateVariantPrice(costPrice, rule);
+              const finalSellingPrice = priceResult.calculatedPrice;
 
               // Update everything in a transaction to ensure integrity
               await prisma.$transaction(async (tx) => {
@@ -110,7 +111,7 @@ export const startProductSyncConsumer = async () => {
 
                   // Update actual selling price and stock!
                   if (supplierVariant.productVariantId) {
-                    await tx.productVariant.update({
+                    await tx.catalogProductVariant.update({
                       where: { id: supplierVariant.productVariantId },
                       data: {
                         price: finalSellingPrice,
