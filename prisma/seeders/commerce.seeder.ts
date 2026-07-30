@@ -56,7 +56,12 @@ export async function seedCommerce(prisma: PrismaClient) {
   const variantId = 'b1234567-89ab-4cde-f012-3456789abcde';
   const product = await prisma.product.upsert({
     where: { id: productId },
-    update: {},
+    update: {
+      categoryId: category.id,
+      title: 'Urban Air Max Runner 2026',
+      description: 'Ultra-lightweight mesh breathable running sneakers.',
+      featured: true,
+    },
     create: {
       id: productId,
       tenantId,

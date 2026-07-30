@@ -419,7 +419,23 @@ export async function seedImportedProducts(prisma: PrismaClient) {
     process.stdout.write(`  ✓ Product [${product.id}] -> Category [${categoryId}] (${item.categoryName}) for Tenant [${item.tenantId}]: ${product.title}\n`);
   }
 
-  // 3. Seed SupplierSyncLog & SupplierStatistic
+  // 3. Auto-fix any unmapped legacy products in database
+  const unmappedProducts = await prisma.product.findMany({
+    where: { categoryId: null },
+  });
+
+  if (unmappedProducts.length > 0) {
+    for (const unmapped of unmappedProducts) {
+      const fallbackCatId = await resolveCategory(unmapped.tenantId, "Men's Sneakers");
+      await prisma.product.update({
+        where: { id: unmapped.id },
+        data: { categoryId: fallbackCatId },
+      });
+      process.stdout.write(`  🔧 Auto-assigned Category [${fallbackCatId}] to unmapped Product [${unmapped.id}]: ${unmapped.title}\n`);
+    }
+  }
+
+  // 4. Seed SupplierSyncLog & SupplierStatistic
   await prisma.supplierSyncLog.create({
     data: {
       supplierId: cjSupplier.id,
