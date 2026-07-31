@@ -1,67 +1,113 @@
 # System Architecture Summary & Structure
 
-This document outlines the current architecture and directory structure of the centralized dropshipping marketplace API.
+This document outlines the architecture, component breakdown, and directory structure of **all-in-one-v2-api** — the central backend API for the marketplace platform.
+
+---
 
 ## Core Architecture
 
-The platform follows a **Backend-First Centralized Marketplace Architecture** designed for high scalability and modularity. The frontend never communicates directly with dropshipping suppliers. The platform acts as the central merchant, sourcing from multiple suppliers and presenting a unified storefront to customers.
+The platform follows a **Backend-First Centralized Marketplace Architecture** designed for high scalability, multi-tenancy, and modularity. Frontends (web & mobile apps) communicate exclusively with this API, while external supplier integrations and background worker tasks are decoupled via background queues and standardized adapter interfaces.
 
 ### Key Components
 
-- **Express.js & TypeScript:** Core framework for routing and business logic.
-- **Prisma ORM:** Database access and schema management (`schema.prisma`).
-- **Redis:** Caching layer for lightning-fast product searches and supplier data retrieval.
-- **RabbitMQ:** Message queue for background jobs (e.g., product synchronization) to ensure API requests are never blocked by slow external supplier calls.
-- **Supplier Adapter Pattern:** A unified `SupplierAdapter` interface that every dropshipping supplier (CJ, AliExpress, Printful, etc.) implements, ensuring the core application code remains agnostic to the specific external API being queried.
+- **Express.js & TypeScript:** Core HTTP routing, controller execution, and business logic layer.
+- **Prisma ORM:** Database schema definitions (`schema.prisma`), migrations, and typed database access.
+- **Redis:** In-memory cache for fast product search aggregation, session storage, and rate-limiting.
+- **RabbitMQ:** Asynchronous job queue handling product synchronization, background imports, and email notifications without blocking HTTP requests.
+- **Supplier Adapter Pattern:** A standardized `SupplierAdapter` interface allowing seamless integration with dropshipping suppliers (CJ Dropshipping, AliExpress, Printful) while maintaining platform-agnostic business rules.
 
-## Dropshipping Workflow
+---
 
-1. **Global Product Search:** Admins search across all active suppliers globally (`/api/v2/product-search`). The backend queries adapters concurrently via `Promise.allSettled`, normalizes results, and caches them in Redis.
-2. **On-Demand Importing:** When an admin finds a product to sell, they import it (`POST /api/v2/products/import`). The system calculates platform selling prices using database `PricingRule`s and persists it to the local catalog (`Product`, `ProductVariant`, `SupplierProduct`). Customers only see these imported, published products.
-3. **Background Synchronization:** RabbitMQ cron jobs automatically enqueue imported products every 6 hours. Workers fetch live supplier data and dynamically update platform selling prices and inventory stock to prevent selling out-of-stock items.
-4. **Order Fulfillment (Pending):** When a customer purchases items, the backend will split the `Order` into supplier-specific `SupplierOrder`s and dispatch them via the adapters.
+## Functional Modules Overview
+
+1. **Authentication & User Management:** JWT-based authentication with refresh token rotation, user profile control, and role-based authorization (`ADMIN`, `SUPERADMIN`, `MERCHANT`, `CUSTOMER`).
+2. **Product Catalog & Sourcing:**
+   - **Global Search:** Concurrently query external supplier adapters via `/api/v2/product-search` with Redis caching.
+   - **On-Demand Import:** Apply platform dynamic margin rules (`PricingRule`) and save imported products into local catalog tables.
+   - **Background Synchronization:** Automated 6-hour RabbitMQ worker updates for live supplier stock & price adjustments.
+3. **Storefront Taxonomy & Merchandising:**
+   - **Categories & Collections:** Hierarchical category trees and curated product collection management (with item reordering).
+   - **Attributes & Size Guides:** Custom product variant attributes (color, size, material) and linked size guide reference charts.
+4. **Cart, Orders & Checkout:**
+   - **Unified Cart:** Handles both authenticated users and guest shoppers using `x-session-id`.
+   - **Checkout & Orders:** Split orders across suppliers, calculate totals, track order state machine, and manage customer order history.
+5. **Payments & Webhooks:** Payment intent creation and unauthenticated provider webhook handlers (e.g. Stripe, PayMongo) with signature validation logic.
+6. **Multi-Location Inventory:** Track warehouse stock levels, allocate variant stock per location, and handle stock reservations.
+7. **Marketing & Promotions:** Promo code validation, discount campaigns, dynamic ad link tracking, and Google/Facebook product feed generation.
+8. **CMS & Multi-Tenancy:** Multi-tenant vertical configuration (`Tenant`), CMS pages, banners, announcements, and FAQs.
+
+---
 
 ## Directory Structure
 
 ```text
 all-in-one-v2-api/
+├── docs/                     # Architectural and API documentation
+│   ├── api-guide.md          # Complete REST API reference and endpoint specifications
+│   ├── beginner-guide.md     # Onboarding guide for new developers
+│   ├── engineering-handbook.md # Development standards, code style, and PR guidelines
+│   ├── getting-started.md    # Local setup and environment configuration
+│   └── systemSummary/
+│       └── system_summary.md # (This file) Core architecture and directory breakdown
 ├── prisma/
-│   ├── schema.prisma        # Database schema (User, Product, PricingRule, Supplier, etc.)
-│   └── seed.ts              # Database seeding script for initial data
+│   ├── schema.prisma         # Database schema (User, Product, Order, Tenant, Cart, etc.)
+│   └── seed.ts               # Initial database seed script
 ├── src/
-│   ├── config/              # Environment variables and global configurations
-│   ├── consumers/           # RabbitMQ worker logic (e.g., product-sync.consumer.ts)
-│   ├── controllers/         # Express route handlers
+│   ├── config/               # Environment variables, database connection, and logger setup
+│   ├── consumers/            # RabbitMQ worker event consumers (product-sync, etc.)
+│   ├── controllers/          # Express route controllers
+│   │   ├── attribute.controller.ts
+│   │   ├── auth.controller.ts
+│   │   ├── cart.controller.ts
+│   │   ├── category.controller.ts
+│   │   ├── cms.controller.ts
+│   │   ├── collection.controller.ts
+│   │   ├── health.controller.ts
+│   │   ├── inventory.controller.ts
+│   │   ├── marketing.controller.ts
+│   │   ├── order.controller.ts
+│   │   ├── payment.controller.ts
+│   │   ├── product-import.controller.ts
 │   │   ├── product-search.controller.ts
-│   │   └── product-import.controller.ts
-│   ├── infrastructure/      # Third-party connections (RabbitMQ, Redis, Scheduler)
-│   ├── middleware/          # Express middlewares
-│   ├── repositories/        # Database access layer abstracting Prisma calls
-│   ├── routes/              # Express route definitions
-│   │   ├── index.ts
+│   │   ├── product-sync.controller.ts
+│   │   ├── promotion.controller.ts
+│   │   ├── size-guide.controller.ts
+│   │   ├── tenant.controller.ts
+│   │   └── user.controller.ts
+│   ├── infrastructure/       # Queue, Redis, and cron background connections
+│   ├── middleware/           # Auth JWT verification, role guard, error, & file upload middlewares
+│   ├── repositories/         # Prisma DB access layer abstracting database queries
+│   ├── routes/               # Express API route modules
+│   │   ├── index.ts          # Central route registry (/api/v2, /health)
+│   │   ├── attribute.route.ts
+│   │   ├── auth.route.ts
+│   │   ├── cart.route.ts
+│   │   ├── category.route.ts
+│   │   ├── cms.route.ts
+│   │   ├── collection.route.ts
+│   │   ├── fileUpload.route.ts
+│   │   ├── health.route.ts
+│   │   ├── inventory.route.ts
+│   │   ├── marketing.routes.ts
+│   │   ├── order.route.ts
+│   │   ├── payment.route.ts
+│   │   ├── product-import.routes.ts
 │   │   ├── product-search.routes.ts
-│   │   └── product-import.routes.ts
-│   ├── services/            # Core business logic
-│   │   ├── job-queue.service.ts
-│   │   ├── product-import.service.ts # Saves products and applies margins
-│   │   └── product-search.service.ts # Supplier aggregation and caching logic
-│   ├── suppliers/           # Dropshipping Provider Adapters
-│   │   ├── aliexpress/
-│   │   ├── cj-dropshipping/
-│   │   ├── printful/
-│   │   ├── supplier.interface.ts     # The canonical adapter interface
-│   │   └── supplier.registry.ts      # Singleton registry holding active adapters
-│   ├── types/               # TypeScript interfaces and type definitions
-│   ├── utils/               # Reusable utility functions
-│   │   ├── cache.util.ts
-│   │   ├── pricing.util.ts           # Dynamic margin calculation using PricingRule
-│   │   ├── prisma.ts
-│   │   └── throw-response.ts
-│   ├── app.ts               # Express application setup
-│   ├── server.ts            # Entry point for HTTP server
-│   └── worker.ts            # Entry point for RabbitMQ background workers
-├── tests/                   # Unit and integration tests
-├── .env                     # Local environment variables
-├── docker-compose.yml       # Docker services for PostgreSQL, Redis, and RabbitMQ
-└── package.json             # NPM dependencies and scripts
+│   │   ├── product-sync.route.ts
+│   │   ├── promotion.route.ts
+│   │   ├── size-guide.route.ts
+│   │   ├── tenant.route.ts
+│   │   └── user.route.ts
+│   ├── services/             # Core business logic layer
+│   ├── suppliers/            # Dropshipping supplier adapters & registry
+│   ├── types/                # TypeScript type definitions and interfaces
+│   ├── utils/                # Utility modules (logger, cache, pricing calculations)
+│   ├── app.ts                # Express application configuration & middleware registration
+│   ├── server.ts             # HTTP server entry point
+│   └── worker.ts             # RabbitMQ background worker process entry point
+├── tests/                    # Unit and integration test suites
+├── .env                      # Environment variable definitions
+├── docker-compose.yml        # Docker setup (PostgreSQL, Redis, RabbitMQ)
+└── package.json              # NPM manifest & script commands
 ```
+
