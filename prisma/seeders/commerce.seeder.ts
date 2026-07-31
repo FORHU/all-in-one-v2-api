@@ -67,13 +67,12 @@ export async function seedCommerce(prisma: PrismaClient) {
       slug: 'urban-air-max-runner-2026',
       description: 'High performance breathable running sneakers with air cushion sole.',
       price: 99.99,
-      thumbnailUrl:
-        'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80',
+      thumbnailUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&q=80',
       categoryId: category.id,
       media: {
         create: [
           {
-            url: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80',
+            url: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&q=80',
             type: MediaType.IMAGE,
             isPrimary: true,
           },

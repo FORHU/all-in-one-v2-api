@@ -71,8 +71,7 @@ export async function seedCMS(prisma: PrismaClient) {
       {
         tenantId: TENANT_IDS.FASHION,
         title: 'Summer Collection Launch Banner',
-        imageUrl:
-          'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1200&q=80',
+        imageUrl: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1200&q=80',
         linkUrl: '/collections/summer-monochrome-outfit',
         isActive: true,
         position: 1,
@@ -80,8 +79,7 @@ export async function seedCMS(prisma: PrismaClient) {
       {
         tenantId: TENANT_IDS.ELECTRONICS,
         title: 'Pro Tech Creator Bundle Banner',
-        imageUrl:
-          'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80',
+        imageUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&q=80',
         linkUrl: '/collections/pro-creator-desk-setup',
         isActive: true,
         position: 1,

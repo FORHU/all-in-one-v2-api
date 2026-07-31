@@ -87,7 +87,7 @@ export async function seedImportedProducts(prisma: PrismaClient) {
       costPrice: 8.5,
       sellingPrice: 29.99,
       shippingEstimate: 3.5,
-      imageUrl: 'https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7',
+      imageUrl: 'https://images.unsplash.com/photo-1616400619175-5beda3a17896?w=800&q=80',
       variants: [
         {
           externalId: 'CJ-VAR-101-A',
@@ -126,7 +126,7 @@ export async function seedImportedProducts(prisma: PrismaClient) {
       costPrice: 28.0,
       sellingPrice: 79.5,
       shippingEstimate: 5.0,
-      imageUrl: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e',
+      imageUrl: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80',
       variants: [
         {
           externalId: 'CJ-VAR-102-A',
@@ -165,7 +165,7 @@ export async function seedImportedProducts(prisma: PrismaClient) {
       costPrice: 22.5,
       sellingPrice: 59.99,
       shippingEstimate: 4.2,
-      imageUrl: 'https://images.unsplash.com/photo-1587829741301-dc798b83add3',
+      imageUrl: 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=800&q=80',
       variants: [
         {
           externalId: 'CJ-VAR-103-A',
@@ -204,7 +204,7 @@ export async function seedImportedProducts(prisma: PrismaClient) {
       costPrice: 16.0,
       sellingPrice: 49.99,
       shippingEstimate: 3.0,
-      imageUrl: 'https://images.unsplash.com/photo-1585060544812-6b45742d762f',
+      imageUrl: 'https://images.unsplash.com/photo-1596003906949-67221c37965c?w=800&q=80',
       variants: [
         {
           externalId: 'CJ-VAR-104-A',
@@ -237,7 +237,7 @@ export async function seedImportedProducts(prisma: PrismaClient) {
       costPrice: 18.0,
       sellingPrice: 59.99,
       shippingEstimate: 4.5,
-      imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff',
+      imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&q=80',
       variants: [
         {
           externalId: 'CJ-VAR-201-A',
@@ -276,7 +276,7 @@ export async function seedImportedProducts(prisma: PrismaClient) {
       costPrice: 15.5,
       sellingPrice: 48.0,
       shippingEstimate: 4.0,
-      imageUrl: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2',
+      imageUrl: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=800&q=80',
       variants: [
         {
           externalId: 'CJ-VAR-202-A',
@@ -317,7 +317,7 @@ export async function seedImportedProducts(prisma: PrismaClient) {
       costPrice: 14.2,
       sellingPrice: 45.0,
       shippingEstimate: 2.8,
-      imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30',
+      imageUrl: 'https://images.unsplash.com/photo-1575311373937-040b8e1fd5b6?w=800&q=80',
       variants: [
         {
           externalId: 'CJ-VAR-301-A',
@@ -348,7 +348,7 @@ export async function seedImportedProducts(prisma: PrismaClient) {
       costPrice: 19.5,
       sellingPrice: 65.0,
       shippingEstimate: 3.8,
-      imageUrl: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b',
+      imageUrl: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=800&q=80',
       variants: [
         {
           externalId: 'CJ-VAR-302-A',
@@ -381,7 +381,7 @@ export async function seedImportedProducts(prisma: PrismaClient) {
       costPrice: 9.8,
       sellingPrice: 32.99,
       shippingEstimate: 3.2,
-      imageUrl: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd',
+      imageUrl: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=800&q=80',
       variants: [
         {
           externalId: 'CJ-VAR-401-A',
@@ -412,7 +412,7 @@ export async function seedImportedProducts(prisma: PrismaClient) {
       costPrice: 12.4,
       sellingPrice: 39.99,
       shippingEstimate: 3.1,
-      imageUrl: 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c',
+      imageUrl: 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=800&q=80',
       variants: [
         {
           externalId: 'CJ-VAR-402-A',
@@ -445,7 +445,7 @@ export async function seedImportedProducts(prisma: PrismaClient) {
       costPrice: 6.2,
       sellingPrice: 24.99,
       shippingEstimate: 2.1,
-      imageUrl: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e',
+      imageUrl: 'https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=800&q=80',
       variants: [
         {
           externalId: 'CJ-VAR-501-A',
@@ -478,7 +478,7 @@ export async function seedImportedProducts(prisma: PrismaClient) {
       costPrice: 7.5,
       sellingPrice: 27.99,
       shippingEstimate: 2.9,
-      imageUrl: 'https://images.unsplash.com/photo-1602143407151-7111542de6e8',
+      imageUrl: 'https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=800&q=80',
       variants: [
         {
           externalId: 'CJ-VAR-601-A',
@@ -497,7 +497,304 @@ export async function seedImportedProducts(prisma: PrismaClient) {
         verdict: 'SELL',
       },
     },
+
+    // ============================================================
+    // --- FASHION: COMPLETE OUTFIT SET (5 Pieces) ---
+    // ============================================================
+    {
+      tenantId: TENANT_IDS.FASHION,
+      categoryName: 'Tops',
+      externalId: 'CJ-PID-FSH-301',
+      externalSku: 'CJ-SKU-TOP-ESSENTIALS',
+      title: 'Essential Relaxed Fit Oversized Graphic Tee',
+      slug: 'essential-relaxed-fit-oversized-graphic-tee',
+      description: 'Premium 300gsm heavyweight cotton tee with distressed graphic print. Boxy oversized cut.',
+      costPrice: 6.8,
+      sellingPrice: 22.99,
+      shippingEstimate: 2.5,
+      imageUrl: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=80',
+      variants: [
+        { externalId: 'CJ-VAR-301-A', sku: 'TEE-301-WHT-S', title: 'White / Small', costPrice: 6.8, sellingPrice: 22.99, stock: 200 },
+        { externalId: 'CJ-VAR-301-B', sku: 'TEE-301-WHT-M', title: 'White / Medium', costPrice: 6.8, sellingPrice: 22.99, stock: 350 },
+        { externalId: 'CJ-VAR-301-C', sku: 'TEE-301-BLK-M', title: 'Black / Medium', costPrice: 6.8, sellingPrice: 22.99, stock: 280 },
+      ],
+      rawData: { productNameEn: 'Oversized Graphic Tee', categoryName: 'Tops', weight: '0.3kg', score: 8.7, verdict: 'SELL' },
+    },
+    {
+      tenantId: TENANT_IDS.FASHION,
+      categoryName: 'Bottoms',
+      externalId: 'CJ-PID-FSH-302',
+      externalSku: 'CJ-SKU-CARGO-PANTS',
+      title: 'Tactical Relaxed Cargo Pants with Side Pockets',
+      slug: 'tactical-relaxed-cargo-pants-side-pockets',
+      description: 'Utilitarian cargo trousers in ripstop fabric. Wide-leg, adjustable drawstring hem.',
+      costPrice: 14.5,
+      sellingPrice: 45.99,
+      shippingEstimate: 4.0,
+      imageUrl: 'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&q=80',
+      variants: [
+        { externalId: 'CJ-VAR-302-A', sku: 'CGO-302-BLK-30', title: 'Black / W30', costPrice: 14.5, sellingPrice: 45.99, stock: 180 },
+        { externalId: 'CJ-VAR-302-B', sku: 'CGO-302-OLV-32', title: 'Olive Green / W32', costPrice: 14.5, sellingPrice: 45.99, stock: 140 },
+      ],
+      rawData: { productNameEn: 'Cargo Pants', categoryName: 'Bottoms', weight: '0.6kg', score: 8.9, verdict: 'SELL' },
+    },
+    {
+      tenantId: TENANT_IDS.FASHION,
+      categoryName: 'Outerwear',
+      externalId: 'CJ-PID-FSH-303',
+      externalSku: 'CJ-SKU-BOMBER-JACKET',
+      title: 'Y2K Satin Bomber Jacket with Embroidered Logo',
+      slug: 'y2k-satin-bomber-jacket-embroidered-logo',
+      description: 'Shiny satin bomber with ribbed cuffs, embroidered chest logo, and inner quilted lining.',
+      costPrice: 22.0,
+      sellingPrice: 69.99,
+      shippingEstimate: 5.5,
+      imageUrl: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=800&q=80',
+      variants: [
+        { externalId: 'CJ-VAR-303-A', sku: 'BMB-303-BLK-M', title: 'Black / Medium', costPrice: 22.0, sellingPrice: 69.99, stock: 120 },
+        { externalId: 'CJ-VAR-303-B', sku: 'BMB-303-SLV-L', title: 'Silver / Large', costPrice: 22.0, sellingPrice: 69.99, stock: 90 },
+      ],
+      rawData: { productNameEn: 'Satin Bomber Jacket', categoryName: 'Outerwear', weight: '0.85kg', score: 9.1, verdict: 'SELL' },
+    },
+    {
+      tenantId: TENANT_IDS.FASHION,
+      categoryName: 'Accessories',
+      externalId: 'CJ-PID-FSH-304',
+      externalSku: 'CJ-SKU-STREETWEAR-CAP',
+      title: '6-Panel Structured Streetwear Snapback Cap',
+      slug: '6-panel-structured-streetwear-snapback-cap',
+      description: 'Premium 6-panel cap with flat brim, metal clasp, and embroidered logo patch.',
+      costPrice: 5.2,
+      sellingPrice: 18.99,
+      shippingEstimate: 1.8,
+      imageUrl: 'https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=800&q=80',
+      variants: [
+        { externalId: 'CJ-VAR-304-A', sku: 'CAP-304-BLK', title: 'Black / One Size', costPrice: 5.2, sellingPrice: 18.99, stock: 400 },
+        { externalId: 'CJ-VAR-304-B', sku: 'CAP-304-WHT', title: 'White / One Size', costPrice: 5.2, sellingPrice: 18.99, stock: 320 },
+      ],
+      rawData: { productNameEn: 'Snapback Cap', categoryName: 'Accessories', weight: '0.15kg', score: 8.5, verdict: 'SELL' },
+    },
+    {
+      tenantId: TENANT_IDS.FASHION,
+      categoryName: 'Bags',
+      externalId: 'CJ-PID-FSH-305',
+      externalSku: 'CJ-SKU-CROSSBODY-BAG',
+      title: 'Mini Urban Crossbody Sling Bag 5L',
+      slug: 'mini-urban-crossbody-sling-bag-5l',
+      description: 'Compact waterproof crossbody bag with USB charging port, earphone hole, and adjustable strap.',
+      costPrice: 8.9,
+      sellingPrice: 29.99,
+      shippingEstimate: 2.2,
+      imageUrl: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=800&q=80',
+      variants: [
+        { externalId: 'CJ-VAR-305-A', sku: 'SLG-305-BLK', title: 'Black', costPrice: 8.9, sellingPrice: 29.99, stock: 260 },
+        { externalId: 'CJ-VAR-305-B', sku: 'SLG-305-NVY', title: 'Navy Blue', costPrice: 8.9, sellingPrice: 29.99, stock: 190 },
+      ],
+      rawData: { productNameEn: 'Crossbody Sling Bag', categoryName: 'Bags', weight: '0.25kg', score: 8.8, verdict: 'SELL' },
+    },
+
+    // ============================================================
+    // --- AUTOMOBILES ---
+    // ============================================================
+    {
+      tenantId: TENANT_IDS.AUTOMOBILES,
+      categoryName: 'Car Care & Cleaning',
+      externalId: 'CJ-PID-AUTO-101',
+      externalSku: 'CJ-SKU-FOAM-CANNON',
+      title: 'Foam Cannon Snow Wash Kit with Adjustable Pressure Nozzle',
+      slug: 'foam-cannon-snow-wash-kit-adjustable-pressure',
+      description: 'Professional grade foam cannon for pressure washers. Creates thick car shampoo foam blanket.',
+      costPrice: 12.0,
+      sellingPrice: 39.99,
+      shippingEstimate: 3.5,
+      imageUrl: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80',
+      variants: [
+        { externalId: 'CJ-VAR-AUTO-101-A', sku: 'FOAM-101-STD', title: 'Standard Kit', costPrice: 12.0, sellingPrice: 39.99, stock: 230 },
+      ],
+      rawData: { productNameEn: 'Foam Cannon Wash Kit', categoryName: 'Car Care', weight: '0.8kg', score: 8.6, verdict: 'SELL' },
+    },
+    {
+      tenantId: TENANT_IDS.AUTOMOBILES,
+      categoryName: 'Car Electronics',
+      externalId: 'CJ-PID-AUTO-102',
+      externalSku: 'CJ-SKU-DASHCAM-4K',
+      title: '4K Ultra HD Dash Cam with Night Vision & GPS Tracking',
+      slug: '4k-ultra-hd-dash-cam-night-vision-gps',
+      description: '170° wide angle front camera, loop recording, G-sensor shock detection, and built-in GPS logger.',
+      costPrice: 28.5,
+      sellingPrice: 79.99,
+      shippingEstimate: 4.0,
+      imageUrl: 'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?w=800&q=80',
+      variants: [
+        { externalId: 'CJ-VAR-AUTO-102-A', sku: 'DASH-102-4K', title: '4K Front Only', costPrice: 28.5, sellingPrice: 79.99, stock: 160 },
+        { externalId: 'CJ-VAR-AUTO-102-B', sku: 'DASH-102-4K-R', title: '4K Front + Rear', costPrice: 35.0, sellingPrice: 99.99, stock: 120 },
+      ],
+      rawData: { productNameEn: '4K Dash Camera with GPS', categoryName: 'Car Electronics', weight: '0.3kg', score: 9.0, verdict: 'SELL' },
+    },
+
+    // ============================================================
+    // --- TOYS & KIDS ---
+    // ============================================================
+    {
+      tenantId: TENANT_IDS.TOYS_KIDS,
+      categoryName: 'Building & STEM Toys',
+      externalId: 'CJ-PID-TOY-101',
+      externalSku: 'CJ-SKU-STEM-ROBOT-KIT',
+      title: 'DIY STEM Robot Building Kit for Kids 8-14 Years',
+      slug: 'diy-stem-robot-building-kit-kids-8-14',
+      description: 'Educational coding robot kit with 200+ parts, LED eyes, Bluetooth app control, and solar power option.',
+      costPrice: 18.5,
+      sellingPrice: 54.99,
+      shippingEstimate: 4.5,
+      imageUrl: 'https://images.unsplash.com/photo-1531746790731-6c087fecd65a?w=800&q=80',
+      variants: [
+        { externalId: 'CJ-VAR-TOY-101-A', sku: 'ROBOT-101-STD', title: 'Standard Edition', costPrice: 18.5, sellingPrice: 54.99, stock: 180 },
+      ],
+      rawData: { productNameEn: 'STEM Robot Kit for Kids', categoryName: 'STEM Toys', weight: '0.6kg', score: 9.2, verdict: 'SELL' },
+    },
+    {
+      tenantId: TENANT_IDS.TOYS_KIDS,
+      categoryName: 'Outdoor Play',
+      externalId: 'CJ-PID-TOY-102',
+      externalSku: 'CJ-SKU-BUBBLE-GUN',
+      title: 'Electric Gatling Bubble Machine Gun with LED Lights',
+      slug: 'electric-gatling-bubble-machine-gun-led',
+      description: 'Auto-bubble gun producing 500+ bubbles per minute with colorful LED disco lights.',
+      costPrice: 7.2,
+      sellingPrice: 19.99,
+      shippingEstimate: 2.0,
+      imageUrl: 'https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=800&q=80',
+      variants: [
+        { externalId: 'CJ-VAR-TOY-102-A', sku: 'BUB-102-PNK', title: 'Pink', costPrice: 7.2, sellingPrice: 19.99, stock: 350 },
+        { externalId: 'CJ-VAR-TOY-102-B', sku: 'BUB-102-BLU', title: 'Blue', costPrice: 7.2, sellingPrice: 19.99, stock: 280 },
+      ],
+      rawData: { productNameEn: 'Bubble Machine Gun', categoryName: 'Outdoor Play', weight: '0.35kg', score: 8.8, verdict: 'SELL' },
+    },
+
+    // ============================================================
+    // --- GROCERIES ---
+    // ============================================================
+    {
+      tenantId: TENANT_IDS.GROCERIES,
+      categoryName: 'Coffee & Hot Beverages',
+      externalId: 'CJ-PID-GRC-101',
+      externalSku: 'CJ-SKU-PREMIUM-COFFEE',
+      title: 'Artisan Single Origin Dark Roast Coffee Beans 500g',
+      slug: 'artisan-single-origin-dark-roast-coffee-500g',
+      description: 'Ethically sourced Arabica beans from Colombian highlands. Rich chocolate and berry flavor profile.',
+      costPrice: 9.0,
+      sellingPrice: 24.99,
+      shippingEstimate: 2.8,
+      imageUrl: 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?w=800&q=80',
+      variants: [
+        { externalId: 'CJ-VAR-GRC-101-A', sku: 'COFFEE-101-500G', title: '500g Whole Bean', costPrice: 9.0, sellingPrice: 24.99, stock: 500 },
+        { externalId: 'CJ-VAR-GRC-101-B', sku: 'COFFEE-101-1KG', title: '1kg Whole Bean', costPrice: 16.5, sellingPrice: 44.99, stock: 300 },
+      ],
+      rawData: { productNameEn: 'Single Origin Dark Roast Coffee', categoryName: 'Coffee', weight: '0.55kg', score: 9.3, verdict: 'SELL' },
+    },
+    {
+      tenantId: TENANT_IDS.GROCERIES,
+      categoryName: 'Snacks & Confectionery',
+      externalId: 'CJ-PID-GRC-102',
+      externalSku: 'CJ-SKU-GOURMET-NUTS',
+      title: 'Gourmet Mixed Nuts Roasted & Salted Variety Pack 1kg',
+      slug: 'gourmet-mixed-nuts-roasted-salted-variety-pack-1kg',
+      description: 'Premium blend of cashews, almonds, macadamia, and Brazil nuts. Zero artificial preservatives.',
+      costPrice: 11.0,
+      sellingPrice: 29.99,
+      shippingEstimate: 3.0,
+      imageUrl: 'https://images.unsplash.com/photo-1542838686-937051b7d57c?w=800&q=80',
+      variants: [
+        { externalId: 'CJ-VAR-GRC-102-A', sku: 'NUTS-102-1KG', title: '1kg Variety Pack', costPrice: 11.0, sellingPrice: 29.99, stock: 400 },
+      ],
+      rawData: { productNameEn: 'Gourmet Mixed Nuts 1kg', categoryName: 'Snacks', weight: '1.05kg', score: 8.9, verdict: 'SELL' },
+    },
+
+    // ============================================================
+    // --- PET SUPPLIES ---
+    // ============================================================
+    {
+      tenantId: TENANT_IDS.PET_SUPPLIES,
+      categoryName: 'Pet Food',
+      externalId: 'CJ-PID-PET-101',
+      externalSku: 'CJ-SKU-DOG-FOOD-PREMIUM',
+      title: 'Premium Grain-Free Dry Dog Food with Salmon & Sweet Potato 5kg',
+      slug: 'premium-grain-free-dry-dog-food-salmon-sweet-potato-5kg',
+      description: 'High protein formula with real salmon as #1 ingredient. Omega 3 & 6 for a shiny coat.',
+      costPrice: 18.0,
+      sellingPrice: 49.99,
+      shippingEstimate: 5.5,
+      imageUrl: 'https://images.unsplash.com/photo-1589924691995-400dc9edf38f?w=800&q=80',
+      variants: [
+        { externalId: 'CJ-VAR-PET-101-A', sku: 'DOG-101-5KG', title: '5kg Bag', costPrice: 18.0, sellingPrice: 49.99, stock: 220 },
+        { externalId: 'CJ-VAR-PET-101-B', sku: 'DOG-101-10KG', title: '10kg Bag', costPrice: 32.0, sellingPrice: 84.99, stock: 150 },
+      ],
+      rawData: { productNameEn: 'Grain-Free Salmon Dog Food', categoryName: 'Pet Food', weight: '5.2kg', score: 9.1, verdict: 'SELL' },
+    },
+    {
+      tenantId: TENANT_IDS.PET_SUPPLIES,
+      categoryName: 'Pet Accessories',
+      externalId: 'CJ-PID-PET-102',
+      externalSku: 'CJ-SKU-PET-CARRIER',
+      title: 'Airline Approved Soft-Side Pet Carrier Bag for Cats & Dogs',
+      slug: 'airline-approved-soft-side-pet-carrier-cats-dogs',
+      description: 'Collapsible carrier with mesh windows, fleece mat, shoulder strap, and safety leash hook.',
+      costPrice: 16.5,
+      sellingPrice: 44.99,
+      shippingEstimate: 4.2,
+      imageUrl: 'https://images.unsplash.com/photo-1601758125946-6ec2ef64daf8?w=800&q=80',
+      variants: [
+        { externalId: 'CJ-VAR-PET-102-A', sku: 'CARRIER-102-SM', title: 'Small (up to 5kg)', costPrice: 16.5, sellingPrice: 44.99, stock: 190 },
+        { externalId: 'CJ-VAR-PET-102-B', sku: 'CARRIER-102-MD', title: 'Medium (up to 9kg)', costPrice: 20.0, sellingPrice: 54.99, stock: 140 },
+      ],
+      rawData: { productNameEn: 'Airline Approved Pet Carrier', categoryName: 'Pet Accessories', weight: '0.9kg', score: 8.7, verdict: 'SELL' },
+    },
+
+    // ============================================================
+    // --- BEAUTY (additional) ---
+    // ============================================================
+    {
+      tenantId: TENANT_IDS.BEAUTY,
+      categoryName: 'Hair Care',
+      externalId: 'CJ-PID-BTY-101',
+      externalSku: 'CJ-SKU-HAIR-DRYER',
+      title: 'Professional Ionic Hair Dryer 2200W with Diffuser Attachment',
+      slug: 'professional-ionic-hair-dryer-2200w-diffuser',
+      description: 'Fast-drying ionic technology reduces frizz and adds shine. Cool shot button and 3 heat settings.',
+      costPrice: 19.5,
+      sellingPrice: 55.99,
+      shippingEstimate: 4.0,
+      imageUrl: 'https://images.unsplash.com/photo-1522338242992-e1a54906a8da?w=800&q=80',
+      variants: [
+        { externalId: 'CJ-VAR-BTY-101-A', sku: 'HDRYR-101-BLK', title: 'Matte Black', costPrice: 19.5, sellingPrice: 55.99, stock: 200 },
+        { externalId: 'CJ-VAR-BTY-101-B', sku: 'HDRYR-101-ROSE', title: 'Rose Gold', costPrice: 19.5, sellingPrice: 55.99, stock: 175 },
+      ],
+      rawData: { productNameEn: 'Ionic Hair Dryer 2200W', categoryName: 'Hair Care', weight: '0.65kg', score: 9.0, verdict: 'SELL' },
+    },
+
+    // ============================================================
+    // --- SPORTS & OUTDOORS (additional) ---
+    // ============================================================
+    {
+      tenantId: TENANT_IDS.SPORTS_OUTDOORS,
+      categoryName: 'Yoga & Pilates',
+      externalId: 'CJ-PID-SPT-101',
+      externalSku: 'CJ-SKU-YOGA-MAT-PRO',
+      title: 'Anti-Slip Professional Yoga Mat 6mm with Alignment Lines',
+      slug: 'anti-slip-professional-yoga-mat-6mm-alignment',
+      description: 'Eco-friendly TPE foam mat with alignment lines, carry strap, and sweat-resistant surface.',
+      costPrice: 9.5,
+      sellingPrice: 29.99,
+      shippingEstimate: 3.8,
+      imageUrl: 'https://images.unsplash.com/photo-1599901860904-17e6ed7083a0?w=800&q=80',
+      variants: [
+        { externalId: 'CJ-VAR-SPT-101-A', sku: 'YOGA-101-PRP', title: 'Purple 6mm', costPrice: 9.5, sellingPrice: 29.99, stock: 300 },
+        { externalId: 'CJ-VAR-SPT-101-B', sku: 'YOGA-101-BLK', title: 'Black 6mm', costPrice: 9.5, sellingPrice: 29.99, stock: 280 },
+      ],
+      rawData: { productNameEn: 'Professional Yoga Mat 6mm', categoryName: 'Yoga', weight: '1.0kg', score: 8.9, verdict: 'SELL' },
+    },
   ];
+
 
   let importedCount = 0;
 
