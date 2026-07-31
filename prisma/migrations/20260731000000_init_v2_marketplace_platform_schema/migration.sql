@@ -1,3 +1,6 @@
+-- CreateSchema
+CREATE SCHEMA IF NOT EXISTS "public";
+
 -- CreateEnum
 CREATE TYPE "UserRole" AS ENUM ('USER', 'ADMIN', 'SUPER_ADMIN', 'DEVELOPER');
 
@@ -66,6 +69,12 @@ CREATE TYPE "PaymentChannel" AS ENUM ('CARD', 'EWALLET', 'BANK_TRANSFER', 'QR', 
 
 -- CreateEnum
 CREATE TYPE "PaymentInstrument" AS ENUM ('VISA', 'MASTERCARD', 'AMEX', 'GCASH', 'MAYA', 'BPI', 'BDO', 'METROBANK', 'QRPH');
+
+-- CreateEnum
+CREATE TYPE "AttributeType" AS ENUM ('SELECT', 'TEXT', 'NUMBER', 'BOOLEAN');
+
+-- CreateEnum
+CREATE TYPE "PromotionStatus" AS ENUM ('DRAFT', 'ACTIVE', 'SCHEDULED', 'EXPIRED', 'DISABLED');
 
 -- CreateTable
 CREATE TABLE "auth_users" (
@@ -165,12 +174,16 @@ CREATE TABLE "catalog_products" (
     "id" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
     "title" TEXT NOT NULL,
-    "slug" TEXT,
+    "slug" TEXT NOT NULL,
     "description" TEXT,
     "tags" TEXT[],
     "status" "ProductStatus" NOT NULL DEFAULT 'DRAFT',
     "featured" BOOLEAN NOT NULL DEFAULT false,
-    "salePrice" DECIMAL(65,30),
+    "price" DECIMAL(12,2),
+    "salePrice" DECIMAL(12,2),
+    "compareAtPrice" DECIMAL(12,2),
+    "discount" JSONB,
+    "thumbnailUrl" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "categoryId" TEXT,
@@ -187,11 +200,15 @@ CREATE TABLE "catalog_product_variants" (
     "sku" TEXT,
     "title" TEXT NOT NULL,
     "price" DECIMAL(12,2) NOT NULL,
+    "compareAtPrice" DECIMAL(12,2),
     "baseCost" DECIMAL(12,2),
     "sellingPrice" DECIMAL(12,2),
     "calculatedPrice" DECIMAL(12,2),
+    "discount" JSONB,
     "stock" INTEGER NOT NULL DEFAULT 0,
     "attributes" JSONB,
+    "sizeEntryId" TEXT,
+    "pricingRuleId" TEXT,
 
     CONSTRAINT "catalog_product_variants_pkey" PRIMARY KEY ("id")
 );
@@ -210,6 +227,43 @@ CREATE TABLE "catalog_product_media" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "catalog_product_media_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "catalog_size_guides" (
+    "id" TEXT NOT NULL,
+    "productId" TEXT NOT NULL,
+    "label" TEXT NOT NULL,
+    "description" TEXT,
+    "unit" TEXT NOT NULL DEFAULT 'CM',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "catalog_size_guides_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "catalog_size_entries" (
+    "id" TEXT NOT NULL,
+    "guideId" TEXT NOT NULL,
+    "sizeLabel" TEXT NOT NULL,
+    "position" INTEGER NOT NULL DEFAULT 0,
+    "chest" DECIMAL(12,2),
+    "waist" DECIMAL(12,2),
+    "hips" DECIMAL(12,2),
+    "inseam" DECIMAL(12,2),
+    "length" DECIMAL(12,2),
+    "shoulder" DECIMAL(12,2),
+    "sleeve" DECIMAL(12,2),
+    "footLength" DECIMAL(12,2),
+    "width" DECIMAL(12,2),
+    "height" DECIMAL(12,2),
+    "depth" DECIMAL(12,2),
+    "screenSize" DECIMAL(12,2),
+    "weight" DECIMAL(12,2),
+    "weightUnit" TEXT,
+
+    CONSTRAINT "catalog_size_entries_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -264,9 +318,14 @@ CREATE TABLE "supplier_products" (
     "productId" TEXT,
     "externalId" TEXT NOT NULL,
     "externalSku" TEXT,
+    "title" TEXT,
+    "description" TEXT,
+    "brand" TEXT,
+    "thumbnailUrl" TEXT,
     "rawData" JSONB NOT NULL,
-    "costPrice" DECIMAL(65,30) NOT NULL,
-    "shippingEstimate" DECIMAL(65,30),
+    "costPrice" DECIMAL(12,2) NOT NULL,
+    "retailPrice" DECIMAL(12,2),
+    "shippingEstimate" DECIMAL(12,2),
     "syncStatus" "SyncStatus" NOT NULL DEFAULT 'PENDING',
     "lastSyncError" TEXT,
     "lastSyncedAt" TIMESTAMP(3),
@@ -282,14 +341,50 @@ CREATE TABLE "supplier_variants" (
     "supplierProductId" TEXT NOT NULL,
     "productVariantId" TEXT,
     "externalId" TEXT NOT NULL,
-    "costPrice" DECIMAL(65,30) NOT NULL,
+    "costPrice" DECIMAL(12,2) NOT NULL,
+    "retailPrice" DECIMAL(12,2),
     "rawData" JSONB NOT NULL,
     "stock" INTEGER,
     "syncStatus" "SyncStatus" NOT NULL DEFAULT 'PENDING',
     "lastSyncError" TEXT,
     "lastSyncedAt" TIMESTAMP(3),
+    "title" TEXT,
+    "thumbnailUrl" TEXT,
+    "attributes" JSONB,
 
     CONSTRAINT "supplier_variants_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "supplier_product_images" (
+    "id" TEXT NOT NULL,
+    "supplierProductId" TEXT NOT NULL,
+    "fileId" TEXT,
+    "url" TEXT NOT NULL,
+    "thumbnailUrl" TEXT,
+    "altText" TEXT,
+    "position" INTEGER NOT NULL DEFAULT 0,
+    "isPrimary" BOOLEAN NOT NULL DEFAULT false,
+    "type" TEXT NOT NULL DEFAULT 'IMAGE',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "supplier_product_images_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "supplier_variant_images" (
+    "id" TEXT NOT NULL,
+    "supplierVariantId" TEXT NOT NULL,
+    "fileId" TEXT,
+    "url" TEXT NOT NULL,
+    "thumbnailUrl" TEXT,
+    "altText" TEXT,
+    "position" INTEGER NOT NULL DEFAULT 0,
+    "isPrimary" BOOLEAN NOT NULL DEFAULT false,
+    "type" TEXT NOT NULL DEFAULT 'IMAGE',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "supplier_variant_images_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -415,8 +510,8 @@ CREATE TABLE "commerce_shipments" (
 CREATE TABLE "commerce_payments" (
     "id" TEXT NOT NULL,
     "orderId" TEXT NOT NULL,
-    "gateway" "PaymentGateway" NOT NULL DEFAULT 'PAYMONGO',
-    "channel" "PaymentChannel" NOT NULL DEFAULT 'CARD',
+    "gateway" "PaymentGateway",
+    "channel" "PaymentChannel",
     "instrument" "PaymentInstrument",
     "expectedAmount" DECIMAL(18,2) NOT NULL,
     "amount" DECIMAL(18,2) NOT NULL,
@@ -539,6 +634,7 @@ CREATE TABLE "cms_page_sections" (
     "position" INTEGER NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "collectionId" TEXT,
 
     CONSTRAINT "cms_page_sections_pkey" PRIMARY KEY ("id")
 );
@@ -547,6 +643,7 @@ CREATE TABLE "cms_page_sections" (
 CREATE TABLE "cms_banners" (
     "id" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
+    "imageFileId" TEXT,
     "title" TEXT NOT NULL,
     "imageUrl" TEXT NOT NULL,
     "linkUrl" TEXT,
@@ -855,6 +952,163 @@ CREATE TABLE "analytics_daily_sales" (
     CONSTRAINT "analytics_daily_sales_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "catalog_collections" (
+    "id" TEXT NOT NULL,
+    "tenantId" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "slug" TEXT NOT NULL,
+    "description" TEXT,
+    "type" TEXT NOT NULL,
+    "imageFileId" TEXT,
+    "imageUrl" TEXT,
+    "metadata" JSONB,
+    "isPublic" BOOLEAN NOT NULL DEFAULT true,
+    "isDeleted" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "parentId" TEXT,
+
+    CONSTRAINT "catalog_collections_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "catalog_collection_items" (
+    "id" TEXT NOT NULL,
+    "collectionId" TEXT NOT NULL,
+    "productId" TEXT NOT NULL,
+    "productVariantId" TEXT,
+    "imageFileId" TEXT,
+    "slot" TEXT,
+    "imageUrl" TEXT,
+    "position" INTEGER NOT NULL DEFAULT 0,
+    "isOptional" BOOLEAN NOT NULL DEFAULT false,
+    "metadata" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "catalog_collection_items_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "catalog_attributes" (
+    "id" TEXT NOT NULL,
+    "tenantId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "code" TEXT NOT NULL,
+    "type" "AttributeType" NOT NULL DEFAULT 'SELECT',
+    "isFilterable" BOOLEAN NOT NULL DEFAULT true,
+    "isSearchable" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "catalog_attributes_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "catalog_attribute_values" (
+    "id" TEXT NOT NULL,
+    "attributeId" TEXT NOT NULL,
+    "value" TEXT NOT NULL,
+    "label" TEXT NOT NULL,
+    "swatchColor" TEXT,
+    "position" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "catalog_attribute_values_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "catalog_variant_attributes" (
+    "variantId" TEXT NOT NULL,
+    "valueId" TEXT NOT NULL,
+
+    CONSTRAINT "catalog_variant_attributes_pkey" PRIMARY KEY ("variantId","valueId")
+);
+
+-- CreateTable
+CREATE TABLE "promotions" (
+    "id" TEXT NOT NULL,
+    "tenantId" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "code" TEXT,
+    "description" TEXT,
+    "status" "PromotionStatus" NOT NULL DEFAULT 'ACTIVE',
+    "priority" INTEGER NOT NULL DEFAULT 0,
+    "startDate" TIMESTAMP(3),
+    "endDate" TIMESTAMP(3),
+    "usageLimit" INTEGER,
+    "usageCount" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "promotions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "promotion_rules" (
+    "id" TEXT NOT NULL,
+    "promotionId" TEXT NOT NULL,
+    "ruleType" TEXT NOT NULL,
+    "condition" JSONB NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "promotion_rules_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "promotion_rewards" (
+    "id" TEXT NOT NULL,
+    "promotionId" TEXT NOT NULL,
+    "rewardType" TEXT NOT NULL,
+    "value" DECIMAL(12,2) NOT NULL,
+    "maxDiscount" DECIMAL(12,2),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "promotion_rewards_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "promotion_targets" (
+    "id" TEXT NOT NULL,
+    "promotionId" TEXT NOT NULL,
+    "targetType" TEXT NOT NULL,
+    "targetId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "promotion_targets_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "inventory_locations" (
+    "id" TEXT NOT NULL,
+    "tenantId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "code" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "isPrimary" BOOLEAN NOT NULL DEFAULT false,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "address" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "inventory_locations_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "inventory_stocks" (
+    "id" TEXT NOT NULL,
+    "tenantId" TEXT NOT NULL,
+    "variantId" TEXT NOT NULL,
+    "locationId" TEXT NOT NULL,
+    "onHand" INTEGER NOT NULL DEFAULT 0,
+    "reserved" INTEGER NOT NULL DEFAULT 0,
+    "available" INTEGER NOT NULL DEFAULT 0,
+    "reorderPoint" INTEGER NOT NULL DEFAULT 5,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "inventory_stocks_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "auth_users_email_key" ON "auth_users"("email");
 
@@ -910,6 +1164,12 @@ CREATE INDEX "catalog_product_variants_productId_idx" ON "catalog_product_varian
 CREATE INDEX "catalog_product_variants_tenantId_idx" ON "catalog_product_variants"("tenantId");
 
 -- CreateIndex
+CREATE INDEX "catalog_product_variants_sizeEntryId_idx" ON "catalog_product_variants"("sizeEntryId");
+
+-- CreateIndex
+CREATE INDEX "catalog_product_variants_pricingRuleId_idx" ON "catalog_product_variants"("pricingRuleId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "catalog_product_variants_tenantId_sku_key" ON "catalog_product_variants"("tenantId", "sku");
 
 -- CreateIndex
@@ -920,6 +1180,12 @@ CREATE INDEX "catalog_product_media_productVariantId_idx" ON "catalog_product_me
 
 -- CreateIndex
 CREATE INDEX "catalog_product_media_fileId_idx" ON "catalog_product_media"("fileId");
+
+-- CreateIndex
+CREATE INDEX "catalog_size_guides_productId_idx" ON "catalog_size_guides"("productId");
+
+-- CreateIndex
+CREATE INDEX "catalog_size_entries_guideId_position_idx" ON "catalog_size_entries"("guideId", "position");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "supplier_partners_name_key" ON "supplier_partners"("name");
@@ -941,6 +1207,24 @@ CREATE UNIQUE INDEX "supplier_products_supplierId_externalId_key" ON "supplier_p
 
 -- CreateIndex
 CREATE UNIQUE INDEX "supplier_variants_supplierProductId_externalId_key" ON "supplier_variants"("supplierProductId", "externalId");
+
+-- CreateIndex
+CREATE INDEX "supplier_product_images_supplierProductId_position_idx" ON "supplier_product_images"("supplierProductId", "position");
+
+-- CreateIndex
+CREATE INDEX "supplier_product_images_supplierProductId_isPrimary_idx" ON "supplier_product_images"("supplierProductId", "isPrimary");
+
+-- CreateIndex
+CREATE INDEX "supplier_product_images_fileId_idx" ON "supplier_product_images"("fileId");
+
+-- CreateIndex
+CREATE INDEX "supplier_variant_images_supplierVariantId_position_idx" ON "supplier_variant_images"("supplierVariantId", "position");
+
+-- CreateIndex
+CREATE INDEX "supplier_variant_images_supplierVariantId_isPrimary_idx" ON "supplier_variant_images"("supplierVariantId", "isPrimary");
+
+-- CreateIndex
+CREATE INDEX "supplier_variant_images_fileId_idx" ON "supplier_variant_images"("fileId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "commerce_customers_userId_key" ON "commerce_customers"("userId");
@@ -1048,7 +1332,13 @@ CREATE UNIQUE INDEX "cms_pages_tenantId_slug_key" ON "cms_pages"("tenantId", "sl
 CREATE INDEX "cms_page_sections_pageId_idx" ON "cms_page_sections"("pageId");
 
 -- CreateIndex
+CREATE INDEX "cms_page_sections_collectionId_idx" ON "cms_page_sections"("collectionId");
+
+-- CreateIndex
 CREATE INDEX "cms_banners_tenantId_idx" ON "cms_banners"("tenantId");
+
+-- CreateIndex
+CREATE INDEX "cms_banners_imageFileId_idx" ON "cms_banners"("imageFileId");
 
 -- CreateIndex
 CREATE INDEX "cms_announcements_tenantId_idx" ON "cms_announcements"("tenantId");
@@ -1194,6 +1484,84 @@ CREATE INDEX "analytics_daily_sales_tenantId_date_idx" ON "analytics_daily_sales
 -- CreateIndex
 CREATE UNIQUE INDEX "analytics_daily_sales_tenantId_date_key" ON "analytics_daily_sales"("tenantId", "date");
 
+-- CreateIndex
+CREATE INDEX "catalog_collections_tenantId_type_idx" ON "catalog_collections"("tenantId", "type");
+
+-- CreateIndex
+CREATE INDEX "catalog_collections_tenantId_isPublic_idx" ON "catalog_collections"("tenantId", "isPublic");
+
+-- CreateIndex
+CREATE INDEX "catalog_collections_parentId_idx" ON "catalog_collections"("parentId");
+
+-- CreateIndex
+CREATE INDEX "catalog_collections_imageFileId_idx" ON "catalog_collections"("imageFileId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "catalog_collections_tenantId_slug_key" ON "catalog_collections"("tenantId", "slug");
+
+-- CreateIndex
+CREATE INDEX "catalog_collection_items_collectionId_position_idx" ON "catalog_collection_items"("collectionId", "position");
+
+-- CreateIndex
+CREATE INDEX "catalog_collection_items_productId_idx" ON "catalog_collection_items"("productId");
+
+-- CreateIndex
+CREATE INDEX "catalog_collection_items_productVariantId_idx" ON "catalog_collection_items"("productVariantId");
+
+-- CreateIndex
+CREATE INDEX "catalog_collection_items_imageFileId_idx" ON "catalog_collection_items"("imageFileId");
+
+-- CreateIndex
+CREATE INDEX "catalog_attributes_tenantId_idx" ON "catalog_attributes"("tenantId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "catalog_attributes_tenantId_code_key" ON "catalog_attributes"("tenantId", "code");
+
+-- CreateIndex
+CREATE INDEX "catalog_attribute_values_attributeId_idx" ON "catalog_attribute_values"("attributeId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "catalog_attribute_values_attributeId_value_key" ON "catalog_attribute_values"("attributeId", "value");
+
+-- CreateIndex
+CREATE INDEX "catalog_variant_attributes_variantId_idx" ON "catalog_variant_attributes"("variantId");
+
+-- CreateIndex
+CREATE INDEX "catalog_variant_attributes_valueId_idx" ON "catalog_variant_attributes"("valueId");
+
+-- CreateIndex
+CREATE INDEX "promotions_tenantId_status_idx" ON "promotions"("tenantId", "status");
+
+-- CreateIndex
+CREATE INDEX "promotions_code_idx" ON "promotions"("code");
+
+-- CreateIndex
+CREATE INDEX "promotion_rules_promotionId_idx" ON "promotion_rules"("promotionId");
+
+-- CreateIndex
+CREATE INDEX "promotion_rewards_promotionId_idx" ON "promotion_rewards"("promotionId");
+
+-- CreateIndex
+CREATE INDEX "promotion_targets_promotionId_targetType_targetId_idx" ON "promotion_targets"("promotionId", "targetType", "targetId");
+
+-- CreateIndex
+CREATE INDEX "inventory_locations_tenantId_idx" ON "inventory_locations"("tenantId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "inventory_locations_tenantId_code_key" ON "inventory_locations"("tenantId", "code");
+
+-- CreateIndex
+CREATE INDEX "inventory_stocks_tenantId_idx" ON "inventory_stocks"("tenantId");
+
+-- CreateIndex
+CREATE INDEX "inventory_stocks_variantId_idx" ON "inventory_stocks"("variantId");
+
+-- CreateIndex
+CREATE INDEX "inventory_stocks_locationId_idx" ON "inventory_stocks"("locationId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "inventory_stocks_variantId_locationId_key" ON "inventory_stocks"("variantId", "locationId");
+
 -- AddForeignKey
 ALTER TABLE "auth_users" ADD CONSTRAINT "auth_users_avatarId_fkey" FOREIGN KEY ("avatarId") REFERENCES "auth_files"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
@@ -1225,6 +1593,12 @@ ALTER TABLE "catalog_product_variants" ADD CONSTRAINT "catalog_product_variants_
 ALTER TABLE "catalog_product_variants" ADD CONSTRAINT "catalog_product_variants_productId_fkey" FOREIGN KEY ("productId") REFERENCES "catalog_products"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "catalog_product_variants" ADD CONSTRAINT "catalog_product_variants_sizeEntryId_fkey" FOREIGN KEY ("sizeEntryId") REFERENCES "catalog_size_entries"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "catalog_product_variants" ADD CONSTRAINT "catalog_product_variants_pricingRuleId_fkey" FOREIGN KEY ("pricingRuleId") REFERENCES "catalog_pricing_rules"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "catalog_product_media" ADD CONSTRAINT "catalog_product_media_productId_fkey" FOREIGN KEY ("productId") REFERENCES "catalog_products"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -1232,6 +1606,12 @@ ALTER TABLE "catalog_product_media" ADD CONSTRAINT "catalog_product_media_produc
 
 -- AddForeignKey
 ALTER TABLE "catalog_product_media" ADD CONSTRAINT "catalog_product_media_fileId_fkey" FOREIGN KEY ("fileId") REFERENCES "auth_files"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "catalog_size_guides" ADD CONSTRAINT "catalog_size_guides_productId_fkey" FOREIGN KEY ("productId") REFERENCES "catalog_products"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "catalog_size_entries" ADD CONSTRAINT "catalog_size_entries_guideId_fkey" FOREIGN KEY ("guideId") REFERENCES "catalog_size_guides"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "supplier_credentials" ADD CONSTRAINT "supplier_credentials_supplierId_fkey" FOREIGN KEY ("supplierId") REFERENCES "supplier_partners"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1250,6 +1630,18 @@ ALTER TABLE "supplier_variants" ADD CONSTRAINT "supplier_variants_supplierProduc
 
 -- AddForeignKey
 ALTER TABLE "supplier_variants" ADD CONSTRAINT "supplier_variants_productVariantId_fkey" FOREIGN KEY ("productVariantId") REFERENCES "catalog_product_variants"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "supplier_product_images" ADD CONSTRAINT "supplier_product_images_supplierProductId_fkey" FOREIGN KEY ("supplierProductId") REFERENCES "supplier_products"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "supplier_product_images" ADD CONSTRAINT "supplier_product_images_fileId_fkey" FOREIGN KEY ("fileId") REFERENCES "auth_files"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "supplier_variant_images" ADD CONSTRAINT "supplier_variant_images_supplierVariantId_fkey" FOREIGN KEY ("supplierVariantId") REFERENCES "supplier_variants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "supplier_variant_images" ADD CONSTRAINT "supplier_variant_images_fileId_fkey" FOREIGN KEY ("fileId") REFERENCES "auth_files"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "commerce_customers" ADD CONSTRAINT "commerce_customers_userId_fkey" FOREIGN KEY ("userId") REFERENCES "auth_users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1318,7 +1710,13 @@ ALTER TABLE "cms_pages" ADD CONSTRAINT "cms_pages_tenantId_fkey" FOREIGN KEY ("t
 ALTER TABLE "cms_page_sections" ADD CONSTRAINT "cms_page_sections_pageId_fkey" FOREIGN KEY ("pageId") REFERENCES "cms_pages"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "cms_page_sections" ADD CONSTRAINT "cms_page_sections_collectionId_fkey" FOREIGN KEY ("collectionId") REFERENCES "catalog_collections"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "cms_banners" ADD CONSTRAINT "cms_banners_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cms_banners" ADD CONSTRAINT "cms_banners_imageFileId_fkey" FOREIGN KEY ("imageFileId") REFERENCES "auth_files"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "cms_announcements" ADD CONSTRAINT "cms_announcements_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1433,3 +1831,61 @@ ALTER TABLE "analytics_customers" ADD CONSTRAINT "analytics_customers_customerId
 
 -- AddForeignKey
 ALTER TABLE "analytics_daily_sales" ADD CONSTRAINT "analytics_daily_sales_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "catalog_collections" ADD CONSTRAINT "catalog_collections_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "catalog_collections" ADD CONSTRAINT "catalog_collections_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "catalog_collections"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "catalog_collections" ADD CONSTRAINT "catalog_collections_imageFileId_fkey" FOREIGN KEY ("imageFileId") REFERENCES "auth_files"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "catalog_collection_items" ADD CONSTRAINT "catalog_collection_items_collectionId_fkey" FOREIGN KEY ("collectionId") REFERENCES "catalog_collections"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "catalog_collection_items" ADD CONSTRAINT "catalog_collection_items_productId_fkey" FOREIGN KEY ("productId") REFERENCES "catalog_products"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "catalog_collection_items" ADD CONSTRAINT "catalog_collection_items_productVariantId_fkey" FOREIGN KEY ("productVariantId") REFERENCES "catalog_product_variants"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "catalog_collection_items" ADD CONSTRAINT "catalog_collection_items_imageFileId_fkey" FOREIGN KEY ("imageFileId") REFERENCES "auth_files"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "catalog_attributes" ADD CONSTRAINT "catalog_attributes_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "catalog_attribute_values" ADD CONSTRAINT "catalog_attribute_values_attributeId_fkey" FOREIGN KEY ("attributeId") REFERENCES "catalog_attributes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "catalog_variant_attributes" ADD CONSTRAINT "catalog_variant_attributes_variantId_fkey" FOREIGN KEY ("variantId") REFERENCES "catalog_product_variants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "catalog_variant_attributes" ADD CONSTRAINT "catalog_variant_attributes_valueId_fkey" FOREIGN KEY ("valueId") REFERENCES "catalog_attribute_values"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "promotions" ADD CONSTRAINT "promotions_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "promotion_rules" ADD CONSTRAINT "promotion_rules_promotionId_fkey" FOREIGN KEY ("promotionId") REFERENCES "promotions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "promotion_rewards" ADD CONSTRAINT "promotion_rewards_promotionId_fkey" FOREIGN KEY ("promotionId") REFERENCES "promotions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "promotion_targets" ADD CONSTRAINT "promotion_targets_promotionId_fkey" FOREIGN KEY ("promotionId") REFERENCES "promotions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "inventory_locations" ADD CONSTRAINT "inventory_locations_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "inventory_stocks" ADD CONSTRAINT "inventory_stocks_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "inventory_stocks" ADD CONSTRAINT "inventory_stocks_variantId_fkey" FOREIGN KEY ("variantId") REFERENCES "catalog_product_variants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "inventory_stocks" ADD CONSTRAINT "inventory_stocks_locationId_fkey" FOREIGN KEY ("locationId") REFERENCES "inventory_locations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+

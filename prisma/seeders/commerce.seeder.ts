@@ -4,11 +4,12 @@ import {
   MediaType,
   SupplierOrderStatus,
   ShipmentStatus,
+  DiscountType,
 } from '@prisma/client';
 import { TENANT_IDS } from './tenants.seeder';
 
 export async function seedCommerce(prisma: PrismaClient) {
-  process.stdout.write('🌱 Seeding Products, Orders, & Admin Analytics...\n');
+  process.stdout.write('🌱 Seeding Products, Orders, Wishlists, Reviews & Admin Analytics...\n');
 
   const tenantId = TENANT_IDS.FASHION;
 
@@ -58,52 +59,56 @@ export async function seedCommerce(prisma: PrismaClient) {
     where: { id: productId },
     update: {
       categoryId: category.id,
-      title: 'Urban Air Max Runner 2026',
-      description: 'Ultra-lightweight mesh breathable running sneakers.',
-      featured: true,
     },
     create: {
       id: productId,
       tenantId,
-      categoryId: category.id,
       title: 'Urban Air Max Runner 2026',
       slug: 'urban-air-max-runner-2026',
-      description: 'Ultra-lightweight mesh breathable running sneakers.',
-      featured: true,
+      description: 'High performance breathable running sneakers with air cushion sole.',
+      price: 99.99,
+      thumbnailUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&q=80',
+      categoryId: category.id,
+      media: {
+        create: [
+          {
+            url: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&q=80',
+            type: MediaType.IMAGE,
+            isPrimary: true,
+          },
+        ],
+      },
       variants: {
         create: [
           {
             id: variantId,
             tenantId,
-            sku: 'AM2026-BLK-42',
+            sku: 'SNEAKER-RUN-42',
             title: 'Black / Size 42',
             price: 99.99,
-            baseCost: 45.0,
-            sellingPrice: 99.99,
-            calculatedPrice: 99.99,
             stock: 150,
-            attributes: { color: 'Black', size: 42 },
-          },
-        ],
-      },
-      media: {
-        create: [
-          {
-            url: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff',
-            type: MediaType.IMAGE,
-            altText: 'Urban Air Max Runner Side View',
-            isPrimary: true,
-            position: 0,
           },
         ],
       },
     },
   });
-  process.stdout.write(`✅ Seeded Product [${product.id}]: ${product.title}\n`);
 
-  // 5. Seed Order with Supplier Order & Shipment (Valid UUIDs)
-  const orderId = 'o1122334-4455-4667-8899-aabbccddeeff';
-  const supplierOrderId = 's3344556-6677-4889-9900-112233445566';
+  // 5. Seed Shipping Address
+  const shippingAddress = await prisma.commerceShippingAddress.create({
+    data: {
+      customerId: customer.id,
+      fullName: 'John Customer',
+      addressLine1: '123 Main St',
+      city: 'Metropolis',
+      state: 'NY',
+      postalCode: '10001',
+      country: 'US',
+    },
+  });
+
+  // 6. Seed Order
+  const orderId = 'a1234567-89ab-4cde-f012-3456789abcde';
+  const supplierOrderId = 'c1234567-89ab-4cde-f012-3456789abcde';
   await prisma.commerceOrder.upsert({
     where: { id: orderId },
     update: {},
@@ -111,9 +116,9 @@ export async function seedCommerce(prisma: PrismaClient) {
       id: orderId,
       tenantId,
       customerId: customer.id,
-      status: OrderStatus.PROCESSING,
+      shippingAddressId: shippingAddress.id,
       totalAmount: 199.98,
-      currency: 'USD',
+      status: OrderStatus.FULFILLED,
       items: {
         create: [
           {
@@ -145,7 +150,52 @@ export async function seedCommerce(prisma: PrismaClient) {
     },
   });
 
-  // 6. Seed Admin Analytics Statistics
+  // 7. Seed Wishlist
+  await prisma.wishlist.upsert({
+    where: { tenantId_customerId: { tenantId, customerId: customer.id } },
+    update: {},
+    create: {
+      tenantId,
+      customerId: customer.id,
+      items: {
+        create: [
+          {
+            productVariantId: variantId,
+          },
+        ],
+      },
+    },
+  });
+
+  // 8. Seed Product Review
+  await prisma.productReview.create({
+    data: {
+      tenantId,
+      productId: product.id,
+      customerId: customer.id,
+      rating: 5,
+      title: 'Best running sneakers I have ever owned!',
+      comment: 'Super lightweight, comfortable cushion, and fast shipping!',
+      isVerified: true,
+      merchantReply: 'Thank you for your feedback! Enjoy your runs!',
+    },
+  });
+
+  // 9. Seed Coupon
+  await prisma.coupon.upsert({
+    where: { tenantId_code: { tenantId, code: 'WELCOME10' } },
+    update: {},
+    create: {
+      tenantId,
+      code: 'WELCOME10',
+      discountType: DiscountType.FIXED_AMOUNT,
+      discountValue: 10.0,
+      minOrderValue: 30.0,
+      isActive: true,
+    },
+  });
+
+  // 10. Seed Admin Analytics Statistics
   await prisma.analyticsProductSales.upsert({
     where: { tenantId_productVariantId: { tenantId, productVariantId: variantId } },
     update: { totalSold: 2, totalRevenue: 199.98, totalOrders: 1 },
@@ -171,5 +221,5 @@ export async function seedCommerce(prisma: PrismaClient) {
     },
   });
 
-  process.stdout.write('🎉 Commerce and Admin Analytics seeding completed successfully!\n');
+  process.stdout.write('🎉 Commerce, Reviews, Wishlists & Admin Analytics seeding completed!\n');
 }

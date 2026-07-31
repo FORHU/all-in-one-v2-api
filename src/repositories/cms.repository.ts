@@ -13,6 +13,40 @@ export default class CMSRepository {
       include: {
         sections: {
           orderBy: { position: 'asc' },
+          include: {
+            collection: {
+              include: {
+                items: {
+                  orderBy: { position: 'asc' },
+                  include: {
+                    product: {
+                      include: {
+                        media: { where: { isPrimary: true }, take: 1 },
+                        variants: { take: 1 },
+                      },
+                    },
+                    productVariant: true,
+                  },
+                },
+                children: {
+                  include: {
+                    items: {
+                      orderBy: { position: 'asc' },
+                      include: {
+                        product: {
+                          include: {
+                            media: { where: { isPrimary: true }, take: 1 },
+                            variants: { take: 1 },
+                          },
+                        },
+                        productVariant: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
       },
     });

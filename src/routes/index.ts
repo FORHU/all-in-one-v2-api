@@ -13,6 +13,11 @@ import paymentRoute from './payment.route';
 import cmsRoute from './cms.route';
 import tenantRoute from './tenant.route';
 import marketingRoute from './marketing.routes';
+import collectionRoute from './collection.route';
+import sizeGuideRoute from './size-guide.route';
+import attributeRoute from './attribute.route';
+import promotionRoute from './promotion.route';
+import inventoryRoute from './inventory.route';
 
 const router = express.Router();
 
@@ -29,6 +34,11 @@ router.use('/v2/products', productSyncRoute);
 router.use('/v2/products', productImportRoute);
 router.use('/v2/product-search', productSearchRoute);
 router.use('/v2/categories', categoryRoute);
+router.use('/v2/collections', collectionRoute);
+router.use('/v2/size-guides', sizeGuideRoute);
+router.use('/v2/attributes', attributeRoute);
+router.use('/v2/promotions', promotionRoute);
+router.use('/v2/inventory', inventoryRoute);
 router.use('/v2/cart', cartRoute);
 router.use('/v2/orders', orderRoute);
 router.use('/v2/payments', paymentRoute);
