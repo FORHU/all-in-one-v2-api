@@ -5,6 +5,12 @@ import { seedCategories } from './seeders/categories.seeder';
 import { seedCommerce } from './seeders/commerce.seeder';
 import { seedPayments } from './seeders/payments.seeder';
 import { seedImportedProducts } from './seeders/imported-products.seeder';
+import { seedAttributes } from './seeders/attributes.seeder';
+import { seedSizeGuides } from './seeders/size-guides.seeder';
+import { seedCollections } from './seeders/collections.seeder';
+import { seedPromotions } from './seeders/promotions.seeder';
+import { seedInventory } from './seeders/inventory.seeder';
+import { seedCMS } from './seeders/cms.seeder';
 
 const prisma = new PrismaClient();
 
@@ -17,6 +23,12 @@ async function main() {
     await seedCategories(prisma);
     await seedCommerce(prisma);
     await seedImportedProducts(prisma);
+    await seedAttributes(prisma);
+    await seedSizeGuides(prisma);
+    await seedCollections(prisma);
+    await seedPromotions(prisma);
+    await seedInventory(prisma);
+    await seedCMS(prisma);
     await seedPayments(prisma);
     process.stdout.write('🎉 All seeder modules executed successfully in v2-api!\n');
   } catch (error) {
