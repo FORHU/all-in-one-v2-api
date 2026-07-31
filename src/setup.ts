@@ -8,9 +8,17 @@ import { rabbitmq } from './infrastructure/rabbitmq';
 export default async function setup() {
   logger.info('Running initial application setup...');
 
-  // Initialize Redis & RabbitMQ infrastructure singletons
-  await redis.connect();
-  await rabbitmq.connect();
+  try {
+    await redis.connect();
+  } catch (error) {
+    logger.warn('Redis unavailable on startup. Will reconnect in background.', error);
+  }
+
+  try {
+    await rabbitmq.connect();
+  } catch (error) {
+    logger.warn('RabbitMQ unavailable on startup. Will reconnect in background.', error);
+  }
 
   logger.info('Setup completed.');
 }

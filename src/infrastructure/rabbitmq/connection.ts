@@ -42,11 +42,8 @@ class RabbitMQConnection {
       logger.info('[RabbitMQ] Connected and channel established.');
     } catch (error) {
       logger.error('[RabbitMQ] Failed to connect:', error);
-      if (this.reconnectAttempts === 0) {
-        // Schedule async reconnect in background but throw on initial connect so startup is aware
-        this.scheduleReconnect();
-        throw error;
-      }
+      // Do NOT throw on initial connect — schedule background reconnect instead.
+      // This prevents the server from crashing when RabbitMQ is temporarily unavailable.
       this.scheduleReconnect();
     }
   }

@@ -21,9 +21,9 @@ async function startServer() {
     // 2. Initialize socket.io adapter
     initSocketIO(server);
 
-    // 3. Start listening on configured port
-    server.listen(PORT, () => {
-      logger.info(`🚀 Server running on port ${PORT} in ${NODE_ENV} mode`);
+    // 3. Start listening on configured port (bind to 0.0.0.0 for external access)
+    server.listen(Number(PORT), '0.0.0.0', () => {
+      logger.info(`🚀 Server running on port ${PORT} in ${NODE_ENV} mode, accessible externally`);
     });
   } catch (err) {
     logger.error('❌ Failed to start server:', err);
