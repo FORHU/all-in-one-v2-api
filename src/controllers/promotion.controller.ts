@@ -58,4 +58,13 @@ export default class PromotionController {
       next(error);
     }
   }
+
+  static async getPricingRules(req: Request, res: Response, next: NextFunction) {
+    try {
+      const rules = await PromotionService.getPricingRules();
+      return responseSuccess(res, 200, rules);
+    } catch (error) {
+      next(error);
+    }
+  }
 }

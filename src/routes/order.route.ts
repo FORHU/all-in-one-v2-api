@@ -18,5 +18,17 @@ router.get('/my-orders', authenticate, OrderController.getMyOrders);
 // Ownership is enforced in the service, which 404s for everyone else.
 router.get('/:id', optionalAuthenticate, OrderController.getOrder);
 router.patch('/:id/status', authenticate, authorize(...ADMIN_ROLES), OrderController.updateStatus);
+router.get(
+  '/:id/supplier-orders',
+  authenticate,
+  authorize(...ADMIN_ROLES),
+  OrderController.getSupplierOrders,
+);
+router.put(
+  '/shipments/:shipmentId',
+  authenticate,
+  authorize(...ADMIN_ROLES),
+  OrderController.updateShipment,
+);
 
 export default router;

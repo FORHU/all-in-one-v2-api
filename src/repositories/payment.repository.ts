@@ -7,6 +7,8 @@ export default class PaymentRepository {
       where: { id },
       include: {
         order: true,
+        events: true,
+        attempts: true,
       },
     });
   }
@@ -16,6 +18,8 @@ export default class PaymentRepository {
       where: { gatewayTransactionId },
       include: {
         order: true,
+        events: true,
+        attempts: true,
       },
     });
   }
@@ -78,6 +82,21 @@ export default class PaymentRepository {
         errorMessage,
         processedAt: new Date(),
       },
+    });
+  }
+
+  // New models added for 100% coverage
+  static async getPaymentEvents(tenantId: string, paymentId: string) {
+    return prisma.commercePaymentEvent.findMany({
+      where: { paymentId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  static async getPaymentAttempts(tenantId: string, paymentId: string) {
+    return prisma.commercePaymentAttempt.findMany({
+      where: { paymentId },
+      orderBy: { createdAt: 'desc' },
     });
   }
 }

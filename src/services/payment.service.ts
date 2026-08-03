@@ -92,4 +92,12 @@ export default class PaymentService {
       throw error;
     }
   }
+
+  static async getPaymentEvents(paymentId: string) {
+    return PaymentRepository.getPaymentEvents(requireTenantId(), paymentId);
+  }
+
+  static async getPaymentAttempts(paymentId: string) {
+    return PaymentRepository.getPaymentAttempts(requireTenantId(), paymentId);
+  }
 }

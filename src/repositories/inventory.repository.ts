@@ -120,12 +120,27 @@ export default class InventoryRepository {
     const newReserved = stock.reserved + quantity;
     const newAvailable = stock.onHand - newReserved;
 
-    return prisma.inventoryStock.update({
-      where: { variantId_locationId: { variantId, locationId } },
+    const result = await prisma.inventoryStock.updateMany({
+      where: {
+        variantId,
+        locationId,
+        version: stock.version,
+      },
       data: {
         reserved: newReserved,
         available: Math.max(0, newAvailable),
+        version: { increment: 1 },
       },
+    });
+
+    if (result.count === 0) {
+      throw new Error(
+        `Optimistic locking failed: Stock for variant ${variantId} at location ${locationId} was modified by another transaction. Please try again.`,
+      );
+    }
+
+    return prisma.inventoryStock.findUnique({
+      where: { variantId_locationId: { variantId, locationId } },
     });
   }
 
@@ -140,12 +155,38 @@ export default class InventoryRepository {
     const newReserved = Math.max(0, stock.reserved - quantity);
     const newAvailable = stock.onHand - newReserved;
 
-    return prisma.inventoryStock.update({
-      where: { variantId_locationId: { variantId, locationId } },
+    const result = await prisma.inventoryStock.updateMany({
+      where: {
+        variantId,
+        locationId,
+        version: stock.version,
+      },
       data: {
         reserved: newReserved,
         available: newAvailable,
+        version: { increment: 1 },
       },
+    });
+
+    if (result.count === 0) {
+      throw new Error(
+        `Optimistic locking failed: Stock for variant ${variantId} at location ${locationId} was modified by another transaction. Please try again.`,
+      );
+    }
+
+    return prisma.inventoryStock.findUnique({
+      where: { variantId_locationId: { variantId, locationId } },
+    });
+  }
+
+  // New models added for 100% coverage
+  static async getTransactions(tenantId: string, locationId: string, variantId?: string) {
+    return prisma.inventoryTransaction.findMany({
+      where: {
+        tenantId,
+        ...(variantId ? { productVariantId: variantId } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
     });
   }
 }

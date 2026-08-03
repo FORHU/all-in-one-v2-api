@@ -8,5 +8,7 @@ router.post('/register', AuthController.register);
 router.post('/login', AuthController.login);
 router.post('/refresh-token', AuthController.refreshToken);
 router.post('/logout', authenticate, AuthController.logout);
+router.get('/social', authenticate, AuthController.getSocialAccounts);
+router.get('/files', authenticate, AuthController.getFiles);
 
 export default router;

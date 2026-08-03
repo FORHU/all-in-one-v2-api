@@ -13,5 +13,11 @@ router.get('/:id', authenticate, authorize(...ADMIN_ROLES), PromotionController.
 router.post('/', authenticate, authorize(...ADMIN_ROLES), PromotionController.create);
 router.put('/:id', authenticate, authorize(...ADMIN_ROLES), PromotionController.update);
 router.delete('/:id', authenticate, authorize(...ADMIN_ROLES), PromotionController.delete);
+router.get(
+  '/pricing/rules',
+  authenticate,
+  authorize(...ADMIN_ROLES),
+  PromotionController.getPricingRules,
+);
 
 export default router;

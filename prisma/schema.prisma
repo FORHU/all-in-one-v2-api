@@ -145,6 +145,9 @@ model Tenant {
   promotions            Promotion[]
   inventoryLocations    InventoryLocation[]
   inventoryStocks       InventoryStock[]
+  taxClasses            TaxClass[]
+  taxRates              TaxRate[]
+  supplierSyncJobs      SupplierSyncJob[]
 
   @@map("tenants")
 }
@@ -160,14 +163,18 @@ enum TenantStatus {
 // ==============================================================================
 
 model CatalogCategory {
-  id          String   @id @default(uuid())
-  tenantId    String
-  name        String
-  slug        String
-  description String?
-  parentId    String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String   @id @default(uuid())
+  tenantId       String
+  name           String
+  slug           String
+  description    String?
+  parentId       String?
+  sortOrder      Int      @default(0)
+  seoTitle       String?
+  seoDescription String?
+  deletedAt      DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   tenant     Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   parent     CatalogCategory?         @relation("CategoryHierarchy", fields: [parentId], references: [id])
@@ -178,31 +185,42 @@ model CatalogCategory {
   @@unique([tenantId, slug])
   @@index([parentId])
   @@index([tenantId])
+  @@index([tenantId, deletedAt])
   @@map("catalog_categories")
 }
 
 model CatalogProduct {
-  id          String        @id @default(uuid())
-  tenantId    String
-  title       String
-  slug        String   // Required for URL routing — auto-generated from title if not provided
-  description String?
-  tags        String[]
-  status      ProductStatus @default(DRAFT)
-  featured      Boolean       @default(false)
-  price         Decimal?      @db.Decimal(12, 2) // Main display selling price
-  salePrice     Decimal?      @db.Decimal(12, 2) // Active discounted price (if on sale)
-  compareAtPrice Decimal?     @db.Decimal(12, 2) // Crossed-out original price (MSRP / "fake" price before discount)
-  discount      Json?         // Structured discount details: { type: "PERCENTAGE"|"FIXED", value: 20, percentage: 20, savings: 240, badge: "20% OFF", endDate: "..." }
-  thumbnailUrl  String?       // Quick-access primary image URL (denormalised from CatalogProductMedia for performance)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id             String            @id @default(uuid())
+  tenantId       String
+  title          String
+  slug           String            // Required for URL routing — auto-generated from title if not provided
+  description    String?
+  tags           String[]
+  status         ProductStatus     @default(DRAFT)
+  visibility     ProductVisibility @default(PUBLIC)
+  featured       Boolean           @default(false)
+  price          Decimal?          @db.Decimal(18, 2) // Main display selling price
+  salePrice      Decimal?          @db.Decimal(18, 2) // Active discounted price (if on sale)
+  compareAtPrice Decimal?          @db.Decimal(18, 2) // Crossed-out original price (MSRP / "fake" price before discount)
+  discount       Json?             // Structured discount details: { type: "PERCENTAGE"|"FIXED", value: 20, percentage: 20, savings: 240, badge: "20% OFF", endDate: "..." }
+  thumbnailUrl   String?           // Quick-access primary image URL
+  seoTitle       String?
+  seoDescription String?
+  publishedAt    DateTime?
+  deletedAt      DateTime?
+  createdBy      String?
+  updatedBy      String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
   categoryId String?
   category   CatalogCategory? @relation(fields: [categoryId], references: [id])
 
   pricingRuleId String?
   pricingRule   CatalogPricingRule? @relation(fields: [pricingRuleId], references: [id])
+
+  taxClassId String?
+  taxClass   TaxClass? @relation(fields: [taxClassId], references: [id], onDelete: SetNull)
 
   tenant               Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   variants             CatalogProductVariant[]
@@ -220,6 +238,8 @@ model CatalogProduct {
   @@index([tenantId])
   @@index([tenantId, status])
   @@index([tenantId, featured])
+  @@index([tenantId, deletedAt])
+  @@index([taxClassId])
   @@index([tenantId, createdAt])
   @@map("catalog_products")
 }
@@ -231,25 +251,32 @@ enum ProductStatus {
   ARCHIVED
 }
 
+enum ProductVisibility {
+  PUBLIC
+  PRIVATE
+  HIDDEN
+  MEMBERS_ONLY
+}
+
 model CatalogProductVariant {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   tenantId        String
   productId       String
   sku             String?
   title           String
-  price           Decimal  @db.Decimal(12, 2) // Actual selling price
-  compareAtPrice  Decimal? @db.Decimal(12, 2) // Crossed-out original price (MSRP / "fake" price before discount)
-  baseCost        Decimal? @db.Decimal(12, 2) // Supplier cost
-  sellingPrice    Decimal? @db.Decimal(12, 2) // Configured selling price
-  calculatedPrice Decimal? @db.Decimal(12, 2) // Price after automated markup rule
-  discount        Json?    // Structured discount details: { type: "PERCENTAGE"|"FIXED", value: 20, percentage: 20, savings: 240, badge: "20% OFF" }
-  stock           Int      @default(0)
-  attributes      Json?    // e.g. { color: "red", size: "XL" }
+  price           Decimal   @db.Decimal(18, 2) // Actual selling price
+  compareAtPrice  Decimal?  @db.Decimal(18, 2) // Crossed-out original price
+  baseCost        Decimal?  @db.Decimal(18, 2) // Supplier cost
+  sellingPrice    Decimal?  @db.Decimal(18, 2) // Configured selling price
+  calculatedPrice Decimal?  @db.Decimal(18, 2) // Price after automated markup rule
+  discount        Json?     // Structured discount details
+  stock           Int       @default(0)
+  version         Int       @default(1) // Optimistic concurrency version
+  deletedAt       DateTime?
+  attributes      Json?     // e.g. { color: "red", size: "XL" }
 
-  // Direct link to the size chart row this variant represents.
-  // e.g. Variant "Red / XL" → CatalogSizeEntry { sizeLabel: "XL", chest: 106, waist: 90 }
-  sizeEntryId     String?  // null = no size chart row linked yet
-  pricingRuleId   String?  // Optional pricing/markup rule override for this variant
+  sizeEntryId   String?  // null = no size chart row linked yet
+  pricingRuleId String?  // Optional pricing/markup rule override for this variant
 
   tenant                Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   product               CatalogProduct          @relation(fields: [productId], references: [id])
@@ -271,6 +298,7 @@ model CatalogProductVariant {
   @@index([tenantId])
   @@index([sizeEntryId])
   @@index([pricingRuleId])
+  @@index([tenantId, deletedAt])
   @@map("catalog_product_variants")
 }
 
@@ -376,6 +404,7 @@ model SupplierPartner {
   products    SupplierProduct[]
   orders      CommerceSupplierOrder[]
   syncLogs    SupplierSyncLog[]
+  syncJobs    SupplierSyncJob[]
   statistics  AnalyticsSupplier[]
 
   @@map("supplier_partners")
@@ -616,16 +645,21 @@ model CommerceOrder {
   tenantId          String
   status            OrderStatus @default(PENDING)
   totalAmount       Decimal     @db.Decimal(12, 2)
+  discountAmount    Decimal     @default(0) @db.Decimal(12, 2)
   currency          String      @default("USD")
   customerId        String?
   sessionId         String?
   shippingAddressId String?
+  couponId          String?
+  promotionId       String?
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
   tenant          Tenant                   @relation(fields: [tenantId], references: [id])
   customer        CommerceCustomer?        @relation(fields: [customerId], references: [id])
   shippingAddress CommerceShippingAddress? @relation(fields: [shippingAddressId], references: [id])
+  coupon          Coupon?                  @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  promotion       Promotion?               @relation(fields: [promotionId], references: [id], onDelete: SetNull)
   items           CommerceOrderItem[]
   supplierOrders  CommerceSupplierOrder[] // 1 order -> N supplier fulfillments
   payments        CommercePayment[]
@@ -635,6 +669,8 @@ model CommerceOrder {
   @@index([tenantId])
   @@index([customerId])
   @@index([shippingAddressId])
+  @@index([couponId])
+  @@index([promotionId])
   @@index([tenantId, status])
   @@index([tenantId, createdAt])
   @@map("commerce_orders")
@@ -645,8 +681,15 @@ model CommerceOrderItem {
   orderId          String
   productVariantId String
   quantity         Int
-  unitPrice        Decimal
+  unitPrice        Decimal @db.Decimal(18, 2)
   supplierOrderId  String?
+
+  // Immutable historical order snapshot fields
+  productTitle String @default("Unknown Product")
+  variantTitle String?
+  sku          String?
+  imageUrl     String?
+  attributes   Json?
 
   order          CommerceOrder          @relation(fields: [orderId], references: [id])
   productVariant CatalogProductVariant  @relation(fields: [productVariantId], references: [id])
@@ -836,18 +879,24 @@ model JobLog {
 }
 
 model AuditLog {
-  id        String   @id @default(uuid())
-  userId    String?
-  action    String // e.g. "UPDATE_PRICING_RULE", "DELETE_PRODUCT"
-  entity    String // e.g. "Product", "User"
-  entityId  String?
-  details   Json?
-  ipAddress String?
-  createdAt DateTime @default(now())
+  id            String   @id @default(uuid())
+  userId        String?
+  action        String   // e.g. "UPDATE_PRICING_RULE", "DELETE_PRODUCT"
+  entity        String   // e.g. "Product", "User"
+  entityId      String?
+  details       Json?
+  beforeState   Json?    // State prior to mutation
+  afterState    Json?    // State after mutation
+  requestId     String?  // Tracing request identifier
+  correlationId String?  // Distributed tracing correlation ID
+  ipAddress     String?
+  createdAt     DateTime @default(now())
 
   user AuthUser? @relation(fields: [userId], references: [id])
 
   @@index([userId])
+  @@index([entity, entityId])
+  @@index([requestId])
   @@map("audit_logs")
 }
 
@@ -1124,21 +1173,26 @@ enum InventoryTransactionType {
 }
 
 model Notification {
-  id        String           @id @default(uuid())
+  id        String              @id @default(uuid())
   tenantId  String
   userId    String
-  type      NotificationType @default(SYSTEM_ALERT)
+  type      NotificationType    @default(SYSTEM_ALERT)
+  channel   NotificationChannel @default(IN_APP)
   title     String
   message   String
-  isRead    Boolean          @default(false)
+  isRead    Boolean             @default(false)
+  readAt    DateTime?
+  sentAt    DateTime?
+  expiresAt DateTime?
   data      Json?
-  createdAt DateTime         @default(now())
+  createdAt DateTime            @default(now())
 
   tenant Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user   AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@index([userId])
+  @@index([userId, isRead])
   @@map("notifications")
 }
 
@@ -1148,6 +1202,13 @@ enum NotificationType {
   SHIPMENT_TRACKING
   SYSTEM_ALERT
   PROMOTION
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  SMS
+  PUSH
 }
 
 model ProductReview {
@@ -1221,20 +1282,23 @@ model Coupon {
   tenantId      String
   code          String
   discountType  DiscountType @default(PERCENTAGE)
-  discountValue Decimal      @db.Decimal(12, 2)
-  minOrderValue Decimal?     @db.Decimal(12, 2)
-  maxDiscount   Decimal?     @db.Decimal(12, 2)
+  discountValue Decimal      @db.Decimal(18, 2)
+  minOrderValue Decimal?     @db.Decimal(18, 2)
+  maxDiscount   Decimal?     @db.Decimal(18, 2)
   usageLimit    Int?
   usageCount    Int          @default(0)
   expiresAt     DateTime?
   isActive      Boolean      @default(true)
+  deletedAt     DateTime?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orders CommerceOrder[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
+  @@index([tenantId, deletedAt])
   @@map("coupons")
 }
 
@@ -1358,6 +1422,7 @@ model AnalyticsProductSales {
   totalRevenue     Decimal   @default(0) @db.Decimal(18, 2)
   totalOrders      Int       @default(0)
   lastSoldAt       DateTime?
+  createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
   tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -1378,6 +1443,7 @@ model AnalyticsCategorySales {
   totalRevenue      Decimal  @default(0) @db.Decimal(18, 2)
   totalOrders       Int      @default(0)
   totalProductsSold Int      @default(0)
+  createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -1398,6 +1464,7 @@ model AnalyticsSupplier {
   totalRevenue     Decimal  @default(0) @db.Decimal(18, 2)
   failedOrders     Int      @default(0)
   avgDeliveryDays  Decimal? @db.Decimal(5, 2)
+  createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
   tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -1415,8 +1482,9 @@ model AnalyticsCustomer {
   customerId    String
   lifetimeSpend Decimal   @default(0) @db.Decimal(18, 2)
   totalOrders   Int       @default(0)
-  avgOrderValue Decimal   @default(0) @db.Decimal(12, 2)
+  avgOrderValue Decimal   @default(0) @db.Decimal(18, 2)
   lastOrderedAt DateTime?
+  createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -1436,6 +1504,7 @@ model AnalyticsDailySales {
   ordersCount          Int      @default(0)
   revenueAmount        Decimal  @default(0) @db.Decimal(18, 2)
   bestSellingProductId String?
+  createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -1605,6 +1674,7 @@ model Promotion {
   endDate     DateTime?
   usageLimit  Int?
   usageCount  Int             @default(0)
+  deletedAt   DateTime?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
@@ -1612,9 +1682,11 @@ model Promotion {
   rules   PromotionRule[]
   rewards PromotionReward[]
   targets PromotionTarget[]
+  orders  CommerceOrder[]
 
   @@index([tenantId, status])
   @@index([code])
+  @@index([tenantId, deletedAt])
   @@map("promotions")
 }
 
@@ -1692,6 +1764,8 @@ model InventoryStock {
   reserved     Int      @default(0) // Locked in active checkouts/pending orders
   available    Int      @default(0) // Computed / stored (onHand - reserved)
   reorderPoint Int      @default(5)
+  version      Int      @default(1) // Optimistic concurrency version
+  createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   tenant   Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -1703,5 +1777,77 @@ model InventoryStock {
   @@index([variantId])
   @@index([locationId])
   @@map("inventory_stocks")
+}
+
+// ==============================================================================
+// 16. TAX ENGINE & JURISDICTIONS
+// ==============================================================================
+
+model TaxClass {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String   // e.g. "Standard Goods", "Reduced VAT", "Digital Services"
+  code        String   // e.g. "STANDARD", "REDUCED", "ZERO"
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rates    TaxRate[]
+  products CatalogProduct[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("tax_classes")
+}
+
+model TaxRate {
+  id          String   @id @default(uuid())
+  tenantId    String
+  taxClassId  String?
+  name        String   // e.g. "VAT 12%", "California Sales Tax"
+  rate        Decimal  @db.Decimal(5, 4) // e.g. 0.1200 for 12%
+  country     String   // ISO 2-letter country code e.g. "PH", "US"
+  state       String?  // State / province code e.g. "CA", "NY"
+  postalCode  String?
+  isCombined  Boolean  @default(false)
+  priority    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  taxClass TaxClass? @relation(fields: [taxClassId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([taxClassId])
+  @@index([tenantId, country, state])
+  @@map("tax_rates")
+}
+
+model SupplierSyncJob {
+  id           String     @id @default(uuid())
+  tenantId     String
+  supplierId   String
+  action       String     // "SYNC_PRODUCTS" | "SYNC_INVENTORY" | "SYNC_ORDERS"
+  status       SyncStatus @default(PENDING)
+  priority     Int        @default(0)
+  retries      Int        @default(0)
+  maxRetries   Int        @default(3)
+  scheduledAt  DateTime?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  lockOwner    String?
+  payload      Json?
+  errorMessage String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier SupplierPartner @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@index([supplierId])
+  @@index([scheduledAt])
+  @@map("supplier_sync_jobs")
 }
 

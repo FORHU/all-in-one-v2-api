@@ -159,4 +159,12 @@ export default class AuthSvc {
 
     return { accessToken, refreshToken, user: publicUser };
   }
+
+  static async getSocialAccounts(userId: string) {
+    return AuthRepo.getSocialAccounts(userId);
+  }
+
+  static async getFiles() {
+    return AuthRepo.getFiles();
+  }
 }

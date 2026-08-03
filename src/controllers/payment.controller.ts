@@ -33,4 +33,22 @@ export default class PaymentController {
       next(error);
     }
   }
+
+  static async getPaymentEvents(req: Request, res: Response, next: NextFunction) {
+    try {
+      const events = await PaymentService.getPaymentEvents(req.params.paymentId);
+      return responseSuccess(res, 200, events);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getPaymentAttempts(req: Request, res: Response, next: NextFunction) {
+    try {
+      const attempts = await PaymentService.getPaymentAttempts(req.params.paymentId);
+      return responseSuccess(res, 200, attempts);
+    } catch (error) {
+      next(error);
+    }
+  }
 }

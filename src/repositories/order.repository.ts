@@ -1,4 +1,4 @@
-import { Prisma, OrderStatus } from '@prisma/client';
+import { Prisma, OrderStatus, ShipmentStatus } from '@prisma/client';
 import { prisma } from '../utils/prisma';
 
 /**
@@ -28,7 +28,7 @@ export default class OrderRepository {
             shipments: true,
           },
         },
-        payments: true,
+        payments: { include: { events: true, attempts: true } },
       },
     });
   }
@@ -50,7 +50,7 @@ export default class OrderRepository {
         orderBy: { createdAt: 'desc' },
         include: {
           items: true,
-          payments: true,
+          payments: { include: { events: true, attempts: true } },
         },
       }),
       prisma.commerceOrder.count({ where }),
@@ -72,7 +72,7 @@ export default class OrderRepository {
       data,
       include: {
         items: true,
-        payments: true,
+        payments: { include: { events: true, attempts: true } },
       },
     });
   }
@@ -82,5 +82,25 @@ export default class OrderRepository {
     // applied by the database rather than trusted from the caller.
     await prisma.commerceOrder.updateMany({ where: { id, tenantId }, data: { status } });
     return this.findById(tenantId, id);
+  }
+
+  // New models added for 100% coverage
+  static async getSupplierOrders(tenantId: string, orderId: string) {
+    return prisma.commerceSupplierOrder.findMany({
+      where: { orderId },
+      include: { supplier: true, shipments: true },
+    });
+  }
+
+  static async updateShipment(
+    tenantId: string,
+    shipmentId: string,
+    status: string,
+    trackingNumber?: string,
+  ) {
+    return prisma.commerceShipment.update({
+      where: { id: shipmentId },
+      data: { status: status as ShipmentStatus, trackingNumber },
+    });
   }
 }
