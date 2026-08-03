@@ -458,6 +458,46 @@ apiClient.interceptors.request.use((config) => {
 
 ---
 
+### 📦 3.13 Dropshipping & Supplier Integration (`/api/v2/suppliers` & `/api/v2/products`)
+
+#### **Get Available Supplier Partners**
+
+- **Which component uses this:** Dropshipping Supplier Dropdown filter in Admin Portal.
+- **What it does:** Returns list of active registered suppliers (`cj-dropshipping`, `printful`, `aliexpress`).
+- **How to call:** `GET /api/v2/suppliers/available`
+
+#### **Search Live Supplier Catalog**
+
+- **Which component uses this:** Supplier Search & Discovery Catalog Grid in Admin Dashboard.
+- **What it does:** Live search across external supplier API without exposing API keys on client.
+- **How to call:** `GET /api/v2/suppliers/cj-dropshipping/search?q=running+shoes`
+
+#### **Get Supplier Product Details**
+
+- **Which component uses this:** Supplier Product Preview Modal / Detail Drawer.
+- **What it does:** Fetches complete external product details including variants, pricing, and images.
+- **How to call:** `GET /api/v2/suppliers/cj-dropshipping/products/CJ123456789`
+
+#### **Import Supplier Product to Store Catalog**
+
+- **Which component uses this:** "Import to Store" Button on Supplier Catalog Card.
+- **What it does:** Fetches full supplier product data, normalizes attributes, and creates/upserts into target tenant catalog.
+- **How to call:**
+  ```text
+  POST /api/v2/products/import
+  Headers: Authorization: Bearer <admin_token>
+  ```
+  **Body:**
+  ```json
+  {
+    "supplierId": "cj-dropshipping",
+    "externalId": "CJ123456789",
+    "tenantSlug": "fashion"
+  }
+  ```
+
+---
+
 ## 4. Error Code Troubleshooting Matrix
 
 | HTTP Status        | Primary Cause                                       | How Frontend Should Handle                                             |
