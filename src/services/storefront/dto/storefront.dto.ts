@@ -6,13 +6,15 @@
 /** Shape of a product as returned from the Prisma include used in section queries. */
 export interface StorefrontRawVariant {
   id: string;
-  price: number;
+  price: any;
   sku: string | null;
 }
 
 export interface StorefrontRawMedia {
   mediaUrl?: string;
   fileUrl?: string;
+  url?: string;
+  fileId?: string | null;
 }
 
 export interface StorefrontRawProduct {
@@ -20,8 +22,8 @@ export interface StorefrontRawProduct {
   title: string;
   slug: string;
   thumbnailUrl?: string | null;
-  price?: number | null;
-  compareAtPrice?: number | null;
+  price?: any;
+  compareAtPrice?: any;
   featured?: boolean;
   status?: string;
   deletedAt?: Date | null;

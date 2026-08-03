@@ -31,7 +31,7 @@ export class StorefrontBuilder {
         title: section.title,
         slug: section.slug,
         strategy: section.strategy,
-        page: section.page,
+        page: context.page,
         sortOrder: section.sortOrder,
         maxItems: section.maxItems,
         products,
