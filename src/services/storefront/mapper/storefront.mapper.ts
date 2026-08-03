@@ -9,10 +9,13 @@ export function mapProductToDto(product: StorefrontRawProduct): StorefrontProduc
   const primaryMedia = Array.isArray(product.media) ? product.media[0] : null;
   const firstVariant = Array.isArray(product.variants) ? product.variants[0] : null;
 
-  const getPriceAsNumber = (priceVal: Prisma.Decimal | number | null | undefined): number | null => {
+  const getPriceAsNumber = (
+    priceVal: Prisma.Decimal | number | null | undefined,
+  ): number | null => {
     if (priceVal == null) return null;
     if (typeof priceVal === 'number') return priceVal;
-    if (typeof (priceVal as Prisma.Decimal).toNumber === 'function') return (priceVal as Prisma.Decimal).toNumber();
+    if (typeof (priceVal as Prisma.Decimal).toNumber === 'function')
+      return (priceVal as Prisma.Decimal).toNumber();
     const num = Number(priceVal);
     return isNaN(num) ? null : num;
   };
