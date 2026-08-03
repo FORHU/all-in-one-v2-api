@@ -4,6 +4,7 @@ import { ProductImportService } from '../services/product-import.service';
 import TenantRepository from '../repositories/tenant.repository';
 import { throwResponse } from '../utils/throw-response';
 import { getTenantId } from '../utils/async-context';
+import { supplierRegistry } from '../suppliers/supplier.registry';
 
 export const importProduct = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -34,10 +35,23 @@ export const importProduct = async (req: Request, res: Response, next: NextFunct
       return throwResponse(400, 'No target tenant: pass tenantSlug or call from a storefront host');
     }
 
-    const product = await ProductImportService.importProduct(tenantId, supplierId, externalId);
+    // 1. Fetch the full product data from the live supplier API
+    const adapter = supplierRegistry.get(supplierId);
+    const externalData = await adapter.getProduct(externalId);
+
+    if (!externalData) {
+      return throwResponse(404, `Product '${externalId}' not found on supplier '${supplierId}'`);
+    }
+
+    // 2. Import (upsert) into our catalog using the raw supplier data
+    const product = await ProductImportService.importProduct(
+      tenantId,
+      supplierId,
+      externalData as Record<string, unknown>,
+    );
 
     return res.status(201).json({
-      message: 'Product imported successfully and commission applied.',
+      message: 'Product imported successfully.',
       data: product,
     });
   } catch (err) {
