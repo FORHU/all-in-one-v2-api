@@ -59,3 +59,37 @@ export const getSupplierCatalog = async (req: Request, res: Response, next: Next
     next(error);
   }
 };
+
+export const searchSupplierProducts = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { supplierId } = req.params;
+    const { q } = req.query;
+    const results = await SupplierService.searchSupplier(supplierId, String(q || ''));
+    return responseSuccess(res, 200, results);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getSupplierProductDetails = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { supplierId, externalId } = req.params;
+    const product = await SupplierService.getSupplierProduct(supplierId, externalId);
+    return responseSuccess(res, 200, product);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getAvailableSuppliers = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const suppliers = await SupplierService.getAvailableSuppliers();
+    return responseSuccess(res, 200, suppliers);
+  } catch (error) {
+    next(error);
+  }
+};

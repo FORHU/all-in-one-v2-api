@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, CollectionType } from '@prisma/client';
 import { prisma } from '../utils/prisma';
 
 /**
@@ -43,7 +43,7 @@ export default class CollectionRepository {
   // ─── Collections ────────────────────────────────────────────────────────────
 
   /** All top-level collections for a tenant (parentId = null). */
-  static async findAllRoot(tenantId: string, type?: string) {
+  static async findAllRoot(tenantId: string, type?: CollectionType) {
     return prisma.catalogCollection.findMany({
       where: { tenantId, parentId: null, isDeleted: false, ...(type ? { type } : {}) },
       include: collectionWithItems,
@@ -76,7 +76,7 @@ export default class CollectionRepository {
     data: {
       title: string;
       slug: string;
-      type: string;
+      type: CollectionType;
       description?: string;
       imageUrl?: string;
       metadata?: Prisma.InputJsonValue;

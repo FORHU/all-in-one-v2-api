@@ -27,6 +27,7 @@ import supplierRoute from './supplier.route';
 import notificationRoute from './notification.route';
 import auditRoute from './audit.route';
 import couponRoute from './coupon.route';
+import storefrontRoute from './storefront.route';
 
 const router = express.Router();
 
@@ -63,6 +64,7 @@ router.use('/v2/suppliers', supplierRoute);
 router.use('/v2/notifications', notificationRoute);
 router.use('/v2/audits', auditRoute);
 router.use('/v2/coupons', couponRoute);
+router.use('/v2/storefront', storefrontRoute);
 router.use('/health', healthRouter);
 
 export default router;

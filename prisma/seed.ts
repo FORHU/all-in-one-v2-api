@@ -11,6 +11,7 @@ import { seedCollections } from './seeders/collections.seeder';
 import { seedPromotions } from './seeders/promotions.seeder';
 import { seedInventory } from './seeders/inventory.seeder';
 import { seedCMS } from './seeders/cms.seeder';
+import { seedSuppliers } from './seeders/suppliers.seeder';
 
 const prisma = new PrismaClient();
 
@@ -30,6 +31,7 @@ async function main() {
     await seedInventory(prisma);
     await seedCMS(prisma);
     await seedPayments(prisma);
+    await seedSuppliers(prisma);
     process.stdout.write('🎉 All seeder modules executed successfully in v2-api!\n');
   } catch (error) {
     process.stderr.write(`❌ Seeding failed: ${error}\n`);

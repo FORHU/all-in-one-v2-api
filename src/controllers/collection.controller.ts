@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { CollectionType } from '@prisma/client';
 import CollectionService from '../services/collection.service';
 import { responseSuccess } from '../helpers/response.helper';
 
@@ -7,7 +8,7 @@ export default class CollectionController {
 
   static async list(req: Request, res: Response, next: NextFunction) {
     try {
-      const type = req.query.type as string | undefined;
+      const type = req.query.type as CollectionType | undefined;
       const collections = await CollectionService.listCollections(type);
       return responseSuccess(res, 200, collections);
     } catch (error) {
