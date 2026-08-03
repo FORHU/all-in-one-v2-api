@@ -4,9 +4,11 @@
  */
 
 /** Shape of a product as returned from the Prisma include used in section queries. */
+import { Prisma } from '@prisma/client';
+
 export interface StorefrontRawVariant {
   id: string;
-  price: any;
+  price: Prisma.Decimal | number | null;
   sku: string | null;
 }
 
@@ -22,8 +24,8 @@ export interface StorefrontRawProduct {
   title: string;
   slug: string;
   thumbnailUrl?: string | null;
-  price?: any;
-  compareAtPrice?: any;
+  price?: Prisma.Decimal | number | null;
+  compareAtPrice?: Prisma.Decimal | number | null;
   featured?: boolean;
   status?: string;
   deletedAt?: Date | null;
