@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import Joi from 'joi';
-import AuthService from '../services/auth.service';
+import AuthService, { AuthUserPayload } from '../services/auth.service';
 import { responseSuccess } from '../helpers/response.helper';
 
 export default class AuthController {

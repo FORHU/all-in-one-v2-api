@@ -6,7 +6,7 @@ import logger from '../utils/logger';
 import CacheUtil from '../utils/cache.util';
 import { hashPassword, verifyPassword, isLegacyHash } from '../utils/password.util';
 
-interface AuthUserPayload {
+export interface AuthUserPayload {
   id: string;
   email: string;
   username: string;
