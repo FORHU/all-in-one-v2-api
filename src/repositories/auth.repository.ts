@@ -146,6 +146,19 @@ export default class AuthRepo {
     });
   }
 
+  // New models added for 100% coverage
+  static async getSocialAccounts(userId: string) {
+    return prisma.authSocialAccount.findMany({
+      where: { userId },
+    });
+  }
+
+  static async getFiles() {
+    return prisma.authFile.findMany({
+      take: 10,
+    });
+  }
+
   static async updateUser(userId: string, data: Prisma.AuthUserUpdateInput) {
     return prisma.authUser.update({
       where: {

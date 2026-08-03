@@ -59,4 +59,27 @@ export default class OrderController {
       next(error);
     }
   }
+
+  static async getSupplierOrders(req: Request, res: Response, next: NextFunction) {
+    try {
+      const orders = await OrderService.getSupplierOrders(req.params.id);
+      return responseSuccess(res, 200, orders);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async updateShipment(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { status, trackingNumber } = req.body;
+      const shipment = await OrderService.updateShipment(
+        req.params.shipmentId,
+        status,
+        trackingNumber,
+      );
+      return responseSuccess(res, 200, shipment);
+    } catch (error) {
+      next(error);
+    }
+  }
 }

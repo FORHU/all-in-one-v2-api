@@ -38,5 +38,11 @@ router.get(
   InventoryController.getVariantStock,
 );
 router.post('/stock', authenticate, authorize(...ADMIN_ROLES), InventoryController.setStock);
+router.get(
+  '/transactions',
+  authenticate,
+  authorize(...ADMIN_ROLES),
+  InventoryController.getTransactions,
+);
 
 export default router;

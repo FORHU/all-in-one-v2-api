@@ -6,7 +6,7 @@ import logger from '../utils/logger';
 import CacheUtil from '../utils/cache.util';
 import { hashPassword, verifyPassword, isLegacyHash } from '../utils/password.util';
 
-interface AuthUserPayload {
+export interface AuthUserPayload {
   id: string;
   email: string;
   username: string;
@@ -158,5 +158,13 @@ export default class AuthSvc {
     await CacheUtil.set(`user:${user.id}`, publicUser);
 
     return { accessToken, refreshToken, user: publicUser };
+  }
+
+  static async getSocialAccounts(userId: string) {
+    return AuthRepo.getSocialAccounts(userId);
+  }
+
+  static async getFiles() {
+    return AuthRepo.getFiles();
   }
 }

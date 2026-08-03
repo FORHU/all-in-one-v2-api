@@ -19,6 +19,14 @@ interface CartItemLike {
   productVariantId: string;
   quantity: number;
   unitPrice: unknown;
+  productVariant?: {
+    sku: string | null;
+    title: string | null;
+    product: {
+      title: string;
+    };
+    media?: { url: string }[];
+  };
 }
 
 export default class OrderService {
@@ -103,17 +111,25 @@ export default class OrderService {
       ...(customerId ? { customer: { connect: { id: customerId } } } : { sessionId }),
       ...(shippingAddressId ? { shippingAddress: { connect: { id: shippingAddressId } } } : {}),
       items: {
-        create: cart.items.map((item: CartItemLike) => ({
-          productVariantId: item.productVariantId,
-          quantity: item.quantity,
-          unitPrice: Number(item.unitPrice),
-        })),
+        create: cart.items.map((item: CartItemLike) => {
+          const variant = item.productVariant;
+          const imageUrl = variant?.media?.[0]?.url || null;
+          return {
+            productVariantId: item.productVariantId,
+            quantity: item.quantity,
+            unitPrice: Number(item.unitPrice),
+            productTitle: variant?.product?.title || 'Unknown Product',
+            variantTitle: variant?.title,
+            sku: variant?.sku,
+            imageUrl: imageUrl,
+          };
+        }),
       },
     });
 
     // Clear the cart we actually read from.
     // TODO: order creation and cart clearing should share one transaction, and
-    // stock still isn't checked or decremented here.
+    // stock still isn't checked or decremented here. (Optimistic locking is available in InventoryRepository).
     await CartRepository.clearCart(cart.id);
 
     return order;
@@ -131,5 +147,13 @@ export default class OrderService {
       return throwResponse(404, 'Order not found');
     }
     return OrderRepository.updateStatus(tenantId, orderId, status);
+  }
+
+  static async getSupplierOrders(orderId: string) {
+    return OrderRepository.getSupplierOrders(requireTenantId(), orderId);
+  }
+
+  static async updateShipment(shipmentId: string, status: string, trackingNumber?: string) {
+    return OrderRepository.updateShipment(requireTenantId(), shipmentId, status, trackingNumber);
   }
 }

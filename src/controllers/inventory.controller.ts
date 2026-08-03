@@ -57,4 +57,17 @@ export default class InventoryController {
       next(error);
     }
   }
+
+  static async getTransactions(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { locationId, variantId } = req.query;
+      const transactions = await InventoryService.getTransactions(
+        locationId as string,
+        variantId as string | undefined,
+      );
+      return responseSuccess(res, 200, transactions);
+    } catch (error) {
+      next(error);
+    }
+  }
 }

@@ -50,4 +50,8 @@ export default class PromotionService {
     if (!existing) return throwResponse(404, 'Promotion campaign not found');
     return PromotionRepository.delete(id);
   }
+
+  static async getPricingRules() {
+    return PromotionRepository.getPricingRules(requireTenantId());
+  }
 }

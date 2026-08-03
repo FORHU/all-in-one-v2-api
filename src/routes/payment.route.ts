@@ -1,4 +1,5 @@
 import express from 'express';
+import { authenticate, authorize, ADMIN_ROLES } from '../middleware/auth.middleware';
 import PaymentController from '../controllers/payment.controller';
 import { optionalAuthenticate } from '../middleware/auth.middleware';
 
@@ -12,5 +13,17 @@ router.post('/intents', optionalAuthenticate, PaymentController.createIntent);
 // TODO: this endpoint still trusts its payload. It needs HMAC signature
 // verification against the raw request body before going live.
 router.post('/webhooks/:provider?', PaymentController.handleWebhook);
+router.get(
+  '/:paymentId/events',
+  authenticate,
+  authorize(...ADMIN_ROLES),
+  PaymentController.getPaymentEvents,
+);
+router.get(
+  '/:paymentId/attempts',
+  authenticate,
+  authorize(...ADMIN_ROLES),
+  PaymentController.getPaymentAttempts,
+);
 
 export default router;

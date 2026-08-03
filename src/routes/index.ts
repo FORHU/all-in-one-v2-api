@@ -18,6 +18,15 @@ import sizeGuideRoute from './size-guide.route';
 import attributeRoute from './attribute.route';
 import promotionRoute from './promotion.route';
 import inventoryRoute from './inventory.route';
+import reviewRoute from './review.route';
+import wishlistRoute from './wishlist.route';
+import taxRoute from './tax.route';
+import returnRoute from './return.route';
+import analyticsRoute from './analytics.route';
+import supplierRoute from './supplier.route';
+import notificationRoute from './notification.route';
+import auditRoute from './audit.route';
+import couponRoute from './coupon.route';
 
 const router = express.Router();
 
@@ -45,6 +54,15 @@ router.use('/v2/payments', paymentRoute);
 router.use('/v2/cms', cmsRoute);
 router.use('/v2/tenants', tenantRoute);
 router.use('/v2/marketing', marketingRoute);
+router.use('/v2/reviews', reviewRoute);
+router.use('/v2/wishlists', wishlistRoute);
+router.use('/v2/taxes', taxRoute);
+router.use('/v2/returns', returnRoute);
+router.use('/v2/analytics', analyticsRoute);
+router.use('/v2/suppliers', supplierRoute);
+router.use('/v2/notifications', notificationRoute);
+router.use('/v2/audits', auditRoute);
+router.use('/v2/coupons', couponRoute);
 router.use('/health', healthRouter);
 
 export default router;

@@ -54,6 +54,10 @@ export default class InventoryService {
     return InventoryRepository.reserveStock(variantId, locationId, quantity);
   }
 
+  static async getTransactions(locationId: string, variantId?: string) {
+    return InventoryRepository.getTransactions(requireTenantId(), locationId, variantId);
+  }
+
   static async releaseReservation(variantId: string, locationId: string, quantity: number) {
     return InventoryRepository.releaseReservation(variantId, locationId, quantity);
   }

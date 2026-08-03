@@ -95,4 +95,12 @@ export default class PromotionRepository {
       where: { id },
     });
   }
+
+  // New models added for 100% coverage
+  static async getPricingRules(tenantId: string) {
+    return prisma.catalogPricingRule.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
 }
