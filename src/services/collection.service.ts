@@ -1,13 +1,13 @@
 import CollectionRepository from '../repositories/collection.repository';
 import { throwResponse } from '../utils/throw-response';
 import { requireTenantId } from '../utils/async-context';
-import { Prisma } from '@prisma/client';
+import { Prisma, CollectionType } from '@prisma/client';
 
 export default class CollectionService {
   // ─── Collections ────────────────────────────────────────────────────────────
 
   /** All top-level collections (parentId = null). Optionally filter by type. */
-  static async listCollections(type?: string) {
+  static async listCollections(type?: CollectionType) {
     return CollectionRepository.findAllRoot(requireTenantId(), type);
   }
 
@@ -26,7 +26,7 @@ export default class CollectionService {
   static async createCollection(data: {
     title: string;
     slug: string;
-    type: string;
+    type: CollectionType;
     description?: string;
     imageUrl?: string;
     metadata?: Prisma.InputJsonValue;
@@ -53,7 +53,7 @@ export default class CollectionService {
     data: {
       title?: string;
       slug?: string;
-      type?: string;
+      type?: CollectionType;
       description?: string;
       imageUrl?: string;
       metadata?: Prisma.InputJsonValue;
