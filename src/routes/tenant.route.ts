@@ -9,9 +9,24 @@ const router = express.Router();
 router.get('/', TenantController.listTenants);
 
 // Admin & Seller: create or update store verticals
-router.get('/all', authenticate, authorize(...ADMIN_ROLES, UserRole.SELLER), TenantController.listAllTenants);
-router.post('/', authenticate, authorize(...ADMIN_ROLES, UserRole.SELLER), TenantController.createTenant);
-router.patch('/:id', authenticate, authorize(...ADMIN_ROLES, UserRole.SELLER), TenantController.updateTenant);
+router.get(
+  '/all',
+  authenticate,
+  authorize(...ADMIN_ROLES, UserRole.SELLER),
+  TenantController.listAllTenants,
+);
+router.post(
+  '/',
+  authenticate,
+  authorize(...ADMIN_ROLES, UserRole.SELLER),
+  TenantController.createTenant,
+);
+router.patch(
+  '/:id',
+  authenticate,
+  authorize(...ADMIN_ROLES, UserRole.SELLER),
+  TenantController.updateTenant,
+);
 
 // Declared last so it can't shadow /all.
 router.get('/:slug', TenantController.getTenant);
