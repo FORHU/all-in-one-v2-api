@@ -19,17 +19,17 @@ export async function seedTenants(prisma: PrismaClient) {
   const tenants = [
     {
       id: TENANT_IDS.FASHION,
-      name: 'Vogue Fashion Store',
+      name: 'AddictStyle Fashion Store',
       slug: 'fashion',
-      domain: 'fashion.localhost',
+      domain: 'addictstyle.com',
       status: TenantStatus.ACTIVE,
       settings: { theme: 'dark', currency: 'USD', defaultLanguage: 'en' },
     },
     {
       id: TENANT_IDS.ELECTRONICS,
-      name: 'Pulse Electronics & Tech Store',
+      name: 'DigitFriend Tech & Electronics',
       slug: 'electronics',
-      domain: 'electronics.localhost',
+      domain: 'digitfriend.com',
       status: TenantStatus.ACTIVE,
       settings: { theme: 'dark', currency: 'USD', defaultLanguage: 'en' },
     },
@@ -43,9 +43,9 @@ export async function seedTenants(prisma: PrismaClient) {
     },
     {
       id: TENANT_IDS.BEAUTY,
-      name: 'Glow Beauty & Skincare Store',
+      name: 'AskMeBeauty Skincare & Beauty',
       slug: 'beauty',
-      domain: 'beauty.localhost',
+      domain: 'askmebeauty.com',
       status: TenantStatus.ACTIVE,
       settings: { theme: 'light', currency: 'USD', defaultLanguage: 'en' },
     },
@@ -53,7 +53,7 @@ export async function seedTenants(prisma: PrismaClient) {
       id: TENANT_IDS.HOME_GARDEN,
       name: 'Haven Home & Living Store',
       slug: 'home-garden',
-      domain: 'home-garden.localhost',
+      domain: 'living.localhost',
       status: TenantStatus.ACTIVE,
       settings: { theme: 'light', currency: 'USD', defaultLanguage: 'en' },
     },
@@ -61,7 +61,7 @@ export async function seedTenants(prisma: PrismaClient) {
       id: TENANT_IDS.SPORTS_OUTDOORS,
       name: 'Titan Sports & Outdoor Gear',
       slug: 'sports-outdoors',
-      domain: 'sports-outdoors.localhost',
+      domain: 'outdoor.localhost',
       status: TenantStatus.ACTIVE,
       settings: { theme: 'dark', currency: 'USD', defaultLanguage: 'en' },
     },
@@ -100,17 +100,11 @@ export async function seedTenants(prisma: PrismaClient) {
   ];
 
   for (const tenantData of tenants) {
-    const existing = await prisma.tenant.findUnique({
+    const tenant = await prisma.tenant.upsert({
       where: { id: tenantData.id },
+      update: tenantData,
+      create: tenantData,
     });
-
-    if (!existing) {
-      await prisma.tenant.create({
-        data: tenantData,
-      });
-      process.stdout.write(`✅ Created Tenant [${tenantData.slug}]: ${tenantData.name}\n`);
-    } else {
-      process.stdout.write(`ℹ️ Tenant already exists: ${tenantData.slug}\n`);
-    }
+    process.stdout.write(`✅ Seeded Tenant [${tenant.slug}]: ${tenant.name} (${tenant.domain})\n`);
   }
 }
