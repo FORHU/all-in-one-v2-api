@@ -36,7 +36,14 @@ startServer();
 const gracefulShutdown = async (signal: string) => {
   logger.info(`[Shutdown] ${signal} received. Starting graceful shutdown...`);
 
-  // 1. Stop accepting new connections
+  // 1. Stop accepting new connections. server.close()'s callback only fires
+  // once every open connection ends — a persistent Socket.io/WebSocket
+  // client (e.g. a browser tab left open) keeps the server "open"
+  // indefinitely, so this always stalled to the 10s forced-exit below.
+  // closeAllConnections() forcibly ends them so shutdown completes promptly
+  // instead of leaving the old process — and its port — lingering while
+  // nodemon spawns a replacement.
+  server.closeAllConnections();
   server.close(async (err) => {
     if (err) {
       logger.error('[Shutdown] Error closing HTTP server:', err);

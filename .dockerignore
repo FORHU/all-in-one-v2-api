@@ -1,0 +1,11 @@
+node_modules
+dist
+logs
+.git
+.github
+tests
+docs
+*.log
+.env
+.env.example
+npm-debug.log*

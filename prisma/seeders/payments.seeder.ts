@@ -1,5 +1,6 @@
 import {
   PrismaClient,
+  OrderStatus,
   PaymentGateway,
   PaymentChannel,
   PaymentStatus,
@@ -7,117 +8,104 @@ import {
 } from '@prisma/client';
 import { TENANT_IDS } from './tenants.seeder';
 
-export async function seedPayments(prisma: PrismaClient) {
-  process.stdout.write('🌱 Seeding Payments, PaymentEvents & PaymentAttempts...\n');
+interface GatewayProfile {
+  gateway: PaymentGateway;
+  channel: PaymentChannel;
+  instrument: PaymentInstrument | null;
+  currency: string;
+}
 
-  const tenantId = TENANT_IDS.FASHION;
-  const order = await prisma.commerceOrder.findFirst({
-    where: { tenantId },
-  });
+// Cycled across each tenant's 5 orders for payment-method variety
+const GATEWAY_PROFILES: GatewayProfile[] = [
+  { gateway: PaymentGateway.PAYMONGO, channel: PaymentChannel.EWALLET, instrument: PaymentInstrument.GCASH, currency: 'PHP' },
+  { gateway: PaymentGateway.STRIPE, channel: PaymentChannel.CARD, instrument: PaymentInstrument.VISA, currency: 'USD' },
+  { gateway: PaymentGateway.PAYPAL, channel: PaymentChannel.BANK_TRANSFER, instrument: null, currency: 'USD' },
+  { gateway: PaymentGateway.XENDIT, channel: PaymentChannel.QR, instrument: PaymentInstrument.QRPH, currency: 'PHP' },
+  { gateway: PaymentGateway.MAYA, channel: PaymentChannel.EWALLET, instrument: PaymentInstrument.MAYA, currency: 'PHP' },
+];
 
-  if (!order) {
-    process.stderr.write(
-      '⚠️ Order not found for fashion tenant. Ensure seedCommerce runs first.\n',
-    );
-    return;
+// Maps the order's fulfillment status onto a realistic payment status
+function paymentStatusForOrder(orderStatus: OrderStatus): PaymentStatus {
+  switch (orderStatus) {
+    case OrderStatus.PENDING:
+      return PaymentStatus.PENDING;
+    case OrderStatus.PROCESSING:
+    case OrderStatus.PARTIALLY_FULFILLED:
+      return PaymentStatus.PROCESSING;
+    case OrderStatus.FULFILLED:
+      return PaymentStatus.PAID;
+    case OrderStatus.CANCELLED:
+      return PaymentStatus.CANCELLED;
+    case OrderStatus.REFUNDED:
+      return PaymentStatus.REFUNDED;
+    default:
+      return PaymentStatus.CREATED;
   }
+}
 
-  // 1. Seed GCash Payment with PaymentEvents & PaymentAttempt
-  const gcashPaymentId = 'p5566778-8990-4112-a334-556677889900';
-  const existingGcashPayment = await prisma.commercePayment.findUnique({
-    where: { id: gcashPaymentId },
-  });
+export async function seedPayments(prisma: PrismaClient) {
+  process.stdout.write('🌱 Seeding Payments, PaymentEvents & PaymentAttempts for 5 Tenants...\n');
 
-  if (!existingGcashPayment) {
-    const gcashPayment = await prisma.commercePayment.create({
-      data: {
-        id: gcashPaymentId,
-        orderId: order.id,
-        gateway: PaymentGateway.PAYMONGO,
-        channel: PaymentChannel.EWALLET,
-        instrument: PaymentInstrument.GCASH,
-        expectedAmount: order.totalAmount,
-        amount: order.totalAmount,
-        currency: 'PHP',
-        status: PaymentStatus.PAID,
-        gatewayTransactionId: 'pay_gcash_tx_998124',
-        gatewayPaymentId: 'pay_gcash_py_772183',
-        gatewayResponse: {
-          id: 'pay_gcash_py_772183',
-          type: 'payment',
-          attributes: {
-            amount: 19998,
-            currency: 'PHP',
-            status: 'paid',
-            source: { type: 'gcash' },
+  for (const tenantId of Object.values(TENANT_IDS)) {
+    const orders = await prisma.commerceOrder.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (orders.length === 0) {
+      process.stderr.write(
+        `⚠️ No orders found for tenant [${tenantId}]. Ensure seedCommerce runs first.\n`,
+      );
+      continue;
+    }
+
+    for (let i = 0; i < orders.length; i++) {
+      const order = orders[i];
+
+      const existingPayment = await prisma.commercePayment.findFirst({ where: { orderId: order.id } });
+      if (existingPayment) continue;
+
+      const profile = GATEWAY_PROFILES[i % GATEWAY_PROFILES.length];
+      const status = paymentStatusForOrder(order.status);
+      const isSettled = status === PaymentStatus.PAID || status === PaymentStatus.REFUNDED;
+
+      const payment = await prisma.commercePayment.create({
+        data: {
+          orderId: order.id,
+          gateway: profile.gateway,
+          channel: profile.channel,
+          instrument: profile.instrument,
+          expectedAmount: order.totalAmount,
+          amount: order.totalAmount,
+          currency: profile.currency,
+          status,
+          gatewayTransactionId: isSettled ? `tx_${profile.gateway.toLowerCase()}_${order.id.slice(0, 8)}` : null,
+          gatewayPaymentId: isSettled ? `py_${profile.gateway.toLowerCase()}_${order.id.slice(0, 8)}` : null,
+          events: {
+            create: [
+              { status: PaymentStatus.CREATED, message: `Payment intent created via ${profile.gateway}` },
+              { status, message: `Payment moved to ${status} for order ${order.id}` },
+            ],
+          },
+          attempts: {
+            create: [
+              {
+                amount: order.totalAmount,
+                status,
+                rawResponse: { referenceNo: `${profile.gateway}-REF-${order.id.slice(0, 8).toUpperCase()}` },
+              },
+            ],
           },
         },
-        events: {
-          create: [
-            {
-              status: PaymentStatus.CREATED,
-              message: 'Payment intent created via PayMongo GCash',
-            },
-            {
-              status: PaymentStatus.PENDING,
-              message: 'Awaiting customer e-wallet authentication',
-            },
-            {
-              status: PaymentStatus.PAID,
-              message: 'GCash payment captured successfully',
-            },
-          ],
-        },
-        attempts: {
-          create: [
-            {
-              amount: order.totalAmount,
-              status: PaymentStatus.PAID,
-              rawResponse: { referenceNo: 'GCASH-REF-88912' },
-            },
-          ],
-        },
-      },
-    });
-    process.stdout.write(`✅ Seeded GCash Payment [${gcashPayment.id}]: $${order.totalAmount}\n`);
+      });
+
+      process.stdout.write(
+        `✅ Seeded ${profile.gateway} Payment [${payment.id}] for Order [${order.id}]: ${order.totalAmount} ${profile.currency} (${status})\n`,
+      );
+    }
   }
 
-  // 2. Seed Credit Card Payment
-  const cardPaymentId = 'p6677889-9001-4223-b445-667788990011';
-  const existingStripePayment = await prisma.commercePayment.findUnique({
-    where: { id: cardPaymentId },
-  });
-
-  if (!existingStripePayment) {
-    const stripePayment = await prisma.commercePayment.create({
-      data: {
-        id: cardPaymentId,
-        orderId: order.id,
-        gateway: PaymentGateway.STRIPE,
-        channel: PaymentChannel.CARD,
-        instrument: PaymentInstrument.VISA,
-        expectedAmount: order.totalAmount,
-        amount: order.totalAmount,
-        currency: 'USD',
-        status: PaymentStatus.PAID,
-        gatewayTransactionId: 'ch_stripe_tx_334912',
-        gatewayPaymentId: 'pi_stripe_py_112938',
-        events: {
-          create: [
-            {
-              status: PaymentStatus.PAID,
-              message: 'Stripe card authorization & capture successful',
-            },
-          ],
-        },
-      },
-    });
-    process.stdout.write(
-      `✅ Seeded Stripe Visa Payment [${stripePayment.id}]: $${order.totalAmount}\n`,
-    );
-  }
-
-  process.stdout.write('🎉 Payments seeder executed successfully!\n');
+  process.stdout.write('🎉 Payments seeder executed successfully for all tenants!\n');
 }
 
 export default seedPayments;

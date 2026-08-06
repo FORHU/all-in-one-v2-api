@@ -17,9 +17,12 @@ CREATE TYPE "StorefrontContextType" AS ENUM ('CATEGORY', 'STORE', 'BRAND', 'CAMP
 CREATE TYPE "StorefrontSectionStrategy" AS ENUM ('MANUAL', 'COLLECTION', 'TRENDING', 'BEST_SELLERS', 'NEW_ARRIVALS', 'FLASH_SALE', 'FEATURED', 'RECOMMENDED');
 
 -- AlterTable
-ALTER TABLE "catalog_collections" ADD COLUMN     "sortOrder" INTEGER NOT NULL DEFAULT 0,
-DROP COLUMN "type",
-ADD COLUMN     "type" "CollectionType" NOT NULL;
+-- Cast the existing `type` text column into the new enum instead of
+-- dropping + recreating it — a bare drop/add loses every existing row's
+-- value and then immediately fails the NOT NULL check on any non-empty
+-- table (which is exactly what happened here: 3 seeded collections).
+ALTER TABLE "catalog_collections" ADD COLUMN     "sortOrder" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "catalog_collections" ALTER COLUMN "type" TYPE "CollectionType" USING ("type"::"CollectionType");
 
 -- CreateTable
 CREATE TABLE "storefront_pages" (
@@ -106,8 +109,9 @@ CREATE INDEX "storefront_section_items_productId_idx" ON "storefront_section_ite
 -- CreateIndex
 CREATE UNIQUE INDEX "storefront_section_items_sectionId_productId_key" ON "storefront_section_items"("sectionId", "productId");
 
--- CreateIndex
-CREATE INDEX "catalog_collections_tenantId_type_idx" ON "catalog_collections"("tenantId", "type");
+-- Note: "catalog_collections_tenantId_type_idx" already exists from the
+-- init migration and survives here since ALTER COLUMN TYPE (unlike the
+-- original DROP+ADD COLUMN) doesn't drop the column's dependent index.
 
 -- AddForeignKey
 ALTER TABLE "storefront_pages" ADD CONSTRAINT "storefront_pages_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
