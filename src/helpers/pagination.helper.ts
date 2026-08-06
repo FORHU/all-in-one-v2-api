@@ -166,3 +166,65 @@ export function pageFromRepo<T>(result: {
     filters: result.filters,
   });
 }
+
+/**
+ * Minimal shape every Prisma model delegate satisfies (`prisma.authUser`,
+ * `prisma.commerceOrder`, `prisma.marketingSocialFeed`, ...). Declared here
+ * rather than imported from `@prisma/client` so `paginate()` stays usable
+ * against any model without a per-model overload.
+ */
+interface PaginatableDelegate<T, WhereInput, OrderByInput, IncludeInput> {
+  findMany(args: {
+    where?: WhereInput;
+    orderBy?: OrderByInput;
+    skip?: number;
+    take?: number;
+    include?: IncludeInput;
+  }): Promise<T[]>;
+  count(args?: { where?: WhereInput }): Promise<number>;
+}
+
+/**
+ * One-call replacement for the hand-rolled
+ * `skip = (page-1)*limit; Promise.all([findMany, count])` pattern repeated
+ * across user/order/marketing repositories. Runs the paginated query
+ * against any Prisma model delegate and returns the standard PageResult —
+ * no separate pageFromRepo()/buildPage() call needed at the caller.
+ *
+ * ── Usage ────────────────────────────────────────────────────────────────
+ *   return paginate(prisma.authUser, {
+ *     where: { isDeleted: false },
+ *     orderBy: { createdAt: 'desc' },
+ *     page, limit, search, sortBy, sortOrder,
+ *   });
+ */
+export async function paginate<T, WhereInput = unknown, OrderByInput = unknown, IncludeInput = never>(
+  delegate: PaginatableDelegate<T, WhereInput, OrderByInput, IncludeInput>,
+  params: {
+    where?: WhereInput;
+    orderBy?: OrderByInput;
+    include?: IncludeInput;
+    page: number;
+    limit: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    search?: string;
+    filters?: Record<string, unknown>;
+  },
+): Promise<PageResult<T>> {
+  const { where, orderBy, include, page, limit, sortBy, sortOrder, search, filters } = params;
+  const skip = (page - 1) * limit;
+
+  const [items, total] = await Promise.all([
+    delegate.findMany({
+      where,
+      orderBy,
+      skip,
+      take: limit,
+      ...(include ? { include } : {}),
+    }),
+    delegate.count({ where }),
+  ]);
+
+  return buildPage(items, total, { page, limit, sortBy, sortOrder, search, filters });
+}

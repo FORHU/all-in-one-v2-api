@@ -52,8 +52,18 @@ export class UserService {
     return { message: 'User deleted successfully' };
   }
 
-  static async listUsers(page?: number, limit?: number) {
-    return UserRepository.findAll(page, limit);
+  static async listUsers(
+    page?: number,
+    limit?: number,
+    search?: string,
+    sortBy?: string,
+    sortOrder?: 'asc' | 'desc',
+  ) {
+    const result = await UserRepository.findAll(page, limit, search, sortBy, sortOrder);
+    return {
+      ...result,
+      items: result.items.map(({ password: _password, ...rest }) => rest),
+    };
   }
 }
 
