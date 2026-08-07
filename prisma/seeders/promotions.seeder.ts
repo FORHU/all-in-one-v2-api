@@ -467,7 +467,9 @@ export async function seedPromotions(prisma: PrismaClient) {
     }
   }
 
-  process.stdout.write('✅ Seeded Platform Promotions, Rules, Rewards & Targets for all tenants!\n');
+  process.stdout.write(
+    '✅ Seeded Platform Promotions, Rules, Rewards & Targets for all tenants!\n',
+  );
 }
 
 export default seedPromotions;

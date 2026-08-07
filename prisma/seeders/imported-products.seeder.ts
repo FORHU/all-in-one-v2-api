@@ -94,7 +94,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 175,
       },
     ],
-    rawData: { productNameEn: 'Oversized Fleece Hoodie', categoryName: 'Outerwear', weight: '0.70kg', score: 8.7, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Oversized Fleece Hoodie',
+      categoryName: 'Outerwear',
+      weight: '0.70kg',
+      score: 8.7,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -135,7 +141,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 280,
       },
     ],
-    rawData: { productNameEn: 'Oversized Graphic Tee', categoryName: 'Tops', weight: '0.3kg', score: 8.7, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Oversized Graphic Tee',
+      categoryName: 'Tops',
+      weight: '0.3kg',
+      score: 8.7,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -168,7 +180,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 140,
       },
     ],
-    rawData: { productNameEn: 'Cargo Pants', categoryName: 'Bottoms', weight: '0.6kg', score: 8.9, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Cargo Pants',
+      categoryName: 'Bottoms',
+      weight: '0.6kg',
+      score: 8.9,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -202,7 +220,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 90,
       },
     ],
-    rawData: { productNameEn: 'Satin Bomber Jacket', categoryName: 'Outerwear', weight: '0.85kg', score: 9.1, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Satin Bomber Jacket',
+      categoryName: 'Outerwear',
+      weight: '0.85kg',
+      score: 9.1,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -243,7 +267,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 135,
       },
     ],
-    rawData: { productNameEn: 'Urban Air Cushion Running Sneakers', categoryName: 'Footwear', weight: '0.65kg', score: 9.0, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Urban Air Cushion Running Sneakers',
+      categoryName: 'Footwear',
+      weight: '0.65kg',
+      score: 9.0,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -285,7 +315,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 95,
       },
     ],
-    rawData: { productNameEn: 'Floral Wrap Midi Dress', categoryName: 'Dresses', weight: '0.35kg', score: 8.6, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Floral Wrap Midi Dress',
+      categoryName: 'Dresses',
+      weight: '0.35kg',
+      score: 8.6,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -318,7 +354,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 320,
       },
     ],
-    rawData: { productNameEn: 'Snapback Cap', categoryName: 'Accessories', weight: '0.15kg', score: 8.5, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Snapback Cap',
+      categoryName: 'Accessories',
+      weight: '0.15kg',
+      score: 8.5,
+      verdict: 'SELL',
+    },
   },
 
   {
@@ -353,7 +395,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 364,
       },
     ],
-    rawData: { productNameEn: 'Slim Fit Stretch Chino Trousers', categoryName: 'Bottoms', weight: '0.20kg', score: 9.06, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Slim Fit Stretch Chino Trousers',
+      categoryName: 'Bottoms',
+      weight: '0.20kg',
+      score: 9.06,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -386,7 +434,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 254,
       },
     ],
-    rawData: { productNameEn: 'Classic Oxford Button-Down Shirt', categoryName: 'Tops', weight: '0.22kg', score: 9.2, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Classic Oxford Button-Down Shirt',
+      categoryName: 'Tops',
+      weight: '0.22kg',
+      score: 9.2,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -419,7 +473,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 206,
       },
     ],
-    rawData: { productNameEn: 'Merino Wool Crew Neck Sweater', categoryName: 'Tops', weight: '0.24kg', score: 8.82, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Merino Wool Crew Neck Sweater',
+      categoryName: 'Tops',
+      weight: '0.24kg',
+      score: 8.82,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -453,7 +513,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 395,
       },
     ],
-    rawData: { productNameEn: 'Straight Leg Selvedge Denim Jeans', categoryName: 'Bottoms', weight: '0.26kg', score: 9.29, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Straight Leg Selvedge Denim Jeans',
+      categoryName: 'Bottoms',
+      weight: '0.26kg',
+      score: 9.29,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -486,7 +552,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 170,
       },
     ],
-    rawData: { productNameEn: 'Linen Short-Sleeve Resort Shirt', categoryName: 'Tops', weight: '0.28kg', score: 8.87, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Linen Short-Sleeve Resort Shirt',
+      categoryName: 'Tops',
+      weight: '0.28kg',
+      score: 8.87,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -519,7 +591,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 261,
       },
     ],
-    rawData: { productNameEn: 'Quarter-Zip Pullover Sweatshirt', categoryName: 'Tops', weight: '0.30kg', score: 8.72, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Quarter-Zip Pullover Sweatshirt',
+      categoryName: 'Tops',
+      weight: '0.30kg',
+      score: 8.72,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -553,7 +631,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 399,
       },
     ],
-    rawData: { productNameEn: 'Tailored Fit Dress Trousers', categoryName: 'Bottoms', weight: '0.32kg', score: 8.71, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Tailored Fit Dress Trousers',
+      categoryName: 'Bottoms',
+      weight: '0.32kg',
+      score: 8.71,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -586,7 +670,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 259,
       },
     ],
-    rawData: { productNameEn: 'Flannel Plaid Button-Up Shirt', categoryName: 'Tops', weight: '0.34kg', score: 8.31, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Flannel Plaid Button-Up Shirt',
+      categoryName: 'Tops',
+      weight: '0.34kg',
+      score: 8.31,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -619,7 +709,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 379,
       },
     ],
-    rawData: { productNameEn: 'Waffle Knit Henley Long Sleeve', categoryName: 'Tops', weight: '0.36kg', score: 8.01, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Waffle Knit Henley Long Sleeve',
+      categoryName: 'Tops',
+      weight: '0.36kg',
+      score: 8.01,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -653,7 +749,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 243,
       },
     ],
-    rawData: { productNameEn: 'Performance Stretch Polo Shirt', categoryName: 'Tops', weight: '0.38kg', score: 8.85, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Performance Stretch Polo Shirt',
+      categoryName: 'Tops',
+      weight: '0.38kg',
+      score: 8.85,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -686,7 +788,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 104,
       },
     ],
-    rawData: { productNameEn: 'Corduroy Five-Pocket Pants', categoryName: 'Bottoms', weight: '0.40kg', score: 8.86, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Corduroy Five-Pocket Pants',
+      categoryName: 'Bottoms',
+      weight: '0.40kg',
+      score: 8.86,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -719,7 +827,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 401,
       },
     ],
-    rawData: { productNameEn: 'Ribbed Knit Turtleneck Sweater', categoryName: 'Tops', weight: '0.42kg', score: 8.83, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Ribbed Knit Turtleneck Sweater',
+      categoryName: 'Tops',
+      weight: '0.42kg',
+      score: 8.83,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -753,7 +867,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 396,
       },
     ],
-    rawData: { productNameEn: 'Relaxed Fit Denim Shacket', categoryName: 'Tops', weight: '0.44kg', score: 8.27, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Relaxed Fit Denim Shacket',
+      categoryName: 'Tops',
+      weight: '0.44kg',
+      score: 8.27,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -786,7 +906,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 230,
       },
     ],
-    rawData: { productNameEn: 'Track Pants with Side Stripe', categoryName: 'Tops', weight: '0.46kg', score: 8.16, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Track Pants with Side Stripe',
+      categoryName: 'Tops',
+      weight: '0.46kg',
+      score: 8.16,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -819,7 +945,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 243,
       },
     ],
-    rawData: { productNameEn: 'Cotton Twill Utility Shorts', categoryName: 'Bottoms', weight: '0.48kg', score: 8.53, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Cotton Twill Utility Shorts',
+      categoryName: 'Bottoms',
+      weight: '0.48kg',
+      score: 8.53,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -853,7 +985,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 217,
       },
     ],
-    rawData: { productNameEn: 'Vintage Wash Graphic Crewneck Sweatshirt', categoryName: 'Tops', weight: '0.50kg', score: 8.48, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Vintage Wash Graphic Crewneck Sweatshirt',
+      categoryName: 'Tops',
+      weight: '0.50kg',
+      score: 8.48,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -886,7 +1024,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 88,
       },
     ],
-    rawData: { productNameEn: 'Slim Fit Stretch Jeans', categoryName: 'Bottoms', weight: '0.52kg', score: 8.45, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Slim Fit Stretch Jeans',
+      categoryName: 'Bottoms',
+      weight: '0.52kg',
+      score: 8.45,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -919,7 +1063,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 220,
       },
     ],
-    rawData: { productNameEn: 'Textured Knit Zip-Up Cardigan', categoryName: 'Tops', weight: '0.54kg', score: 8.59, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Textured Knit Zip-Up Cardigan',
+      categoryName: 'Tops',
+      weight: '0.54kg',
+      score: 8.59,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -952,7 +1102,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 124,
       },
     ],
-    rawData: { productNameEn: 'High-Waisted Wide-Leg Trousers', categoryName: 'Bottoms', weight: '0.18kg', score: 8.26, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'High-Waisted Wide-Leg Trousers',
+      categoryName: 'Bottoms',
+      weight: '0.18kg',
+      score: 8.26,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -986,7 +1142,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 203,
       },
     ],
-    rawData: { productNameEn: 'Satin Slip Midi Dress', categoryName: 'Dresses', weight: '0.20kg', score: 9.21, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Satin Slip Midi Dress',
+      categoryName: 'Dresses',
+      weight: '0.20kg',
+      score: 9.21,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1019,7 +1181,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 332,
       },
     ],
-    rawData: { productNameEn: 'Ribbed Knit Bodycon Dress', categoryName: 'Dresses', weight: '0.22kg', score: 9.09, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Ribbed Knit Bodycon Dress',
+      categoryName: 'Dresses',
+      weight: '0.22kg',
+      score: 9.09,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1052,7 +1220,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 76,
       },
     ],
-    rawData: { productNameEn: 'Linen Button-Front Maxi Dress', categoryName: 'Dresses', weight: '0.24kg', score: 8.23, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Linen Button-Front Maxi Dress',
+      categoryName: 'Dresses',
+      weight: '0.24kg',
+      score: 8.23,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1086,7 +1260,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 170,
       },
     ],
-    rawData: { productNameEn: 'Pleated Tennis Skirt', categoryName: 'Bottoms', weight: '0.26kg', score: 8.69, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Pleated Tennis Skirt',
+      categoryName: 'Bottoms',
+      weight: '0.26kg',
+      score: 8.69,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1119,7 +1299,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 177,
       },
     ],
-    rawData: { productNameEn: 'Cropped Cardigan Sweater', categoryName: 'Tops', weight: '0.28kg', score: 8.31, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Cropped Cardigan Sweater',
+      categoryName: 'Tops',
+      weight: '0.28kg',
+      score: 8.31,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1152,7 +1338,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 318,
       },
     ],
-    rawData: { productNameEn: 'Off-Shoulder Ruffle Blouse', categoryName: 'Tops', weight: '0.30kg', score: 8.47, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Off-Shoulder Ruffle Blouse',
+      categoryName: 'Tops',
+      weight: '0.30kg',
+      score: 8.47,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1186,7 +1378,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 367,
       },
     ],
-    rawData: { productNameEn: 'High-Rise Skinny Jeans', categoryName: 'Bottoms', weight: '0.32kg', score: 8.44, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'High-Rise Skinny Jeans',
+      categoryName: 'Bottoms',
+      weight: '0.32kg',
+      score: 8.44,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1219,7 +1417,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 387,
       },
     ],
-    rawData: { productNameEn: 'Puff Sleeve Poplin Blouse', categoryName: 'Tops', weight: '0.34kg', score: 8.22, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Puff Sleeve Poplin Blouse',
+      categoryName: 'Tops',
+      weight: '0.34kg',
+      score: 8.22,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1252,7 +1456,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 91,
       },
     ],
-    rawData: { productNameEn: 'Wrap Front Knit Sweater Dress', categoryName: 'Dresses', weight: '0.36kg', score: 8.58, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Wrap Front Knit Sweater Dress',
+      categoryName: 'Dresses',
+      weight: '0.36kg',
+      score: 8.58,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1286,7 +1496,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 334,
       },
     ],
-    rawData: { productNameEn: 'Denim A-Line Mini Skirt', categoryName: 'Bottoms', weight: '0.38kg', score: 9.29, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Denim A-Line Mini Skirt',
+      categoryName: 'Bottoms',
+      weight: '0.38kg',
+      score: 9.29,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1319,7 +1535,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 411,
       },
     ],
-    rawData: { productNameEn: 'Silk Cami Top', categoryName: 'Tops', weight: '0.40kg', score: 8.68, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Silk Cami Top',
+      categoryName: 'Tops',
+      weight: '0.40kg',
+      score: 8.68,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1352,7 +1574,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 365,
       },
     ],
-    rawData: { productNameEn: 'Faux Leather Leggings', categoryName: 'Bottoms', weight: '0.42kg', score: 9.39, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Faux Leather Leggings',
+      categoryName: 'Bottoms',
+      weight: '0.42kg',
+      score: 9.39,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1386,7 +1614,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 204,
       },
     ],
-    rawData: { productNameEn: 'Tiered Boho Maxi Skirt', categoryName: 'Bottoms', weight: '0.44kg', score: 8.23, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Tiered Boho Maxi Skirt',
+      categoryName: 'Bottoms',
+      weight: '0.44kg',
+      score: 8.23,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1419,7 +1653,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 405,
       },
     ],
-    rawData: { productNameEn: 'Cut-Out Bodycon Party Dress', categoryName: 'Dresses', weight: '0.46kg', score: 8.2, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Cut-Out Bodycon Party Dress',
+      categoryName: 'Dresses',
+      weight: '0.46kg',
+      score: 8.2,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1452,7 +1692,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 116,
       },
     ],
-    rawData: { productNameEn: 'Cable Knit Oversized Sweater', categoryName: 'Tops', weight: '0.48kg', score: 8.8, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Cable Knit Oversized Sweater',
+      categoryName: 'Tops',
+      weight: '0.48kg',
+      score: 8.8,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1486,7 +1732,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 247,
       },
     ],
-    rawData: { productNameEn: 'Tailored Blazer Dress', categoryName: 'Dresses', weight: '0.50kg', score: 8.2, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Tailored Blazer Dress',
+      categoryName: 'Dresses',
+      weight: '0.50kg',
+      score: 8.2,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1519,7 +1771,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 417,
       },
     ],
-    rawData: { productNameEn: 'Ruched Bodycon Midi Skirt', categoryName: 'Bottoms', weight: '0.52kg', score: 8.39, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Ruched Bodycon Midi Skirt',
+      categoryName: 'Bottoms',
+      weight: '0.52kg',
+      score: 8.39,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1552,7 +1810,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 127,
       },
     ],
-    rawData: { productNameEn: 'Floral Chiffon Wrap Blouse', categoryName: 'Tops', weight: '0.54kg', score: 8.99, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Floral Chiffon Wrap Blouse',
+      categoryName: 'Tops',
+      weight: '0.54kg',
+      score: 8.99,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1586,7 +1850,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 128,
       },
     ],
-    rawData: { productNameEn: 'Retro High-Top Basketball Sneakers', categoryName: 'Footwear', weight: '0.55kg', score: 8.47, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Retro High-Top Basketball Sneakers',
+      categoryName: 'Footwear',
+      weight: '0.55kg',
+      score: 8.47,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1619,7 +1889,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 276,
       },
     ],
-    rawData: { productNameEn: 'Classic Canvas Low-Top Sneakers', categoryName: 'Footwear', weight: '0.57kg', score: 8.32, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Classic Canvas Low-Top Sneakers',
+      categoryName: 'Footwear',
+      weight: '0.57kg',
+      score: 8.32,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1652,7 +1928,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 242,
       },
     ],
-    rawData: { productNameEn: 'Chunky Platform Trainer Sneakers', categoryName: 'Footwear', weight: '0.59kg', score: 8.52, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Chunky Platform Trainer Sneakers',
+      categoryName: 'Footwear',
+      weight: '0.59kg',
+      score: 8.52,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1686,7 +1968,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 266,
       },
     ],
-    rawData: { productNameEn: 'Suede Desert Chukka Boots', categoryName: 'Footwear', weight: '0.61kg', score: 9.26, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Suede Desert Chukka Boots',
+      categoryName: 'Footwear',
+      weight: '0.61kg',
+      score: 9.26,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1719,7 +2007,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 318,
       },
     ],
-    rawData: { productNameEn: 'Waterproof Combat Boots', categoryName: 'Footwear', weight: '0.63kg', score: 9.12, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Waterproof Combat Boots',
+      categoryName: 'Footwear',
+      weight: '0.63kg',
+      score: 9.12,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1752,7 +2046,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 196,
       },
     ],
-    rawData: { productNameEn: 'Slip-On Canvas Boat Shoes', categoryName: 'Footwear', weight: '0.65kg', score: 8.93, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Slip-On Canvas Boat Shoes',
+      categoryName: 'Footwear',
+      weight: '0.65kg',
+      score: 8.93,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1786,7 +2086,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 147,
       },
     ],
-    rawData: { productNameEn: 'Knit Sock Runner Sneakers', categoryName: 'Footwear', weight: '0.67kg', score: 8.5, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Knit Sock Runner Sneakers',
+      categoryName: 'Footwear',
+      weight: '0.67kg',
+      score: 8.5,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1819,7 +2125,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 282,
       },
     ],
-    rawData: { productNameEn: 'Leather Chelsea Boots', categoryName: 'Footwear', weight: '0.69kg', score: 8.59, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Leather Chelsea Boots',
+      categoryName: 'Footwear',
+      weight: '0.69kg',
+      score: 8.59,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1852,7 +2164,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 292,
       },
     ],
-    rawData: { productNameEn: 'Trail Running Sneakers', categoryName: 'Footwear', weight: '0.71kg', score: 8.72, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Trail Running Sneakers',
+      categoryName: 'Footwear',
+      weight: '0.71kg',
+      score: 8.72,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1886,7 +2204,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 211,
       },
     ],
-    rawData: { productNameEn: 'Skate Style Low-Top Sneakers', categoryName: 'Footwear', weight: '0.73kg', score: 8.23, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Skate Style Low-Top Sneakers',
+      categoryName: 'Footwear',
+      weight: '0.73kg',
+      score: 8.23,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1919,7 +2243,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 157,
       },
     ],
-    rawData: { productNameEn: 'Faux Fur Lined Winter Boots', categoryName: 'Footwear', weight: '0.75kg', score: 9.17, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Faux Fur Lined Winter Boots',
+      categoryName: 'Footwear',
+      weight: '0.75kg',
+      score: 9.17,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1952,7 +2282,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 265,
       },
     ],
-    rawData: { productNameEn: 'Minimalist Court Sneakers', categoryName: 'Footwear', weight: '0.77kg', score: 8.24, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Minimalist Court Sneakers',
+      categoryName: 'Footwear',
+      weight: '0.77kg',
+      score: 8.24,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -1986,7 +2322,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 164,
       },
     ],
-    rawData: { productNameEn: 'Espadrille Slip-On Sneakers', categoryName: 'Footwear', weight: '0.79kg', score: 8.65, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Espadrille Slip-On Sneakers',
+      categoryName: 'Footwear',
+      weight: '0.79kg',
+      score: 8.65,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2019,7 +2361,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 151,
       },
     ],
-    rawData: { productNameEn: 'Rugged Lace-Up Work Boots', categoryName: 'Footwear', weight: '0.81kg', score: 8.97, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Rugged Lace-Up Work Boots',
+      categoryName: 'Footwear',
+      weight: '0.81kg',
+      score: 8.97,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2052,7 +2400,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 341,
       },
     ],
-    rawData: { productNameEn: 'Retro Jogger Sneakers', categoryName: 'Footwear', weight: '0.83kg', score: 8.43, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Retro Jogger Sneakers',
+      categoryName: 'Footwear',
+      weight: '0.83kg',
+      score: 8.43,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2086,7 +2440,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 127,
       },
     ],
-    rawData: { productNameEn: 'Vegan Leather High-Top Sneakers', categoryName: 'Footwear', weight: '0.85kg', score: 8.5, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Vegan Leather High-Top Sneakers',
+      categoryName: 'Footwear',
+      weight: '0.85kg',
+      score: 8.5,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2119,7 +2479,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 219,
       },
     ],
-    rawData: { productNameEn: 'Hiking-Inspired Casual Trainers', categoryName: 'Footwear', weight: '0.87kg', score: 8.6, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Hiking-Inspired Casual Trainers',
+      categoryName: 'Footwear',
+      weight: '0.87kg',
+      score: 8.6,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2152,7 +2518,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 367,
       },
     ],
-    rawData: { productNameEn: 'Perforated Summer Sneakers', categoryName: 'Footwear', weight: '0.89kg', score: 8.42, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Perforated Summer Sneakers',
+      categoryName: 'Footwear',
+      weight: '0.89kg',
+      score: 8.42,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2186,7 +2558,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 148,
       },
     ],
-    rawData: { productNameEn: 'Two-Tone Retro Runner Sneakers', categoryName: 'Footwear', weight: '0.91kg', score: 8.91, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Two-Tone Retro Runner Sneakers',
+      categoryName: 'Footwear',
+      weight: '0.91kg',
+      score: 8.91,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2219,7 +2597,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 240,
       },
     ],
-    rawData: { productNameEn: 'Classic Leather Oxford Dress Shoes', categoryName: 'Shoes', weight: '0.45kg', score: 9.17, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Classic Leather Oxford Dress Shoes',
+      categoryName: 'Shoes',
+      weight: '0.45kg',
+      score: 9.17,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2253,7 +2637,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 210,
       },
     ],
-    rawData: { productNameEn: 'Penny Loafers in Full-Grain Leather', categoryName: 'Shoes', weight: '0.47kg', score: 9.13, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Penny Loafers in Full-Grain Leather',
+      categoryName: 'Shoes',
+      weight: '0.47kg',
+      score: 9.13,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2286,7 +2676,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 382,
       },
     ],
-    rawData: { productNameEn: 'Pointed Toe Stiletto Pumps', categoryName: 'Shoes', weight: '0.49kg', score: 8.31, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Pointed Toe Stiletto Pumps',
+      categoryName: 'Shoes',
+      weight: '0.49kg',
+      score: 8.31,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2319,7 +2715,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 248,
       },
     ],
-    rawData: { productNameEn: 'Block Heel Ankle Strap Sandals', categoryName: 'Shoes', weight: '0.51kg', score: 9.21, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Block Heel Ankle Strap Sandals',
+      categoryName: 'Shoes',
+      weight: '0.51kg',
+      score: 9.21,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2353,7 +2755,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 270,
       },
     ],
-    rawData: { productNameEn: 'Patent Leather Derby Shoes', categoryName: 'Shoes', weight: '0.53kg', score: 9.04, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Patent Leather Derby Shoes',
+      categoryName: 'Shoes',
+      weight: '0.53kg',
+      score: 9.04,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2386,7 +2794,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 379,
       },
     ],
-    rawData: { productNameEn: 'Velvet Embroidered Loafers', categoryName: 'Shoes', weight: '0.55kg', score: 8.37, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Velvet Embroidered Loafers',
+      categoryName: 'Shoes',
+      weight: '0.55kg',
+      score: 8.37,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2419,7 +2833,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 339,
       },
     ],
-    rawData: { productNameEn: 'Suede Monk Strap Shoes', categoryName: 'Shoes', weight: '0.57kg', score: 8.47, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Suede Monk Strap Shoes',
+      categoryName: 'Shoes',
+      weight: '0.57kg',
+      score: 8.47,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2453,7 +2873,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 204,
       },
     ],
-    rawData: { productNameEn: 'Strappy Evening Heels', categoryName: 'Shoes', weight: '0.59kg', score: 9.36, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Strappy Evening Heels',
+      categoryName: 'Shoes',
+      weight: '0.59kg',
+      score: 9.36,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2486,7 +2912,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 389,
       },
     ],
-    rawData: { productNameEn: 'Classic Ballet Flats', categoryName: 'Shoes', weight: '0.61kg', score: 8.63, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Classic Ballet Flats',
+      categoryName: 'Shoes',
+      weight: '0.61kg',
+      score: 8.63,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2519,7 +2951,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 142,
       },
     ],
-    rawData: { productNameEn: 'Tassel Loafers in Burnished Leather', categoryName: 'Shoes', weight: '0.63kg', score: 9.31, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Tassel Loafers in Burnished Leather',
+      categoryName: 'Shoes',
+      weight: '0.63kg',
+      score: 9.31,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2553,7 +2991,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 155,
       },
     ],
-    rawData: { productNameEn: 'Platform Peep-Toe Heels', categoryName: 'Shoes', weight: '0.65kg', score: 9.22, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Platform Peep-Toe Heels',
+      categoryName: 'Shoes',
+      weight: '0.65kg',
+      score: 9.22,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2586,7 +3030,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 328,
       },
     ],
-    rawData: { productNameEn: 'Formal Cap-Toe Oxfords', categoryName: 'Shoes', weight: '0.67kg', score: 8.94, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Formal Cap-Toe Oxfords',
+      categoryName: 'Shoes',
+      weight: '0.67kg',
+      score: 8.94,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2619,7 +3069,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 220,
       },
     ],
-    rawData: { productNameEn: 'Kitten Heel Mary Janes', categoryName: 'Shoes', weight: '0.69kg', score: 8.54, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Kitten Heel Mary Janes',
+      categoryName: 'Shoes',
+      weight: '0.69kg',
+      score: 8.54,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2653,7 +3109,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 288,
       },
     ],
-    rawData: { productNameEn: 'Slip-On Leather Loafers with Horsebit', categoryName: 'Shoes', weight: '0.71kg', score: 8.6, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Slip-On Leather Loafers with Horsebit',
+      categoryName: 'Shoes',
+      weight: '0.71kg',
+      score: 8.6,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2686,7 +3148,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 161,
       },
     ],
-    rawData: { productNameEn: 'Satin Bridal Heels', categoryName: 'Shoes', weight: '0.73kg', score: 8.97, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Satin Bridal Heels',
+      categoryName: 'Shoes',
+      weight: '0.73kg',
+      score: 8.97,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2719,7 +3187,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 420,
       },
     ],
-    rawData: { productNameEn: 'Wingtip Brogue Dress Shoes', categoryName: 'Shoes', weight: '0.75kg', score: 9.16, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Wingtip Brogue Dress Shoes',
+      categoryName: 'Shoes',
+      weight: '0.75kg',
+      score: 9.16,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2753,7 +3227,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 99,
       },
     ],
-    rawData: { productNameEn: 'Metallic Strappy Sandal Heels', categoryName: 'Shoes', weight: '0.77kg', score: 8.76, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Metallic Strappy Sandal Heels',
+      categoryName: 'Shoes',
+      weight: '0.77kg',
+      score: 8.76,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2786,7 +3266,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 360,
       },
     ],
-    rawData: { productNameEn: 'Chelsea Dress Boots', categoryName: 'Shoes', weight: '0.79kg', score: 8.63, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Chelsea Dress Boots',
+      categoryName: 'Shoes',
+      weight: '0.79kg',
+      score: 8.63,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2819,7 +3305,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 292,
       },
     ],
-    rawData: { productNameEn: 'Espadrille Wedge Heels', categoryName: 'Shoes', weight: '0.81kg', score: 9.02, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Espadrille Wedge Heels',
+      categoryName: 'Shoes',
+      weight: '0.81kg',
+      score: 9.02,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2853,7 +3345,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 312,
       },
     ],
-    rawData: { productNameEn: 'Croc-Embossed Leather Loafers', categoryName: 'Shoes', weight: '0.83kg', score: 8.8, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Croc-Embossed Leather Loafers',
+      categoryName: 'Shoes',
+      weight: '0.83kg',
+      score: 8.8,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2887,7 +3385,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 240,
       },
     ],
-    rawData: { productNameEn: 'Puffer Jacket with Removable Hood', categoryName: 'Outerwear', weight: '0.70kg', score: 8.54, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Puffer Jacket with Removable Hood',
+      categoryName: 'Outerwear',
+      weight: '0.70kg',
+      score: 8.54,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2920,7 +3424,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 312,
       },
     ],
-    rawData: { productNameEn: 'Wool Blend Peacoat', categoryName: 'Outerwear', weight: '0.73kg', score: 8.4, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Wool Blend Peacoat',
+      categoryName: 'Outerwear',
+      weight: '0.73kg',
+      score: 8.4,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2954,7 +3464,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 189,
       },
     ],
-    rawData: { productNameEn: 'Denim Trucker Jacket', categoryName: 'Outerwear', weight: '0.76kg', score: 8.6, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Denim Trucker Jacket',
+      categoryName: 'Outerwear',
+      weight: '0.76kg',
+      score: 8.6,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -2987,7 +3503,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 325,
       },
     ],
-    rawData: { productNameEn: 'Faux Shearling Aviator Jacket', categoryName: 'Outerwear', weight: '0.79kg', score: 9, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Faux Shearling Aviator Jacket',
+      categoryName: 'Outerwear',
+      weight: '0.79kg',
+      score: 9,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3021,7 +3543,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 101,
       },
     ],
-    rawData: { productNameEn: 'Longline Trench Coat', categoryName: 'Outerwear', weight: '0.82kg', score: 8.8, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Longline Trench Coat',
+      categoryName: 'Outerwear',
+      weight: '0.82kg',
+      score: 8.8,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3054,7 +3582,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 381,
       },
     ],
-    rawData: { productNameEn: 'Quilted Vest Gilet', categoryName: 'Outerwear', weight: '0.85kg', score: 9.03, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Quilted Vest Gilet',
+      categoryName: 'Outerwear',
+      weight: '0.85kg',
+      score: 9.03,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3088,7 +3622,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 122,
       },
     ],
-    rawData: { productNameEn: 'Waterproof Windbreaker Shell Jacket', categoryName: 'Outerwear', weight: '0.88kg', score: 9.14, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Waterproof Windbreaker Shell Jacket',
+      categoryName: 'Outerwear',
+      weight: '0.88kg',
+      score: 9.14,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3121,7 +3661,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 157,
       },
     ],
-    rawData: { productNameEn: 'Cropped Moto Leather Jacket', categoryName: 'Outerwear', weight: '0.91kg', score: 9.32, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Cropped Moto Leather Jacket',
+      categoryName: 'Outerwear',
+      weight: '0.91kg',
+      score: 9.32,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3155,7 +3701,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 152,
       },
     ],
-    rawData: { productNameEn: 'Teddy Fleece Zip-Up Jacket', categoryName: 'Outerwear', weight: '0.94kg', score: 8.76, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Teddy Fleece Zip-Up Jacket',
+      categoryName: 'Outerwear',
+      weight: '0.94kg',
+      score: 8.76,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3188,7 +3740,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 378,
       },
     ],
-    rawData: { productNameEn: 'Double-Breasted Wool Overcoat', categoryName: 'Outerwear', weight: '0.97kg', score: 8.54, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Double-Breasted Wool Overcoat',
+      categoryName: 'Outerwear',
+      weight: '0.97kg',
+      score: 8.54,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3222,7 +3780,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 308,
       },
     ],
-    rawData: { productNameEn: 'Lightweight Packable Rain Jacket', categoryName: 'Outerwear', weight: '1.00kg', score: 8.51, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Lightweight Packable Rain Jacket',
+      categoryName: 'Outerwear',
+      weight: '1.00kg',
+      score: 8.51,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3255,7 +3819,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 62,
       },
     ],
-    rawData: { productNameEn: 'Varsity Letterman Jacket', categoryName: 'Outerwear', weight: '1.03kg', score: 8.51, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Varsity Letterman Jacket',
+      categoryName: 'Outerwear',
+      weight: '1.03kg',
+      score: 8.51,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3289,7 +3859,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 174,
       },
     ],
-    rawData: { productNameEn: 'Parka with Faux Fur Trim Hood', categoryName: 'Outerwear', weight: '1.06kg', score: 9, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Parka with Faux Fur Trim Hood',
+      categoryName: 'Outerwear',
+      weight: '1.06kg',
+      score: 9,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3322,7 +3898,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 370,
       },
     ],
-    rawData: { productNameEn: 'Suede Trucker Jacket', categoryName: 'Outerwear', weight: '1.09kg', score: 8.57, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Suede Trucker Jacket',
+      categoryName: 'Outerwear',
+      weight: '1.09kg',
+      score: 8.57,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3356,7 +3938,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 274,
       },
     ],
-    rawData: { productNameEn: 'Down Alternative Puffer Vest', categoryName: 'Outerwear', weight: '1.12kg', score: 8.55, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Down Alternative Puffer Vest',
+      categoryName: 'Outerwear',
+      weight: '1.12kg',
+      score: 8.55,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3389,7 +3977,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 175,
       },
     ],
-    rawData: { productNameEn: 'Cropped Denim Trucker with Sherpa Lining', categoryName: 'Outerwear', weight: '1.15kg', score: 8.45, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Cropped Denim Trucker with Sherpa Lining',
+      categoryName: 'Outerwear',
+      weight: '1.15kg',
+      score: 8.45,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3423,7 +4017,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 204,
       },
     ],
-    rawData: { productNameEn: 'Softshell Performance Jacket', categoryName: 'Outerwear', weight: '1.18kg', score: 9.24, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Softshell Performance Jacket',
+      categoryName: 'Outerwear',
+      weight: '1.18kg',
+      score: 9.24,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3456,7 +4056,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 60,
       },
     ],
-    rawData: { productNameEn: 'Cashmere Blend Wrap Coat', categoryName: 'Outerwear', weight: '1.21kg', score: 9.13, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Cashmere Blend Wrap Coat',
+      categoryName: 'Outerwear',
+      weight: '1.21kg',
+      score: 9.13,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3490,7 +4096,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 340,
       },
     ],
-    rawData: { productNameEn: 'Reversible Leather Belt', categoryName: 'Accessories', weight: '0.05kg', score: 8.97, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Reversible Leather Belt',
+      categoryName: 'Accessories',
+      weight: '0.05kg',
+      score: 8.97,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3523,7 +4135,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 71,
       },
     ],
-    rawData: { productNameEn: 'Polarized Aviator Sunglasses', categoryName: 'Accessories', weight: '0.06kg', score: 8.98, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Polarized Aviator Sunglasses',
+      categoryName: 'Accessories',
+      weight: '0.06kg',
+      score: 8.98,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3556,7 +4174,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 209,
       },
     ],
-    rawData: { productNameEn: 'Silk Twill Neck Scarf', categoryName: 'Accessories', weight: '0.07kg', score: 9.08, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Silk Twill Neck Scarf',
+      categoryName: 'Accessories',
+      weight: '0.07kg',
+      score: 9.08,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3589,7 +4213,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 148,
       },
     ],
-    rawData: { productNameEn: 'Chunky Chain Statement Necklace', categoryName: 'Accessories', weight: '0.08kg', score: 8.66, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Chunky Chain Statement Necklace',
+      categoryName: 'Accessories',
+      weight: '0.08kg',
+      score: 8.66,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3623,7 +4253,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 334,
       },
     ],
-    rawData: { productNameEn: 'Minimalist Quartz Wrist Watch', categoryName: 'Accessories', weight: '0.09kg', score: 8.28, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Minimalist Quartz Wrist Watch',
+      categoryName: 'Accessories',
+      weight: '0.09kg',
+      score: 8.28,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3656,7 +4292,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 252,
       },
     ],
-    rawData: { productNameEn: 'Wool Blend Beanie', categoryName: 'Accessories', weight: '0.10kg', score: 8.85, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Wool Blend Beanie',
+      categoryName: 'Accessories',
+      weight: '0.10kg',
+      score: 8.85,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3689,7 +4331,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 369,
       },
     ],
-    rawData: { productNameEn: 'Leather Trifold Wallet', categoryName: 'Accessories', weight: '0.11kg', score: 8.22, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Leather Trifold Wallet',
+      categoryName: 'Accessories',
+      weight: '0.11kg',
+      score: 8.22,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3722,7 +4370,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 250,
       },
     ],
-    rawData: { productNameEn: 'Beaded Layered Bracelet Set', categoryName: 'Accessories', weight: '0.12kg', score: 8.24, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Beaded Layered Bracelet Set',
+      categoryName: 'Accessories',
+      weight: '0.12kg',
+      score: 8.24,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3756,7 +4410,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 364,
       },
     ],
-    rawData: { productNameEn: 'Cat-Eye Sunglasses', categoryName: 'Accessories', weight: '0.13kg', score: 8.5, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Cat-Eye Sunglasses',
+      categoryName: 'Accessories',
+      weight: '0.13kg',
+      score: 8.5,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3789,7 +4449,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 133,
       },
     ],
-    rawData: { productNameEn: 'Cashmere Knit Scarf', categoryName: 'Accessories', weight: '0.14kg', score: 9.13, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Cashmere Knit Scarf',
+      categoryName: 'Accessories',
+      weight: '0.14kg',
+      score: 9.13,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3822,7 +4488,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 302,
       },
     ],
-    rawData: { productNameEn: 'Hoop Earrings Set (Gold Tone)', categoryName: 'Accessories', weight: '0.15kg', score: 8.81, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Hoop Earrings Set (Gold Tone)',
+      categoryName: 'Accessories',
+      weight: '0.15kg',
+      score: 8.81,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3855,7 +4527,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 405,
       },
     ],
-    rawData: { productNameEn: 'Woven Straw Fedora Hat', categoryName: 'Accessories', weight: '0.16kg', score: 8, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Woven Straw Fedora Hat',
+      categoryName: 'Accessories',
+      weight: '0.16kg',
+      score: 8,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3889,7 +4567,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 315,
       },
     ],
-    rawData: { productNameEn: 'Silk Pocket Square', categoryName: 'Accessories', weight: '0.17kg', score: 8.23, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Silk Pocket Square',
+      categoryName: 'Accessories',
+      weight: '0.17kg',
+      score: 8.23,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3922,7 +4606,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 318,
       },
     ],
-    rawData: { productNameEn: 'Leather Card Holder Wallet', categoryName: 'Accessories', weight: '0.18kg', score: 8.04, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Leather Card Holder Wallet',
+      categoryName: 'Accessories',
+      weight: '0.18kg',
+      score: 8.04,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3955,7 +4645,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 307,
       },
     ],
-    rawData: { productNameEn: 'Statement Drop Earrings', categoryName: 'Accessories', weight: '0.19kg', score: 8.91, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Statement Drop Earrings',
+      categoryName: 'Accessories',
+      weight: '0.19kg',
+      score: 8.91,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -3988,7 +4684,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 348,
       },
     ],
-    rawData: { productNameEn: 'Adjustable Baseball Cap', categoryName: 'Accessories', weight: '0.20kg', score: 8.2, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Adjustable Baseball Cap',
+      categoryName: 'Accessories',
+      weight: '0.20kg',
+      score: 8.2,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -4022,7 +4724,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 310,
       },
     ],
-    rawData: { productNameEn: 'Braided Leather Bracelet', categoryName: 'Accessories', weight: '0.21kg', score: 8.51, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Braided Leather Bracelet',
+      categoryName: 'Accessories',
+      weight: '0.21kg',
+      score: 8.51,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -4055,7 +4763,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 151,
       },
     ],
-    rawData: { productNameEn: 'Wide Brim Wool Felt Hat', categoryName: 'Accessories', weight: '0.22kg', score: 8.34, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Wide Brim Wool Felt Hat',
+      categoryName: 'Accessories',
+      weight: '0.22kg',
+      score: 8.34,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -4088,7 +4802,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 189,
       },
     ],
-    rawData: { productNameEn: 'Layered Pendant Necklace', categoryName: 'Accessories', weight: '0.23kg', score: 9.18, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Layered Pendant Necklace',
+      categoryName: 'Accessories',
+      weight: '0.23kg',
+      score: 9.18,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -4121,7 +4841,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 358,
       },
     ],
-    rawData: { productNameEn: 'Structured Leather Tote Bag', categoryName: 'Bags & Backpacks', weight: '0.40kg', score: 8.95, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Structured Leather Tote Bag',
+      categoryName: 'Bags & Backpacks',
+      weight: '0.40kg',
+      score: 8.95,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -4154,7 +4880,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 217,
       },
     ],
-    rawData: { productNameEn: 'Canvas Everyday Backpack', categoryName: 'Bags & Backpacks', weight: '0.43kg', score: 8.68, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Canvas Everyday Backpack',
+      categoryName: 'Bags & Backpacks',
+      weight: '0.43kg',
+      score: 8.68,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -4188,7 +4920,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 95,
       },
     ],
-    rawData: { productNameEn: 'Quilted Chain Strap Crossbody Bag', categoryName: 'Bags & Backpacks', weight: '0.46kg', score: 8.1, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Quilted Chain Strap Crossbody Bag',
+      categoryName: 'Bags & Backpacks',
+      weight: '0.46kg',
+      score: 8.1,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -4221,7 +4959,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 159,
       },
     ],
-    rawData: { productNameEn: 'Minimalist Laptop Backpack', categoryName: 'Bags & Backpacks', weight: '0.49kg', score: 8.26, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Minimalist Laptop Backpack',
+      categoryName: 'Bags & Backpacks',
+      weight: '0.49kg',
+      score: 8.26,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -4254,7 +4998,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 227,
       },
     ],
-    rawData: { productNameEn: 'Woven Straw Beach Tote', categoryName: 'Bags & Backpacks', weight: '0.52kg', score: 8.52, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Woven Straw Beach Tote',
+      categoryName: 'Bags & Backpacks',
+      weight: '0.52kg',
+      score: 8.52,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -4288,7 +5038,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 124,
       },
     ],
-    rawData: { productNameEn: 'Leather Weekender Duffel Bag', categoryName: 'Bags & Backpacks', weight: '0.55kg', score: 8.43, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Leather Weekender Duffel Bag',
+      categoryName: 'Bags & Backpacks',
+      weight: '0.55kg',
+      score: 8.43,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -4321,7 +5077,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 386,
       },
     ],
-    rawData: { productNameEn: 'Mini Shoulder Bag with Chain Strap', categoryName: 'Bags & Backpacks', weight: '0.58kg', score: 8.63, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Mini Shoulder Bag with Chain Strap',
+      categoryName: 'Bags & Backpacks',
+      weight: '0.58kg',
+      score: 8.63,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -4354,7 +5116,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 159,
       },
     ],
-    rawData: { productNameEn: 'Nylon Sling Bag', categoryName: 'Bags & Backpacks', weight: '0.61kg', score: 9.11, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Nylon Sling Bag',
+      categoryName: 'Bags & Backpacks',
+      weight: '0.61kg',
+      score: 9.11,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -4388,7 +5156,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 381,
       },
     ],
-    rawData: { productNameEn: 'Structured Top-Handle Satchel', categoryName: 'Bags & Backpacks', weight: '0.64kg', score: 8.92, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Structured Top-Handle Satchel',
+      categoryName: 'Bags & Backpacks',
+      weight: '0.64kg',
+      score: 8.92,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -4421,7 +5195,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 265,
       },
     ],
-    rawData: { productNameEn: 'Convertible Backpack Purse', categoryName: 'Bags & Backpacks', weight: '0.67kg', score: 9.2, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Convertible Backpack Purse',
+      categoryName: 'Bags & Backpacks',
+      weight: '0.67kg',
+      score: 9.2,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -4454,7 +5234,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 180,
       },
     ],
-    rawData: { productNameEn: 'Drawstring Bucket Bag', categoryName: 'Bags & Backpacks', weight: '0.70kg', score: 8.49, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Drawstring Bucket Bag',
+      categoryName: 'Bags & Backpacks',
+      weight: '0.70kg',
+      score: 8.49,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -4488,7 +5274,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 187,
       },
     ],
-    rawData: { productNameEn: 'Leather Messenger Bag', categoryName: 'Bags & Backpacks', weight: '0.73kg', score: 9, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Leather Messenger Bag',
+      categoryName: 'Bags & Backpacks',
+      weight: '0.73kg',
+      score: 9,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -4521,7 +5313,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 212,
       },
     ],
-    rawData: { productNameEn: 'Quilted Puffer Crossbody Bag', categoryName: 'Bags & Backpacks', weight: '0.76kg', score: 8.88, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Quilted Puffer Crossbody Bag',
+      categoryName: 'Bags & Backpacks',
+      weight: '0.76kg',
+      score: 8.88,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -4554,7 +5352,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 105,
       },
     ],
-    rawData: { productNameEn: 'Woven Rattan Box Bag', categoryName: 'Bags & Backpacks', weight: '0.79kg', score: 8.39, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Woven Rattan Box Bag',
+      categoryName: 'Bags & Backpacks',
+      weight: '0.79kg',
+      score: 8.39,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -4588,7 +5392,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 318,
       },
     ],
-    rawData: { productNameEn: 'Travel Duffel with Shoe Compartment', categoryName: 'Bags & Backpacks', weight: '0.82kg', score: 9.23, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Travel Duffel with Shoe Compartment',
+      categoryName: 'Bags & Backpacks',
+      weight: '0.82kg',
+      score: 9.23,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -4597,8 +5407,7 @@ const CATALOG_DATASET: ProductSeed[] = [
     externalSku: 'CJ-SKU-BAG-136',
     title: 'Clutch Bag with Wristlet Strap',
     slug: 'clutch-bag-with-wristlet-strap',
-    description:
-      'Sleek envelope clutch with a detachable wristlet strap, sized for evenings out.',
+    description: 'Sleek envelope clutch with a detachable wristlet strap, sized for evenings out.',
     tags: ['clutch', 'wristlet', 'evening-bag'],
     featured: false,
     shippingEstimate: 5.02,
@@ -4621,7 +5430,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 412,
       },
     ],
-    rawData: { productNameEn: 'Clutch Bag with Wristlet Strap', categoryName: 'Bags & Backpacks', weight: '0.85kg', score: 9.05, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Clutch Bag with Wristlet Strap',
+      categoryName: 'Bags & Backpacks',
+      weight: '0.85kg',
+      score: 9.05,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -4654,7 +5469,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 230,
       },
     ],
-    rawData: { productNameEn: 'Foldover Crossbody Clutch', categoryName: 'Bags & Backpacks', weight: '0.88kg', score: 9.06, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Foldover Crossbody Clutch',
+      categoryName: 'Bags & Backpacks',
+      weight: '0.88kg',
+      score: 9.06,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -4688,7 +5509,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 203,
       },
     ],
-    rawData: { productNameEn: 'Canvas Tote with Leather Trim', categoryName: 'Bags & Backpacks', weight: '0.91kg', score: 9.26, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Canvas Tote with Leather Trim',
+      categoryName: 'Bags & Backpacks',
+      weight: '0.91kg',
+      score: 9.26,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -4721,7 +5548,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 115,
       },
     ],
-    rawData: { productNameEn: 'Belt Bag Fanny Pack', categoryName: 'Bags & Backpacks', weight: '0.94kg', score: 8.89, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Belt Bag Fanny Pack',
+      categoryName: 'Bags & Backpacks',
+      weight: '0.94kg',
+      score: 8.89,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.FASHION,
@@ -4754,7 +5587,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 233,
       },
     ],
-    rawData: { productNameEn: 'Structured Frame Handbag', categoryName: 'Bags & Backpacks', weight: '0.97kg', score: 8.78, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Structured Frame Handbag',
+      categoryName: 'Bags & Backpacks',
+      weight: '0.97kg',
+      score: 8.78,
+      verdict: 'SELL',
+    },
   },
   // ============================================================
   // BEAUTY — AskMeBeauty
@@ -4790,7 +5629,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 410,
       },
     ],
-    rawData: { productNameEn: 'Sonic Facial Cleansing Brush', categoryName: 'Skincare Tools', weight: '0.12kg', score: 8.6, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Sonic Facial Cleansing Brush',
+      categoryName: 'Skincare Tools',
+      weight: '0.12kg',
+      score: 8.6,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.BEAUTY,
@@ -4824,7 +5669,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 210,
       },
     ],
-    rawData: { productNameEn: 'Vitamin C Brightening Serum', categoryName: 'Skincare', weight: '0.10kg', score: 9.0, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Vitamin C Brightening Serum',
+      categoryName: 'Skincare',
+      weight: '0.10kg',
+      score: 9.0,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.BEAUTY,
@@ -4857,7 +5708,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 175,
       },
     ],
-    rawData: { productNameEn: 'Hyaluronic Acid Moisturizer', categoryName: 'Skincare', weight: '0.18kg', score: 8.8, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Hyaluronic Acid Moisturizer',
+      categoryName: 'Skincare',
+      weight: '0.18kg',
+      score: 8.8,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.BEAUTY,
@@ -4898,7 +5755,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 380,
       },
     ],
-    rawData: { productNameEn: 'Matte Liquid Lipstick', categoryName: 'Makeup', weight: '0.05kg', score: 8.4, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Matte Liquid Lipstick',
+      categoryName: 'Makeup',
+      weight: '0.05kg',
+      score: 8.4,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.BEAUTY,
@@ -4932,7 +5795,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 175,
       },
     ],
-    rawData: { productNameEn: 'Ionic Hair Dryer 2200W', categoryName: 'Hair Care', weight: '0.65kg', score: 9.0, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Ionic Hair Dryer 2200W',
+      categoryName: 'Hair Care',
+      weight: '0.65kg',
+      score: 9.0,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.BEAUTY,
@@ -4973,7 +5842,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 90,
       },
     ],
-    rawData: { productNameEn: 'Citrus Bloom Eau de Parfum', categoryName: 'Fragrance', weight: '0.30kg', score: 8.9, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Citrus Bloom Eau de Parfum',
+      categoryName: 'Fragrance',
+      weight: '0.30kg',
+      score: 8.9,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.BEAUTY,
@@ -5006,7 +5881,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 190,
       },
     ],
-    rawData: { productNameEn: 'Jasmine Shea Body Butter', categoryName: 'Bath & Body', weight: '0.25kg', score: 8.5, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Jasmine Shea Body Butter',
+      categoryName: 'Bath & Body',
+      weight: '0.25kg',
+      score: 8.5,
+      verdict: 'SELL',
+    },
   },
 
   // ============================================================
@@ -5043,7 +5924,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 300,
       },
     ],
-    rawData: { productNameEn: 'Ergonomic RGB Wireless Gaming Mouse', categoryName: 'Gaming Accessories', weight: '0.25kg', score: 9.2, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Ergonomic RGB Wireless Gaming Mouse',
+      categoryName: 'Gaming Accessories',
+      weight: '0.25kg',
+      score: 9.2,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.ELECTRONICS,
@@ -5077,7 +5964,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 95,
       },
     ],
-    rawData: { productNameEn: 'Active Noise Cancelling Wireless Headphones', categoryName: 'Audio', weight: '0.45kg', score: 8.5, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Active Noise Cancelling Wireless Headphones',
+      categoryName: 'Audio',
+      weight: '0.45kg',
+      score: 8.5,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.ELECTRONICS,
@@ -5110,7 +6003,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 180,
       },
     ],
-    rawData: { productNameEn: 'Compact 75% Mechanical RGB Keyboard', categoryName: 'Computer Peripherals', weight: '0.75kg', score: 8.9, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Compact 75% Mechanical RGB Keyboard',
+      categoryName: 'Computer Peripherals',
+      weight: '0.75kg',
+      score: 8.9,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.ELECTRONICS,
@@ -5143,7 +6042,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 220,
       },
     ],
-    rawData: { productNameEn: 'Ultra HD 4K Streaming Webcam', categoryName: 'Cameras & Optics', weight: '0.30kg', score: 7.8, verdict: 'TEST' },
+    rawData: {
+      productNameEn: 'Ultra HD 4K Streaming Webcam',
+      categoryName: 'Cameras & Optics',
+      weight: '0.30kg',
+      score: 7.8,
+      verdict: 'TEST',
+    },
   },
   {
     tenantId: TENANT_IDS.ELECTRONICS,
@@ -5177,7 +6082,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 160,
       },
     ],
-    rawData: { productNameEn: 'Smart Home Hub with Voice Control', categoryName: 'Smart Home', weight: '0.40kg', score: 8.3, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Smart Home Hub with Voice Control',
+      categoryName: 'Smart Home',
+      weight: '0.40kg',
+      score: 8.3,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.ELECTRONICS,
@@ -5218,7 +6129,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 130,
       },
     ],
-    rawData: { productNameEn: 'Fitness Smartwatch AMOLED', categoryName: 'Wearable Tech', weight: '0.05kg', score: 9.0, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Fitness Smartwatch AMOLED',
+      categoryName: 'Wearable Tech',
+      weight: '0.05kg',
+      score: 9.0,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.ELECTRONICS,
@@ -5251,7 +6168,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 190,
       },
     ],
-    rawData: { productNameEn: 'Portable Waterproof Bluetooth Speaker', categoryName: 'Audio', weight: '0.55kg', score: 8.6, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Portable Waterproof Bluetooth Speaker',
+      categoryName: 'Audio',
+      weight: '0.55kg',
+      score: 8.6,
+      verdict: 'SELL',
+    },
   },
 
   // ============================================================
@@ -5288,7 +6211,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 260,
       },
     ],
-    rawData: { productNameEn: 'Ultrasonic Cool Mist Aromatherapy Diffuser', categoryName: 'Home Decor', weight: '0.40kg', score: 8.3, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Ultrasonic Cool Mist Aromatherapy Diffuser',
+      categoryName: 'Home Decor',
+      weight: '0.40kg',
+      score: 8.3,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.LIVING,
@@ -5321,7 +6250,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 175,
       },
     ],
-    rawData: { productNameEn: 'Dimmable LED Desk Lamp', categoryName: 'Lighting', weight: '0.55kg', score: 8.1, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Dimmable LED Desk Lamp',
+      categoryName: 'Lighting',
+      weight: '0.55kg',
+      score: 8.1,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.LIVING,
@@ -5355,7 +6290,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 30,
       },
     ],
-    rawData: { productNameEn: 'Mid-Century Boucle Accent Chair', categoryName: 'Furniture', weight: '14.5kg', score: 9.1, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Mid-Century Boucle Accent Chair',
+      categoryName: 'Furniture',
+      weight: '14.5kg',
+      score: 9.1,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.LIVING,
@@ -5388,7 +6329,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 55,
       },
     ],
-    rawData: { productNameEn: 'Handwoven Jute Area Rug', categoryName: 'Home Decor', weight: '6.2kg', score: 8.7, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Handwoven Jute Area Rug',
+      categoryName: 'Home Decor',
+      weight: '6.2kg',
+      score: 8.7,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.LIVING,
@@ -5421,7 +6368,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 85,
       },
     ],
-    rawData: { productNameEn: 'Ceramic Dinnerware Set 12pc', categoryName: 'Kitchen & Dining', weight: '5.8kg', score: 8.8, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Ceramic Dinnerware Set 12pc',
+      categoryName: 'Kitchen & Dining',
+      weight: '5.8kg',
+      score: 8.8,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.LIVING,
@@ -5463,7 +6416,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 135,
       },
     ],
-    rawData: { productNameEn: 'Egyptian Cotton Bedsheet Set', categoryName: 'Bedding & Bath', weight: '1.8kg', score: 9.0, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Egyptian Cotton Bedsheet Set',
+      categoryName: 'Bedding & Bath',
+      weight: '1.8kg',
+      score: 9.0,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.LIVING,
@@ -5496,7 +6455,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 95,
       },
     ],
-    rawData: { productNameEn: 'Modular Bamboo Storage Shelf', categoryName: 'Storage & Organization', weight: '7.5kg', score: 8.5, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Modular Bamboo Storage Shelf',
+      categoryName: 'Storage & Organization',
+      weight: '7.5kg',
+      score: 8.5,
+      verdict: 'SELL',
+    },
   },
 
   // ============================================================
@@ -5533,7 +6498,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 290,
       },
     ],
-    rawData: { productNameEn: 'Vacuum Insulated Stainless Steel Bottle', categoryName: 'Hydration & Gear', weight: '0.35kg', score: 8.4, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Vacuum Insulated Stainless Steel Bottle',
+      categoryName: 'Hydration & Gear',
+      weight: '0.35kg',
+      score: 8.4,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.OUTDOOR,
@@ -5566,7 +6537,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 280,
       },
     ],
-    rawData: { productNameEn: 'Professional Yoga Mat 6mm', categoryName: 'Yoga & Fitness', weight: '1.0kg', score: 8.9, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Professional Yoga Mat 6mm',
+      categoryName: 'Yoga & Fitness',
+      weight: '1.0kg',
+      score: 8.9,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.OUTDOOR,
@@ -5600,7 +6577,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 48,
       },
     ],
-    rawData: { productNameEn: '3-Season Backpacking Tent 2-Person', categoryName: 'Camping & Hiking', weight: '2.1kg', score: 9.2, verdict: 'SELL' },
+    rawData: {
+      productNameEn: '3-Season Backpacking Tent 2-Person',
+      categoryName: 'Camping & Hiking',
+      weight: '2.1kg',
+      score: 9.2,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.OUTDOOR,
@@ -5633,7 +6616,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 85,
       },
     ],
-    rawData: { productNameEn: 'All-Terrain Hiking Backpack 28L', categoryName: 'Camping & Hiking', weight: '1.1kg', score: 8.9, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'All-Terrain Hiking Backpack 28L',
+      categoryName: 'Camping & Hiking',
+      weight: '1.1kg',
+      score: 8.9,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.OUTDOOR,
@@ -5666,7 +6655,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 110,
       },
     ],
-    rawData: { productNameEn: 'Carbon Fiber Trekking Poles', categoryName: 'Camping & Hiking', weight: '0.46kg', score: 8.7, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Carbon Fiber Trekking Poles',
+      categoryName: 'Camping & Hiking',
+      weight: '0.46kg',
+      score: 8.7,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.OUTDOOR,
@@ -5707,7 +6702,13 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 120,
       },
     ],
-    rawData: { productNameEn: 'Performance Cycling Jersey', categoryName: 'Cycling', weight: '0.20kg', score: 8.6, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Performance Cycling Jersey',
+      categoryName: 'Cycling',
+      weight: '0.20kg',
+      score: 8.6,
+      verdict: 'SELL',
+    },
   },
   {
     tenantId: TENANT_IDS.OUTDOOR,
@@ -5741,7 +6742,278 @@ const CATALOG_DATASET: ProductSeed[] = [
         stock: 28,
       },
     ],
-    rawData: { productNameEn: 'Inflatable Stand-Up Paddleboard 10ft', categoryName: 'Water Sports', weight: '9.8kg', score: 9.0, verdict: 'SELL' },
+    rawData: {
+      productNameEn: 'Inflatable Stand-Up Paddleboard 10ft',
+      categoryName: 'Water Sports',
+      weight: '9.8kg',
+      score: 9.0,
+      verdict: 'SELL',
+    },
+  },
+
+  // ============================================================
+  // FASHION — Kids
+  // ============================================================
+  {
+    tenantId: TENANT_IDS.FASHION,
+    categorySlug: 'kids',
+    externalId: 'CJ-PID-FSH-KID-001',
+    externalSku: 'CJ-SKU-KID-TEE-GRAPHIC',
+    title: 'Graphic Print Cotton Tee (Kids)',
+    slug: 'graphic-print-cotton-tee-kids',
+    description:
+      'Soft 100% cotton tee with a colorful front graphic. Pre-shrunk and machine washable for everyday play.',
+    tags: ['kids', 'tee', 'everyday'],
+    featured: true,
+    compareAtPrice: 22.0,
+    shippingEstimate: 2.5,
+    imageUrl: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=800&q=80',
+    variants: [
+      {
+        externalId: 'CJ-VAR-FSH-KID-001-A',
+        sku: 'KID-001-BLU-3T',
+        title: 'Sky Blue / 3T',
+        costPrice: 4.5,
+        sellingPrice: 16.0,
+        stock: 90,
+      },
+      {
+        externalId: 'CJ-VAR-FSH-KID-001-B',
+        sku: 'KID-001-BLU-4T',
+        title: 'Sky Blue / 4T',
+        costPrice: 4.5,
+        sellingPrice: 16.0,
+        stock: 85,
+      },
+      {
+        externalId: 'CJ-VAR-FSH-KID-001-C',
+        sku: 'KID-001-YLW-5',
+        title: 'Sunny Yellow / 5',
+        costPrice: 4.5,
+        sellingPrice: 16.0,
+        stock: 70,
+      },
+    ],
+    rawData: {
+      productNameEn: 'Graphic Print Cotton Tee (Kids)',
+      categoryName: 'Kids',
+      weight: '0.12kg',
+      score: 8.4,
+      verdict: 'SELL',
+    },
+  },
+  {
+    tenantId: TENANT_IDS.FASHION,
+    categorySlug: 'kids',
+    externalId: 'CJ-PID-FSH-KID-002',
+    externalSku: 'CJ-SKU-KID-JOGGER-FLEECE',
+    title: 'Fleece Jogger Pants (Kids)',
+    slug: 'fleece-jogger-pants-kids',
+    description:
+      'Brushed fleece joggers with an elastic waistband and cuffed ankles — built for the playground, soft enough for naps.',
+    tags: ['kids', 'joggers', 'fleece'],
+    featured: false,
+    shippingEstimate: 3.0,
+    imageUrl: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=80',
+    variants: [
+      {
+        externalId: 'CJ-VAR-FSH-KID-002-A',
+        sku: 'KID-002-GRY-3T',
+        title: 'Heather Grey / 3T',
+        costPrice: 6.0,
+        sellingPrice: 21.0,
+        stock: 60,
+      },
+      {
+        externalId: 'CJ-VAR-FSH-KID-002-B',
+        sku: 'KID-002-NVY-5',
+        title: 'Navy / 5',
+        costPrice: 6.0,
+        sellingPrice: 21.0,
+        stock: 55,
+      },
+    ],
+    rawData: {
+      productNameEn: 'Fleece Jogger Pants (Kids)',
+      categoryName: 'Kids',
+      weight: '0.22kg',
+      score: 8.1,
+      verdict: 'SELL',
+    },
+  },
+  {
+    tenantId: TENANT_IDS.FASHION,
+    categorySlug: 'kids',
+    externalId: 'CJ-PID-FSH-KID-003',
+    externalSku: 'CJ-SKU-KID-HOODIE-ZIP',
+    title: 'Zip-Up Hoodie (Kids)',
+    slug: 'zip-up-hoodie-kids',
+    description:
+      'Lightweight zip-front hoodie with a kangaroo pocket and adjustable drawstring hood, sized for early growth spurts.',
+    tags: ['kids', 'hoodie', 'outerwear'],
+    featured: true,
+    compareAtPrice: 36.0,
+    shippingEstimate: 3.5,
+    imageUrl: 'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&q=80',
+    variants: [
+      {
+        externalId: 'CJ-VAR-FSH-KID-003-A',
+        sku: 'KID-003-RED-4T',
+        title: 'Cherry Red / 4T',
+        costPrice: 8.0,
+        sellingPrice: 27.0,
+        stock: 50,
+      },
+      {
+        externalId: 'CJ-VAR-FSH-KID-003-B',
+        sku: 'KID-003-BLK-6',
+        title: 'Black / 6',
+        costPrice: 8.0,
+        sellingPrice: 27.0,
+        stock: 45,
+      },
+      {
+        externalId: 'CJ-VAR-FSH-KID-003-C',
+        sku: 'KID-003-BLK-7',
+        title: 'Black / 7',
+        costPrice: 8.0,
+        sellingPrice: 27.0,
+        stock: 40,
+      },
+    ],
+    rawData: {
+      productNameEn: 'Zip-Up Hoodie (Kids)',
+      categoryName: 'Kids',
+      weight: '0.28kg',
+      score: 8.6,
+      verdict: 'SELL',
+    },
+  },
+  {
+    tenantId: TENANT_IDS.FASHION,
+    categorySlug: 'kids',
+    externalId: 'CJ-PID-FSH-KID-004',
+    externalSku: 'CJ-SKU-KID-OVERALLS-DENIM',
+    title: 'Denim Overalls (Kids)',
+    slug: 'denim-overalls-kids',
+    description:
+      'Classic straight-fit denim overalls with adjustable shoulder straps and roomy front pockets for everyday wear.',
+    tags: ['kids', 'overalls', 'denim'],
+    featured: false,
+    shippingEstimate: 3.8,
+    imageUrl: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=800&q=80',
+    variants: [
+      {
+        externalId: 'CJ-VAR-FSH-KID-004-A',
+        sku: 'KID-004-DNM-3T',
+        title: 'Classic Denim / 3T',
+        costPrice: 9.0,
+        sellingPrice: 32.0,
+        stock: 40,
+      },
+      {
+        externalId: 'CJ-VAR-FSH-KID-004-B',
+        sku: 'KID-004-DNM-5',
+        title: 'Classic Denim / 5',
+        costPrice: 9.0,
+        sellingPrice: 32.0,
+        stock: 35,
+      },
+    ],
+    rawData: {
+      productNameEn: 'Denim Overalls (Kids)',
+      categoryName: 'Kids',
+      weight: '0.34kg',
+      score: 8.0,
+      verdict: 'SELL',
+    },
+  },
+  {
+    tenantId: TENANT_IDS.FASHION,
+    categorySlug: 'kids',
+    externalId: 'CJ-PID-FSH-KID-005',
+    externalSku: 'CJ-SKU-KID-RAINJACKET',
+    title: 'Rain Jacket with Hood (Kids)',
+    slug: 'rain-jacket-with-hood-kids',
+    description:
+      'Waterproof, windproof shell with a fold-away hood and reflective trim for visibility on grey-sky days.',
+    tags: ['kids', 'rain-jacket', 'outerwear'],
+    featured: false,
+    compareAtPrice: 48.0,
+    shippingEstimate: 4.2,
+    imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&q=80',
+    variants: [
+      {
+        externalId: 'CJ-VAR-FSH-KID-005-A',
+        sku: 'KID-005-YLW-4T',
+        title: 'Sunny Yellow / 4T',
+        costPrice: 11.0,
+        sellingPrice: 38.0,
+        stock: 30,
+      },
+      {
+        externalId: 'CJ-VAR-FSH-KID-005-B',
+        sku: 'KID-005-BLU-6',
+        title: 'Sky Blue / 6',
+        costPrice: 11.0,
+        sellingPrice: 38.0,
+        stock: 28,
+      },
+    ],
+    rawData: {
+      productNameEn: 'Rain Jacket with Hood (Kids)',
+      categoryName: 'Kids',
+      weight: '0.30kg',
+      score: 8.3,
+      verdict: 'SELL',
+    },
+  },
+  {
+    tenantId: TENANT_IDS.FASHION,
+    categorySlug: 'kids',
+    externalId: 'CJ-PID-FSH-KID-006',
+    externalSku: 'CJ-SKU-KID-SNEAKERS-CANVAS',
+    title: 'Canvas Sneakers (Kids)',
+    slug: 'canvas-sneakers-kids',
+    description:
+      'Easy slip-on canvas sneakers with a hook-and-loop strap and a flexible sole built for running around.',
+    tags: ['kids', 'sneakers', 'footwear'],
+    featured: true,
+    shippingEstimate: 3.6,
+    imageUrl: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&q=80',
+    variants: [
+      {
+        externalId: 'CJ-VAR-FSH-KID-006-A',
+        sku: 'KID-006-WHT-11',
+        title: 'White / Toddler 11',
+        costPrice: 7.5,
+        sellingPrice: 24.0,
+        stock: 50,
+      },
+      {
+        externalId: 'CJ-VAR-FSH-KID-006-B',
+        sku: 'KID-006-BLK-13',
+        title: 'Black / Toddler 13',
+        costPrice: 7.5,
+        sellingPrice: 24.0,
+        stock: 45,
+      },
+      {
+        externalId: 'CJ-VAR-FSH-KID-006-C',
+        sku: 'KID-006-BLK-1',
+        title: 'Black / Youth 1',
+        costPrice: 7.5,
+        sellingPrice: 24.0,
+        stock: 40,
+      },
+    ],
+    rawData: {
+      productNameEn: 'Canvas Sneakers (Kids)',
+      categoryName: 'Kids',
+      weight: '0.42kg',
+      score: 8.5,
+      verdict: 'SELL',
+    },
   },
 ];
 
@@ -5768,7 +7040,8 @@ export async function seedImportedProducts(prisma: PrismaClient) {
     const basePrice = Math.min(...item.variants.map((v) => v.sellingPrice));
     const brandPool = BRANDS_BY_TENANT[item.tenantId] ?? [];
     const brandIndex = perTenantCount[item.tenantId] || 0;
-    const brand = item.brand ?? (brandPool.length > 0 ? brandPool[brandIndex % brandPool.length] : undefined);
+    const brand =
+      item.brand ?? (brandPool.length > 0 ? brandPool[brandIndex % brandPool.length] : undefined);
     const product = await prisma.catalogProduct.upsert({
       where: { tenantId_slug: { tenantId: item.tenantId, slug: item.slug } },
       update: {

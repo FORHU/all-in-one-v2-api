@@ -198,7 +198,12 @@ interface PaginatableDelegate<T, WhereInput, OrderByInput, IncludeInput> {
  *     page, limit, search, sortBy, sortOrder,
  *   });
  */
-export async function paginate<T, WhereInput = unknown, OrderByInput = unknown, IncludeInput = never>(
+export async function paginate<
+  T,
+  WhereInput = unknown,
+  OrderByInput = unknown,
+  IncludeInput = never,
+>(
   delegate: PaginatableDelegate<T, WhereInput, OrderByInput, IncludeInput>,
   params: {
     where?: WhereInput;

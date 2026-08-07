@@ -26,7 +26,9 @@ const LISTING_INCLUDE = {
   },
 } satisfies Prisma.CatalogProductInclude;
 
-export type ProductListingRow = Prisma.CatalogProductGetPayload<{ include: typeof LISTING_INCLUDE }>;
+export type ProductListingRow = Prisma.CatalogProductGetPayload<{
+  include: typeof LISTING_INCLUDE;
+}>;
 
 /**
  * Every method takes `tenantId` explicitly — see CategoryRepository for the
@@ -34,7 +36,10 @@ export type ProductListingRow = Prisma.CatalogProductGetPayload<{ include: typeo
  * model, so every query is tenant-scoped from the base `where` up.
  */
 export default class ProductRepository {
-  private static buildWhere(tenantId: string, filters: ProductListingFilters): Prisma.CatalogProductWhereInput {
+  private static buildWhere(
+    tenantId: string,
+    filters: ProductListingFilters,
+  ): Prisma.CatalogProductWhereInput {
     const where: Prisma.CatalogProductWhereInput = {
       tenantId,
       status: ProductStatus.PUBLISHED,
@@ -93,7 +98,9 @@ export default class ProductRepository {
     return where;
   }
 
-  private static buildOrderBy(sort: ProductListingFilters['sort']): Prisma.CatalogProductOrderByWithRelationInput {
+  private static buildOrderBy(
+    sort: ProductListingFilters['sort'],
+  ): Prisma.CatalogProductOrderByWithRelationInput {
     switch (sort) {
       case 'price-asc':
         return { price: 'asc' };
@@ -124,7 +131,13 @@ export default class ProductRepository {
     // (new endpoints)" comment at the top of pagination.helper.ts) — same
     // skip/take math and buildPage() envelope, just called directly.
     const [items, total] = await Promise.all([
-      prisma.catalogProduct.findMany({ where, orderBy, skip, take: limit, include: LISTING_INCLUDE }),
+      prisma.catalogProduct.findMany({
+        where,
+        orderBy,
+        skip,
+        take: limit,
+        include: LISTING_INCLUDE,
+      }),
       prisma.catalogProduct.count({ where }),
     ]);
 
@@ -137,7 +150,10 @@ export default class ProductRepository {
    * whose taxonomy is currently flat (e.g. fashion today), but implemented
    * generically since the schema supports arbitrary nesting.
    */
-  static async findDescendantCategoryIds(tenantId: string, rootCategoryId: string): Promise<string[]> {
+  static async findDescendantCategoryIds(
+    tenantId: string,
+    rootCategoryId: string,
+  ): Promise<string[]> {
     const allIds = [rootCategoryId];
     let currentLevelIds = [rootCategoryId];
 

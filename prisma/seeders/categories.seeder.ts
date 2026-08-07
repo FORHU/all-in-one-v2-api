@@ -45,6 +45,11 @@ const CATEGORY_TREE_BY_TENANT: Record<string, CategoryNode[]> = {
       slug: 'bags',
       description: 'Crossbody, tote and everyday carry bags.',
     },
+    {
+      name: 'Kids',
+      slug: 'kids',
+      description: 'Everyday and playtime essentials for kids.',
+    },
   ],
   [TENANT_IDS.BEAUTY]: [
     { name: 'Skincare', slug: 'skincare', description: 'Serums, moisturizers and treatments.' },
@@ -91,7 +96,11 @@ const CATEGORY_TREE_BY_TENANT: Record<string, CategoryNode[]> = {
       slug: 'kitchen-dining',
       description: 'Dinnerware and dining essentials.',
     },
-    { name: 'Bedding & Bath', slug: 'bedding-bath', description: 'Sheets, towels and bath linens.' },
+    {
+      name: 'Bedding & Bath',
+      slug: 'bedding-bath',
+      description: 'Sheets, towels and bath linens.',
+    },
     {
       name: 'Storage & Organization',
       slug: 'storage-organization',

@@ -24,7 +24,9 @@ export default class ProductService {
     let categoryIds: string[] | undefined;
     if (query.categorySlug) {
       const categoryId = await ProductRepository.findCategoryIdBySlug(tenantId, query.categorySlug);
-      categoryIds = categoryId ? await ProductRepository.findDescendantCategoryIds(tenantId, categoryId) : [];
+      categoryIds = categoryId
+        ? await ProductRepository.findDescendantCategoryIds(tenantId, categoryId)
+        : [];
     }
 
     const filters: ProductListingFilters = {
@@ -44,7 +46,9 @@ export default class ProductService {
       ProductRepository.getFacets(tenantId, filters),
     ]);
 
-    const ratings = await ProductRepository.getRatingsForProducts(pageResult.items.map((p) => p.id));
+    const ratings = await ProductRepository.getRatingsForProducts(
+      pageResult.items.map((p) => p.id),
+    );
     const items = pageResult.items.map((p) => mapProductToListingDto(p, ratings.get(p.id)));
 
     return {

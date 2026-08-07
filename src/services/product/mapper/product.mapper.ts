@@ -5,7 +5,8 @@ import { ProductAttributeOptionDto, ProductListingItemDto } from '../dto/product
 function toNumber(value: Prisma.Decimal | number | null | undefined): number | null {
   if (value == null) return null;
   if (typeof value === 'number') return value;
-  if (typeof (value as Prisma.Decimal).toNumber === 'function') return (value as Prisma.Decimal).toNumber();
+  if (typeof (value as Prisma.Decimal).toNumber === 'function')
+    return (value as Prisma.Decimal).toNumber();
   const num = Number(value);
   return isNaN(num) ? null : num;
 }
