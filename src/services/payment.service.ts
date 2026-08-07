@@ -11,6 +11,8 @@ import {
 } from '@prisma/client';
 import { throwResponse } from '../utils/throw-response';
 import { requireTenantId } from '../utils/async-context';
+import { deriveWebhookEventId } from '../utils/webhook-identity';
+import AnalyticsRollupService from './analytics-rollup.service';
 
 export default class PaymentService {
   static async createPaymentIntent(params: {
@@ -52,7 +54,19 @@ export default class PaymentService {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static async handleWebhook(provider: string, eventType: string, payload: any) {
-    const webhookEvent = await PaymentRepository.recordWebhookEvent(provider, eventType, payload);
+    const externalEventId = deriveWebhookEventId(payload);
+    const { event: webhookEvent, claimed } = await PaymentRepository.recordWebhookEvent(
+      provider,
+      externalEventId,
+      eventType,
+      payload,
+    );
+
+    // A redelivery we have already handled (or are handling). Acknowledge with 2xx
+    // so the gateway stops retrying, but do not apply the payment a second time.
+    if (!claimed) {
+      return { success: true, webhookId: webhookEvent.id, duplicate: true };
+    }
 
     try {
       if (provider.toUpperCase() === 'PAYMONGO') {
@@ -79,13 +93,18 @@ export default class PaymentService {
                 payment.orderId,
                 OrderStatus.PROCESSING,
               );
+
+              // Payment confirmed is where revenue is recognised. This is
+              // exactly-once on its own claim, so it stays correct even if the
+              // dedupe above is bypassed or this webhook is replayed.
+              await AnalyticsRollupService.recordOrderSale(payment.order.tenantId, payment.orderId);
             }
           }
         }
       }
 
       await PaymentRepository.updateWebhookStatus(webhookEvent.id, SyncStatus.SUCCESS);
-      return { success: true, webhookId: webhookEvent.id };
+      return { success: true, webhookId: webhookEvent.id, duplicate: false };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       await PaymentRepository.updateWebhookStatus(webhookEvent.id, SyncStatus.FAILED, errorMsg);

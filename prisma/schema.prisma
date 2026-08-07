@@ -96,6 +96,7 @@ enum UserRole {
   ADMIN
   SUPER_ADMIN
   DEVELOPER
+  SELLER
 }
 
 // ==============================================================================
@@ -179,12 +180,13 @@ model CatalogCategory {
   updatedAt      DateTime  @updatedAt
 
   tenant     Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  parent     CatalogCategory?         @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  parent     CatalogCategory?         @relation("CategoryHierarchy", fields: [tenantId, parentId], references: [tenantId, id])
   children   CatalogCategory[]        @relation("CategoryHierarchy")
   products   CatalogProduct[]
   salesStats AnalyticsCategorySales[]
 
   @@unique([tenantId, slug])
+  @@unique([tenantId, id])
   @@index([parentId])
   @@index([tenantId])
   @@index([tenantId, deletedAt])
@@ -201,9 +203,9 @@ model CatalogProduct {
   status         ProductStatus     @default(DRAFT)
   visibility     ProductVisibility @default(PUBLIC)
   featured       Boolean           @default(false)
-  price          Decimal?          @db.Decimal(18, 2) // Main display selling price
-  salePrice      Decimal?          @db.Decimal(18, 2) // Active discounted price (if on sale)
-  compareAtPrice Decimal?          @db.Decimal(18, 2) // Crossed-out original price (MSRP / "fake" price before discount)
+  price          Decimal?          @db.Decimal(18, 4) // Main display selling price
+  salePrice      Decimal?          @db.Decimal(18, 4) // Active discounted price (if on sale)
+  compareAtPrice Decimal?          @db.Decimal(18, 4) // Crossed-out original price (MSRP / "fake" price before discount)
   discount       Json? // Structured discount details: { type: "PERCENTAGE"|"FIXED", value: 20, percentage: 20, savings: 240, badge: "20% OFF", endDate: "..." }
   thumbnailUrl   String? // Quick-access primary image URL
   seoTitle       String?
@@ -215,14 +217,18 @@ model CatalogProduct {
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
+  // Every reference below is tenant-qualified: the FK includes tenantId, so the
+  // database itself rejects a product pointing at another tenant's category,
+  // pricing rule or tax class. onDelete is Restrict rather than SetNull because
+  // a composite FK can only null *all* its columns, and tenantId is required.
   categoryId String?
-  category   CatalogCategory? @relation(fields: [categoryId], references: [id])
+  category   CatalogCategory? @relation(fields: [tenantId, categoryId], references: [tenantId, id], onDelete: Restrict)
 
   pricingRuleId String?
-  pricingRule   CatalogPricingRule? @relation(fields: [pricingRuleId], references: [id])
+  pricingRule   CatalogPricingRule? @relation(fields: [tenantId, pricingRuleId], references: [tenantId, id], onDelete: Restrict)
 
   taxClassId String?
-  taxClass   TaxClass? @relation(fields: [taxClassId], references: [id], onDelete: SetNull)
+  taxClass   TaxClass? @relation(fields: [tenantId, taxClassId], references: [tenantId, id], onDelete: Restrict)
 
   tenant                 Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   variants               CatalogProductVariant[]
@@ -237,6 +243,7 @@ model CatalogProduct {
   storefrontSectionItems StorefrontSectionItem[]
 
   @@unique([tenantId, slug])
+  @@unique([tenantId, id])
   @@index([categoryId])
   @@index([tenantId])
   @@index([tenantId, status])
@@ -267,11 +274,11 @@ model CatalogProductVariant {
   productId       String
   sku             String?
   title           String
-  price           Decimal   @db.Decimal(18, 2) // Actual selling price
-  compareAtPrice  Decimal?  @db.Decimal(18, 2) // Crossed-out original price
-  baseCost        Decimal?  @db.Decimal(18, 2) // Supplier cost
-  sellingPrice    Decimal?  @db.Decimal(18, 2) // Configured selling price
-  calculatedPrice Decimal?  @db.Decimal(18, 2) // Price after automated markup rule
+  price           Decimal   @db.Decimal(18, 4) // Actual selling price
+  compareAtPrice  Decimal?  @db.Decimal(18, 4) // Crossed-out original price
+  baseCost        Decimal?  @db.Decimal(18, 4) // Supplier cost
+  sellingPrice    Decimal?  @db.Decimal(18, 4) // Configured selling price
+  calculatedPrice Decimal?  @db.Decimal(18, 4) // Price after automated markup rule
   discount        Json? // Structured discount details
   stock           Int       @default(0)
   version         Int       @default(1) // Optimistic concurrency version
@@ -281,22 +288,24 @@ model CatalogProductVariant {
   sizeEntryId   String? // null = no size chart row linked yet
   pricingRuleId String? // Optional pricing/markup rule override for this variant
 
-  tenant                Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  product               CatalogProduct            @relation(fields: [productId], references: [id])
-  sizeEntry             CatalogSizeEntry?         @relation(fields: [sizeEntryId], references: [id], onDelete: SetNull)
-  pricingRule           CatalogPricingRule?       @relation("VariantPricingRules", fields: [pricingRuleId], references: [id], onDelete: SetNull)
+  tenant Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product CatalogProduct @relation(fields: [tenantId, productId], references: [tenantId, id], onDelete: Restrict)
+  // CatalogSizeEntry is not tenant-scoped (it hangs off a size guide, which hangs
+  // off a product), so this one stays a plain FK and keeps SetNull.
+  sizeEntry   CatalogSizeEntry?   @relation(fields: [sizeEntryId], references: [id], onDelete: SetNull)
+  pricingRule CatalogPricingRule? @relation("VariantPricingRules", fields: [tenantId, pricingRuleId], references: [tenantId, id], onDelete: Restrict)
   supplierVariants      SupplierVariant[]
   orderItems            CommerceOrderItem[]
   cartItems             CommerceCartItem[]
   media                 CatalogProductMedia[]
   inventoryTransactions InventoryTransaction[]
   wishlistItems         WishlistItem[]
-  salesStats            AnalyticsProductSales[]
   collectionItems       CatalogCollectionItem[]
   variantAttributes     CatalogVariantAttribute[]
   inventoryStocks       InventoryStock[]
 
   @@unique([tenantId, sku])
+  @@unique([tenantId, id])
   @@index([productId])
   @@index([tenantId])
   @@index([sizeEntryId])
@@ -463,9 +472,9 @@ model SupplierProduct {
   thumbnailUrl String? // Primary image URL (convenience — mirrors first isPrimary image)
 
   rawData          Json // Full supplier response (source of truth)
-  costPrice        Decimal    @db.Decimal(12, 2) // Wholesale supplier cost
-  retailPrice      Decimal?   @db.Decimal(12, 2) // Recommended MSRP / compare-at price from supplier
-  shippingEstimate Decimal?   @db.Decimal(12, 2)
+  costPrice        Decimal    @db.Decimal(18, 4) // Wholesale supplier cost
+  retailPrice      Decimal?   @db.Decimal(18, 4) // Recommended MSRP / compare-at price from supplier
+  shippingEstimate Decimal?   @db.Decimal(18, 4)
   syncStatus       SyncStatus @default(PENDING)
   lastSyncError    String?
   lastSyncedAt     DateTime?
@@ -488,8 +497,8 @@ model SupplierVariant {
   supplierProductId String
   productVariantId  String? // null = not yet mapped
   externalId        String
-  costPrice         Decimal    @db.Decimal(12, 2) // Wholesale supplier cost
-  retailPrice       Decimal?   @db.Decimal(12, 2) // Recommended MSRP / compare-at price for this variant
+  costPrice         Decimal    @db.Decimal(18, 4) // Wholesale supplier cost
+  retailPrice       Decimal?   @db.Decimal(18, 4) // Recommended MSRP / compare-at price for this variant
   rawData           Json
   stock             Int?
   syncStatus        SyncStatus @default(PENDING)
@@ -628,7 +637,7 @@ model CommerceCartItem {
   cartId           String
   productVariantId String
   quantity         Int      @default(1)
-  unitPrice        Decimal
+  unitPrice        Decimal  @db.Decimal(18, 4)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -644,19 +653,40 @@ model CommerceCartItem {
 // ==============================================================================
 
 model CommerceOrder {
-  id                String      @id @default(uuid())
-  tenantId          String
-  status            OrderStatus @default(PENDING)
-  totalAmount       Decimal     @db.Decimal(12, 2)
-  discountAmount    Decimal     @default(0) @db.Decimal(12, 2)
-  currency          String      @default("USD")
+  id       String @id @default(uuid())
+  tenantId String
+
+  /// Human-readable reference shown to customers and used in support tickets.
+  /// Backed by a Postgres sequence (order_number_seq) so concurrent checkouts
+  /// cannot collide — never generate this in application code.
+  orderNumber String @default(dbgenerated("('ORD-'::text || lpad((nextval('order_number_seq'::regclass))::text, 8, '0'::text))"))
+
+  status OrderStatus @default(PENDING)
+
+  // Money breakdown. total = subtotal - discount + tax + shipping.
+  // Each component is stored rather than derived so a historical order still
+  // reproduces exactly what the customer was charged, even after tax rates change.
+  subtotal       Decimal @default(0) @db.Decimal(18, 4)
+  discountAmount Decimal @default(0) @db.Decimal(18, 4)
+  taxAmount      Decimal @default(0) @db.Decimal(18, 4)
+  shippingAmount Decimal @default(0) @db.Decimal(18, 4)
+  totalAmount    Decimal @db.Decimal(18, 4)
+
+  currency          String   @default("USD")
   customerId        String?
   sessionId         String?
   shippingAddressId String?
   couponId          String?
   promotionId       String?
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  /// Set the moment this order's revenue was folded into the analytics rollups.
+  /// The rollups are += aggregates with no memory of which orders fed them, so
+  /// this is what makes recording exactly-once: the recorder claims the order by
+  /// flipping this from NULL in the same transaction, and a duplicate webhook or
+  /// a replayed job claims nothing and returns.
+  analyticsRecordedAt DateTime?
 
   tenant          Tenant                   @relation(fields: [tenantId], references: [id])
   customer        CommerceCustomer?        @relation(fields: [customerId], references: [id])
@@ -669,6 +699,8 @@ model CommerceOrder {
   returns         Return[]
   refunds         Refund[]
 
+  @@unique([tenantId, id])
+  @@unique([tenantId, orderNumber])
   @@index([tenantId])
   @@index([customerId])
   @@index([shippingAddressId])
@@ -684,7 +716,7 @@ model CommerceOrderItem {
   orderId          String
   productVariantId String
   quantity         Int
-  unitPrice        Decimal @db.Decimal(18, 2)
+  unitPrice        Decimal @db.Decimal(18, 4)
   supplierOrderId  String?
 
   // Immutable historical order snapshot fields
@@ -751,8 +783,8 @@ model CommercePayment {
   gateway              PaymentGateway? // Must be set explicitly by the merchant
   channel              PaymentChannel? // Must be set explicitly by the merchant
   instrument           PaymentInstrument?
-  expectedAmount       Decimal            @db.Decimal(18, 2)
-  amount               Decimal            @db.Decimal(18, 2)
+  expectedAmount       Decimal            @db.Decimal(18, 4)
+  amount               Decimal            @db.Decimal(18, 4)
   currency             String             @default("PHP")
   status               PaymentStatus      @default(CREATED)
   version              Int                @default(1)
@@ -791,15 +823,22 @@ model CommercePaymentEvent {
 }
 
 model CommerceWebhookEvent {
-  id           String     @id @default(uuid())
-  provider     String // e.g. "PAYMONGO", "CJ_DROPSHIPPING"
-  eventType    String
-  payload      Json
-  status       SyncStatus @default(PENDING)
-  errorMessage String?
-  processedAt  DateTime?
-  createdAt    DateTime   @default(now())
+  id       String @id @default(uuid())
+  provider String // e.g. "PAYMONGO", "CJ_DROPSHIPPING"
+  /// The provider's own event ID. Gateways retry on any non-2xx response, so this
+  /// is what stops a retry from being processed twice. When a provider sends no
+  /// event ID, callers pass a SHA-256 of the raw body instead — never a random
+  /// value, or the uniqueness below stops meaning anything.
+  externalEventId String
+  eventType       String
+  payload         Json
+  status          SyncStatus @default(PENDING)
+  errorMessage    String?
+  processedAt     DateTime?
+  createdAt       DateTime   @default(now())
 
+  @@unique([provider, externalEventId])
+  @@index([status, createdAt])
   @@map("commerce_webhook_events")
 }
 
@@ -928,8 +967,8 @@ model CatalogPricingRule {
   tenantId      String
   name          String
   markupType    MarkupType
-  markupValue   Decimal
-  minimumProfit Decimal?
+  markupValue   Decimal    @db.Decimal(18, 4)
+  minimumProfit Decimal?   @db.Decimal(18, 4)
   isActive      Boolean    @default(true)
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
@@ -939,6 +978,7 @@ model CatalogPricingRule {
   variants CatalogProductVariant[] @relation("VariantPricingRules")
 
   @@unique([tenantId, name])
+  @@unique([tenantId, id])
   @@index([tenantId])
   @@map("catalog_pricing_rules")
 }
@@ -1089,11 +1129,11 @@ model MarketingSocialAd {
   externalAdId     String? // Ad ID on Meta Ads / Google Ads API
   status           AdSocialStatus   @default(DRAFT)
   adUrl            String? // Target URL with UTM params
-  dailyBudget      Decimal?         @db.Decimal(12, 2)
-  totalSpend       Decimal?         @default(0) @db.Decimal(12, 2)
+  dailyBudget      Decimal?         @db.Decimal(18, 4)
+  totalSpend       Decimal?         @default(0) @db.Decimal(18, 4)
   clicksCount      Int              @default(0)
   conversionsCount Int              @default(0)
-  revenueGenerated Decimal?         @default(0) @db.Decimal(18, 2)
+  revenueGenerated Decimal?         @default(0) @db.Decimal(18, 4)
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
@@ -1285,9 +1325,9 @@ model Coupon {
   tenantId      String
   code          String
   discountType  DiscountType @default(PERCENTAGE)
-  discountValue Decimal      @db.Decimal(18, 2)
-  minOrderValue Decimal?     @db.Decimal(18, 2)
-  maxDiscount   Decimal?     @db.Decimal(18, 2)
+  discountValue Decimal      @db.Decimal(18, 4)
+  minOrderValue Decimal?     @db.Decimal(18, 4)
+  maxDiscount   Decimal?     @db.Decimal(18, 4)
   usageLimit    Int?
   usageCount    Int          @default(0)
   expiresAt     DateTime?
@@ -1338,7 +1378,7 @@ model Refund {
   tenantId      String
   orderId       String
   returnId      String?      @unique
-  amount        Decimal      @db.Decimal(12, 2)
+  amount        Decimal      @db.Decimal(18, 4)
   reason        String?
   status        RefundStatus @default(PENDING)
   transactionId String?      @unique
@@ -1357,7 +1397,7 @@ model Refund {
 model CommercePaymentAttempt {
   id           String        @id @default(uuid())
   paymentId    String
-  amount       Decimal       @db.Decimal(12, 2)
+  amount       Decimal       @db.Decimal(18, 4)
   status       PaymentStatus @default(PENDING)
   errorMessage String?
   rawResponse  Json?
@@ -1416,23 +1456,29 @@ enum PaymentInstrument {
 // 12. ENTERPRISE ADMIN DASHBOARD ANALYTICS
 // ==============================================================================
 
+/// Per-product sales rollup. Keyed at product level because every read of this
+/// table (best-sellers, trending, top-10 reports) ranks products, not variants.
+/// The previous @@unique([tenantId, productVariantId]) could not be upserted at
+/// all: the column was nullable, Postgres treats NULLs as distinct so rollup
+/// rows duplicated without limit, and Prisma types compound-unique inputs as
+/// non-nullable so the where clause was inexpressible.
+/// If variant-level granularity is needed later, add a separate table rather
+/// than making this key nullable again.
 model AnalyticsProductSales {
-  id               String    @id @default(uuid())
-  tenantId         String
-  productId        String
-  productVariantId String?
-  totalSold        Int       @default(0)
-  totalRevenue     Decimal   @default(0) @db.Decimal(18, 2)
-  totalOrders      Int       @default(0)
-  lastSoldAt       DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  id           String    @id @default(uuid())
+  tenantId     String
+  productId    String
+  totalSold    Int       @default(0)
+  totalRevenue Decimal   @default(0) @db.Decimal(18, 4)
+  totalOrders  Int       @default(0)
+  lastSoldAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  product        CatalogProduct         @relation(fields: [productId], references: [id], onDelete: Cascade)
-  productVariant CatalogProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
+  tenant  Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product CatalogProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  @@unique([tenantId, productVariantId])
+  @@unique([tenantId, productId])
   @@index([tenantId])
   @@index([productId])
   @@index([tenantId, totalSold])
@@ -1443,7 +1489,7 @@ model AnalyticsCategorySales {
   id                String   @id @default(uuid())
   tenantId          String
   categoryId        String
-  totalRevenue      Decimal  @default(0) @db.Decimal(18, 2)
+  totalRevenue      Decimal  @default(0) @db.Decimal(18, 4)
   totalOrders       Int      @default(0)
   totalProductsSold Int      @default(0)
   createdAt         DateTime @default(now())
@@ -1464,7 +1510,7 @@ model AnalyticsSupplier {
   supplierId       String
   productsImported Int      @default(0)
   totalOrders      Int      @default(0)
-  totalRevenue     Decimal  @default(0) @db.Decimal(18, 2)
+  totalRevenue     Decimal  @default(0) @db.Decimal(18, 4)
   failedOrders     Int      @default(0)
   avgDeliveryDays  Decimal? @db.Decimal(5, 2)
   createdAt        DateTime @default(now())
@@ -1483,9 +1529,9 @@ model AnalyticsCustomer {
   id            String    @id @default(uuid())
   tenantId      String
   customerId    String
-  lifetimeSpend Decimal   @default(0) @db.Decimal(18, 2)
+  lifetimeSpend Decimal   @default(0) @db.Decimal(18, 4)
   totalOrders   Int       @default(0)
-  avgOrderValue Decimal   @default(0) @db.Decimal(18, 2)
+  avgOrderValue Decimal   @default(0) @db.Decimal(18, 4)
   lastOrderedAt DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -1505,7 +1551,7 @@ model AnalyticsDailySales {
   tenantId             String
   date                 DateTime @db.Date
   ordersCount          Int      @default(0)
-  revenueAmount        Decimal  @default(0) @db.Decimal(18, 2)
+  revenueAmount        Decimal  @default(0) @db.Decimal(18, 4)
   bestSellingProductId String?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
@@ -1560,7 +1606,7 @@ model CatalogCollection {
   parentId String? // null = top-level collection; set = sub-collection of a parent
 
   tenant             Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  parent             CatalogCollection?      @relation("CollectionHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  parent             CatalogCollection?      @relation("CollectionHierarchy", fields: [tenantId, parentId], references: [tenantId, id], onDelete: Restrict)
   children           CatalogCollection[]     @relation("CollectionHierarchy")
   items              CatalogCollectionItem[]
   pageSections       CmsPageSection[]
@@ -1568,6 +1614,7 @@ model CatalogCollection {
   storefrontSections StorefrontSection[]
 
   @@unique([tenantId, slug])
+  @@unique([tenantId, id])
   @@index([tenantId, type])
   @@index([tenantId, isPublic])
   @@index([parentId])
@@ -1723,8 +1770,8 @@ model PromotionReward {
   id          String   @id @default(uuid())
   promotionId String
   rewardType  String // "PERCENTAGE_OFF" | "FIXED_AMOUNT_OFF" | "FREE_SHIPPING" | "BUY_X_GET_Y"
-  value       Decimal  @db.Decimal(12, 2)
-  maxDiscount Decimal? @db.Decimal(12, 2)
+  value       Decimal  @db.Decimal(18, 4)
+  maxDiscount Decimal? @db.Decimal(18, 4)
   createdAt   DateTime @default(now())
 
   promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
@@ -1764,6 +1811,7 @@ model InventoryLocation {
   stocks InventoryStock[]
 
   @@unique([tenantId, code])
+  @@unique([tenantId, id])
   @@index([tenantId])
   @@map("inventory_locations")
 }
@@ -1783,8 +1831,8 @@ model InventoryStock {
   updatedAt    DateTime @updatedAt
 
   tenant   Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  variant  CatalogProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
-  location InventoryLocation     @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  variant  CatalogProductVariant @relation(fields: [tenantId, variantId], references: [tenantId, id], onDelete: Cascade)
+  location InventoryLocation     @relation(fields: [tenantId, locationId], references: [tenantId, id], onDelete: Cascade)
 
   @@unique([variantId, locationId])
   @@index([tenantId])
@@ -1811,6 +1859,7 @@ model TaxClass {
   products CatalogProduct[]
 
   @@unique([tenantId, code])
+  @@unique([tenantId, id])
   @@index([tenantId])
   @@map("tax_classes")
 }
@@ -1830,7 +1879,7 @@ model TaxRate {
   updatedAt  DateTime @updatedAt
 
   tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  taxClass TaxClass? @relation(fields: [taxClassId], references: [id], onDelete: SetNull)
+  taxClass TaxClass? @relation(fields: [tenantId, taxClassId], references: [tenantId, id], onDelete: Restrict)
 
   @@index([tenantId])
   @@index([taxClassId])
@@ -1921,6 +1970,7 @@ model StorefrontPage {
   sections StorefrontSection[]
 
   @@unique([tenantId, slug])
+  @@unique([tenantId, id])
   @@index([tenantId, pageType])
   @@index([tenantId, isPublished])
   @@map("storefront_pages")
@@ -1956,8 +2006,8 @@ model StorefrontSection {
   contextId   String?
 
   tenant      Tenant                  @relation(fields: [tenantId], references: [id])
-  page        StorefrontPage          @relation(fields: [pageId], references: [id], onDelete: Cascade)
-  collection  CatalogCollection?      @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+  page        StorefrontPage          @relation(fields: [tenantId, pageId], references: [tenantId, id], onDelete: Cascade)
+  collection  CatalogCollection?      @relation(fields: [tenantId, collectionId], references: [tenantId, id], onDelete: Restrict)
   pinnedItems StorefrontSectionItem[]
 
   @@unique([tenantId, slug])

@@ -55,17 +55,11 @@ export async function seedTenants(prisma: PrismaClient) {
   ];
 
   for (const tenantData of tenants) {
-    const existing = await prisma.tenant.findUnique({
+    const tenant = await prisma.tenant.upsert({
       where: { id: tenantData.id },
+      update: tenantData,
+      create: tenantData,
     });
-
-    if (!existing) {
-      await prisma.tenant.create({
-        data: tenantData,
-      });
-      process.stdout.write(`✅ Created Tenant [${tenantData.slug}]: ${tenantData.name}\n`);
-    } else {
-      process.stdout.write(`ℹ️ Tenant already exists: ${tenantData.slug}\n`);
-    }
+    process.stdout.write(`✅ Seeded Tenant [${tenant.slug}]: ${tenant.name} (${tenant.domain})\n`);
   }
 }
