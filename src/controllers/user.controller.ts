@@ -28,9 +28,16 @@ export default class UserController {
         req.query as Record<string, unknown>,
       );
       const role = typeof req.query.role === 'string' ? req.query.role : undefined;
-      const isActive =
-        req.query.isActive === undefined ? undefined : req.query.isActive === 'true';
-      const result = await UserService.listUsers(page, limit, search, sortBy, sortOrder, role, isActive);
+      const isActive = req.query.isActive === undefined ? undefined : req.query.isActive === 'true';
+      const result = await UserService.listUsers(
+        page,
+        limit,
+        search,
+        sortBy,
+        sortOrder,
+        role,
+        isActive,
+      );
       return responseSuccess(res, 200, result);
     } catch (error) {
       next(error);

@@ -64,9 +64,7 @@ export class UserRepository {
     isActive?: boolean,
   ) {
     const validRole =
-      role && (Object.values(UserRole) as string[]).includes(role)
-        ? (role as UserRole)
-        : undefined;
+      role && (Object.values(UserRole) as string[]).includes(role) ? (role as UserRole) : undefined;
     const where: Prisma.AuthUserWhereInput = {
       isDeleted: false,
       ...(validRole && { role: validRole }),
