@@ -58,8 +58,18 @@ export class UserService {
     search?: string,
     sortBy?: string,
     sortOrder?: 'asc' | 'desc',
+    role?: string,
+    isActive?: boolean | undefined,
   ) {
-    const result = await UserRepository.findAll(page, limit, search, sortBy, sortOrder);
+    const result = await UserRepository.findAll(
+      page,
+      limit,
+      search,
+      sortBy,
+      sortOrder,
+      role,
+      isActive,
+    );
     return {
       ...result,
       items: result.items.map(({ password: _password, ...rest }) => rest),
