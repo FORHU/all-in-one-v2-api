@@ -45,6 +45,11 @@ const CATEGORY_TREE_BY_TENANT: Record<string, CategoryNode[]> = {
       slug: 'bags',
       description: 'Crossbody, tote and everyday carry bags.',
     },
+    {
+      name: 'Kids',
+      slug: 'kids',
+      description: 'Everyday and playtime essentials for kids.',
+    },
   ],
   [TENANT_IDS.BEAUTY]: [
     { name: 'Skincare', slug: 'skincare', description: 'Serums, moisturizers and treatments.' },

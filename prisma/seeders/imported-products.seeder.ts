@@ -26,7 +26,22 @@ interface ProductSeed {
   imageUrl: string;
   variants: VariantSeed[];
   rawData: Prisma.InputJsonValue;
+  brand?: string;
 }
+
+/**
+ * Per-tenant brand pools. Products are assigned a brand deterministically
+ * (index within the tenant's product list, modulo pool length) rather than
+ * hand-authored per entry — CatalogProduct.brand only needs to be populated
+ * with plausible, filterable values, not bespoke-per-item realism.
+ */
+const BRANDS_BY_TENANT: Record<string, string[]> = {
+  [TENANT_IDS.FASHION]: ['ADDICTSTYLE', 'STUDIO NUE', 'URBAN ECHO', 'NORTH FIELD'],
+  [TENANT_IDS.BEAUTY]: ['ASKMEBEAUTY', 'GLOW LAB', 'PURE DERM'],
+  [TENANT_IDS.ELECTRONICS]: ['DIGITFRIEND', 'CIRCUIT WORKS', 'PIXELCORE'],
+  [TENANT_IDS.LIVING]: ['LIVING CO.', 'HEARTH & OAK', 'NEST STUDIO'],
+  [TENANT_IDS.OUTDOOR]: ['OUTDOOR CO.', 'TRAILFORGE', 'SUMMIT GEAR'],
+};
 
 /**
  * Full 5-tenant product catalog (~7 products per tenant, each with 2-3
@@ -6735,6 +6750,271 @@ const CATALOG_DATASET: ProductSeed[] = [
       verdict: 'SELL',
     },
   },
+
+  // ============================================================
+  // FASHION — Kids
+  // ============================================================
+  {
+    tenantId: TENANT_IDS.FASHION,
+    categorySlug: 'kids',
+    externalId: 'CJ-PID-FSH-KID-001',
+    externalSku: 'CJ-SKU-KID-TEE-GRAPHIC',
+    title: 'Graphic Print Cotton Tee (Kids)',
+    slug: 'graphic-print-cotton-tee-kids',
+    description:
+      'Soft 100% cotton tee with a colorful front graphic. Pre-shrunk and machine washable for everyday play.',
+    tags: ['kids', 'tee', 'everyday'],
+    featured: true,
+    compareAtPrice: 22.0,
+    shippingEstimate: 2.5,
+    imageUrl: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=800&q=80',
+    variants: [
+      {
+        externalId: 'CJ-VAR-FSH-KID-001-A',
+        sku: 'KID-001-BLU-3T',
+        title: 'Sky Blue / 3T',
+        costPrice: 4.5,
+        sellingPrice: 16.0,
+        stock: 90,
+      },
+      {
+        externalId: 'CJ-VAR-FSH-KID-001-B',
+        sku: 'KID-001-BLU-4T',
+        title: 'Sky Blue / 4T',
+        costPrice: 4.5,
+        sellingPrice: 16.0,
+        stock: 85,
+      },
+      {
+        externalId: 'CJ-VAR-FSH-KID-001-C',
+        sku: 'KID-001-YLW-5',
+        title: 'Sunny Yellow / 5',
+        costPrice: 4.5,
+        sellingPrice: 16.0,
+        stock: 70,
+      },
+    ],
+    rawData: {
+      productNameEn: 'Graphic Print Cotton Tee (Kids)',
+      categoryName: 'Kids',
+      weight: '0.12kg',
+      score: 8.4,
+      verdict: 'SELL',
+    },
+  },
+  {
+    tenantId: TENANT_IDS.FASHION,
+    categorySlug: 'kids',
+    externalId: 'CJ-PID-FSH-KID-002',
+    externalSku: 'CJ-SKU-KID-JOGGER-FLEECE',
+    title: 'Fleece Jogger Pants (Kids)',
+    slug: 'fleece-jogger-pants-kids',
+    description:
+      'Brushed fleece joggers with an elastic waistband and cuffed ankles — built for the playground, soft enough for naps.',
+    tags: ['kids', 'joggers', 'fleece'],
+    featured: false,
+    shippingEstimate: 3.0,
+    imageUrl: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=80',
+    variants: [
+      {
+        externalId: 'CJ-VAR-FSH-KID-002-A',
+        sku: 'KID-002-GRY-3T',
+        title: 'Heather Grey / 3T',
+        costPrice: 6.0,
+        sellingPrice: 21.0,
+        stock: 60,
+      },
+      {
+        externalId: 'CJ-VAR-FSH-KID-002-B',
+        sku: 'KID-002-NVY-5',
+        title: 'Navy / 5',
+        costPrice: 6.0,
+        sellingPrice: 21.0,
+        stock: 55,
+      },
+    ],
+    rawData: {
+      productNameEn: 'Fleece Jogger Pants (Kids)',
+      categoryName: 'Kids',
+      weight: '0.22kg',
+      score: 8.1,
+      verdict: 'SELL',
+    },
+  },
+  {
+    tenantId: TENANT_IDS.FASHION,
+    categorySlug: 'kids',
+    externalId: 'CJ-PID-FSH-KID-003',
+    externalSku: 'CJ-SKU-KID-HOODIE-ZIP',
+    title: 'Zip-Up Hoodie (Kids)',
+    slug: 'zip-up-hoodie-kids',
+    description:
+      'Lightweight zip-front hoodie with a kangaroo pocket and adjustable drawstring hood, sized for early growth spurts.',
+    tags: ['kids', 'hoodie', 'outerwear'],
+    featured: true,
+    compareAtPrice: 36.0,
+    shippingEstimate: 3.5,
+    imageUrl: 'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&q=80',
+    variants: [
+      {
+        externalId: 'CJ-VAR-FSH-KID-003-A',
+        sku: 'KID-003-RED-4T',
+        title: 'Cherry Red / 4T',
+        costPrice: 8.0,
+        sellingPrice: 27.0,
+        stock: 50,
+      },
+      {
+        externalId: 'CJ-VAR-FSH-KID-003-B',
+        sku: 'KID-003-BLK-6',
+        title: 'Black / 6',
+        costPrice: 8.0,
+        sellingPrice: 27.0,
+        stock: 45,
+      },
+      {
+        externalId: 'CJ-VAR-FSH-KID-003-C',
+        sku: 'KID-003-BLK-7',
+        title: 'Black / 7',
+        costPrice: 8.0,
+        sellingPrice: 27.0,
+        stock: 40,
+      },
+    ],
+    rawData: {
+      productNameEn: 'Zip-Up Hoodie (Kids)',
+      categoryName: 'Kids',
+      weight: '0.28kg',
+      score: 8.6,
+      verdict: 'SELL',
+    },
+  },
+  {
+    tenantId: TENANT_IDS.FASHION,
+    categorySlug: 'kids',
+    externalId: 'CJ-PID-FSH-KID-004',
+    externalSku: 'CJ-SKU-KID-OVERALLS-DENIM',
+    title: 'Denim Overalls (Kids)',
+    slug: 'denim-overalls-kids',
+    description:
+      'Classic straight-fit denim overalls with adjustable shoulder straps and roomy front pockets for everyday wear.',
+    tags: ['kids', 'overalls', 'denim'],
+    featured: false,
+    shippingEstimate: 3.8,
+    imageUrl: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=800&q=80',
+    variants: [
+      {
+        externalId: 'CJ-VAR-FSH-KID-004-A',
+        sku: 'KID-004-DNM-3T',
+        title: 'Classic Denim / 3T',
+        costPrice: 9.0,
+        sellingPrice: 32.0,
+        stock: 40,
+      },
+      {
+        externalId: 'CJ-VAR-FSH-KID-004-B',
+        sku: 'KID-004-DNM-5',
+        title: 'Classic Denim / 5',
+        costPrice: 9.0,
+        sellingPrice: 32.0,
+        stock: 35,
+      },
+    ],
+    rawData: {
+      productNameEn: 'Denim Overalls (Kids)',
+      categoryName: 'Kids',
+      weight: '0.34kg',
+      score: 8.0,
+      verdict: 'SELL',
+    },
+  },
+  {
+    tenantId: TENANT_IDS.FASHION,
+    categorySlug: 'kids',
+    externalId: 'CJ-PID-FSH-KID-005',
+    externalSku: 'CJ-SKU-KID-RAINJACKET',
+    title: 'Rain Jacket with Hood (Kids)',
+    slug: 'rain-jacket-with-hood-kids',
+    description:
+      'Waterproof, windproof shell with a fold-away hood and reflective trim for visibility on grey-sky days.',
+    tags: ['kids', 'rain-jacket', 'outerwear'],
+    featured: false,
+    compareAtPrice: 48.0,
+    shippingEstimate: 4.2,
+    imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&q=80',
+    variants: [
+      {
+        externalId: 'CJ-VAR-FSH-KID-005-A',
+        sku: 'KID-005-YLW-4T',
+        title: 'Sunny Yellow / 4T',
+        costPrice: 11.0,
+        sellingPrice: 38.0,
+        stock: 30,
+      },
+      {
+        externalId: 'CJ-VAR-FSH-KID-005-B',
+        sku: 'KID-005-BLU-6',
+        title: 'Sky Blue / 6',
+        costPrice: 11.0,
+        sellingPrice: 38.0,
+        stock: 28,
+      },
+    ],
+    rawData: {
+      productNameEn: 'Rain Jacket with Hood (Kids)',
+      categoryName: 'Kids',
+      weight: '0.30kg',
+      score: 8.3,
+      verdict: 'SELL',
+    },
+  },
+  {
+    tenantId: TENANT_IDS.FASHION,
+    categorySlug: 'kids',
+    externalId: 'CJ-PID-FSH-KID-006',
+    externalSku: 'CJ-SKU-KID-SNEAKERS-CANVAS',
+    title: 'Canvas Sneakers (Kids)',
+    slug: 'canvas-sneakers-kids',
+    description:
+      'Easy slip-on canvas sneakers with a hook-and-loop strap and a flexible sole built for running around.',
+    tags: ['kids', 'sneakers', 'footwear'],
+    featured: true,
+    shippingEstimate: 3.6,
+    imageUrl: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&q=80',
+    variants: [
+      {
+        externalId: 'CJ-VAR-FSH-KID-006-A',
+        sku: 'KID-006-WHT-11',
+        title: 'White / Toddler 11',
+        costPrice: 7.5,
+        sellingPrice: 24.0,
+        stock: 50,
+      },
+      {
+        externalId: 'CJ-VAR-FSH-KID-006-B',
+        sku: 'KID-006-BLK-13',
+        title: 'Black / Toddler 13',
+        costPrice: 7.5,
+        sellingPrice: 24.0,
+        stock: 45,
+      },
+      {
+        externalId: 'CJ-VAR-FSH-KID-006-C',
+        sku: 'KID-006-BLK-1',
+        title: 'Black / Youth 1',
+        costPrice: 7.5,
+        sellingPrice: 24.0,
+        stock: 40,
+      },
+    ],
+    rawData: {
+      productNameEn: 'Canvas Sneakers (Kids)',
+      categoryName: 'Kids',
+      weight: '0.42kg',
+      score: 8.5,
+      verdict: 'SELL',
+    },
+  },
 ];
 
 export async function seedImportedProducts(prisma: PrismaClient) {
@@ -6758,6 +7038,10 @@ export async function seedImportedProducts(prisma: PrismaClient) {
 
     // B. Seed Catalog Product & primary media, linked to the resolved category
     const basePrice = Math.min(...item.variants.map((v) => v.sellingPrice));
+    const brandPool = BRANDS_BY_TENANT[item.tenantId] ?? [];
+    const brandIndex = perTenantCount[item.tenantId] || 0;
+    const brand =
+      item.brand ?? (brandPool.length > 0 ? brandPool[brandIndex % brandPool.length] : undefined);
     const product = await prisma.catalogProduct.upsert({
       where: { tenantId_slug: { tenantId: item.tenantId, slug: item.slug } },
       update: {
@@ -6770,6 +7054,7 @@ export async function seedImportedProducts(prisma: PrismaClient) {
         categoryId: category.id,
         status: ProductStatus.PUBLISHED,
         featured: item.featured,
+        brand,
       },
       create: {
         tenantId: item.tenantId,
@@ -6783,6 +7068,7 @@ export async function seedImportedProducts(prisma: PrismaClient) {
         thumbnailUrl: item.imageUrl,
         status: ProductStatus.PUBLISHED,
         featured: item.featured,
+        brand,
         publishedAt: new Date(),
         media: {
           create: [

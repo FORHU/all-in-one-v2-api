@@ -3,6 +3,7 @@ import authRoute from './auth.route';
 import userRoute from './user.route';
 import fileUploadRoute from './fileUpload.route';
 import healthRouter from './health.route';
+import productRoute from './product.route';
 import productSyncRoute from './product-sync.route';
 import productSearchRoute from './product-search.routes';
 import productImportRoute from './product-import.routes';
@@ -40,6 +41,7 @@ router.get('/v2', (_, res) => {
 router.use('/v2/auth', authRoute);
 router.use('/v2/users', userRoute);
 router.use('/v2/file-uploads', fileUploadRoute);
+router.use('/v2/products', productRoute);
 router.use('/v2/products', productSyncRoute);
 router.use('/v2/products', productImportRoute);
 router.use('/v2/product-search', productSearchRoute);

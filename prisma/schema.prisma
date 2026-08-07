@@ -203,6 +203,7 @@ model CatalogProduct {
   status         ProductStatus     @default(DRAFT)
   visibility     ProductVisibility @default(PUBLIC)
   featured       Boolean           @default(false)
+  brand          String? // Merchant/label brand name shown on storefront cards and filters
   price          Decimal?          @db.Decimal(18, 4) // Main display selling price
   salePrice      Decimal?          @db.Decimal(18, 4) // Active discounted price (if on sale)
   compareAtPrice Decimal?          @db.Decimal(18, 4) // Crossed-out original price (MSRP / "fake" price before discount)
@@ -249,6 +250,7 @@ model CatalogProduct {
   @@index([tenantId, status])
   @@index([tenantId, featured])
   @@index([tenantId, deletedAt])
+  @@index([tenantId, brand])
   @@index([taxClassId])
   @@index([tenantId, createdAt])
   @@map("catalog_products")
