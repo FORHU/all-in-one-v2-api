@@ -63,8 +63,14 @@ export async function seedStorefront(prisma: PrismaClient) {
   process.stdout.write('🌱 Seeding Storefront Pages, Sections & Pinned Items for 5 Tenants...\n');
 
   for (const meta of TENANT_META) {
-    const { tenantId, brandName, campaignTitle, campaignSlug, campaignDescription, brandStoryTitle } =
-      meta;
+    const {
+      tenantId,
+      brandName,
+      campaignTitle,
+      campaignSlug,
+      campaignDescription,
+      brandStoryTitle,
+    } = meta;
 
     const categories = await prisma.catalogCategory.findMany({
       where: { tenantId, parentId: null },
@@ -162,7 +168,7 @@ export async function seedStorefront(prisma: PrismaClient) {
       });
     }
 
-    const trendingSection = await prisma.storefrontSection.upsert({
+    await prisma.storefrontSection.upsert({
       where: { tenantId_slug: { tenantId, slug: 'home-trending-now' } },
       update: {},
       create: {
@@ -177,7 +183,7 @@ export async function seedStorefront(prisma: PrismaClient) {
       },
     });
 
-    const bestSellersSection = await prisma.storefrontSection.upsert({
+    await prisma.storefrontSection.upsert({
       where: { tenantId_slug: { tenantId, slug: 'home-best-sellers' } },
       update: {},
       create: {
@@ -192,7 +198,7 @@ export async function seedStorefront(prisma: PrismaClient) {
       },
     });
 
-    const newArrivalsSection = await prisma.storefrontSection.upsert({
+    await prisma.storefrontSection.upsert({
       where: { tenantId_slug: { tenantId, slug: 'home-new-arrivals' } },
       update: {},
       create: {
@@ -207,7 +213,7 @@ export async function seedStorefront(prisma: PrismaClient) {
       },
     });
 
-    const collectionSection = await prisma.storefrontSection.upsert({
+    await prisma.storefrontSection.upsert({
       where: { tenantId_slug: { tenantId, slug: 'home-featured-collection' } },
       update: { collectionId: primaryCollection?.id ?? null },
       create: {
@@ -242,7 +248,10 @@ export async function seedStorefront(prisma: PrismaClient) {
     for (let i = 0; i < pinnedProducts.length; i++) {
       await prisma.storefrontSectionItem.upsert({
         where: {
-          sectionId_productId: { sectionId: editorsPicksSection.id, productId: pinnedProducts[i].id },
+          sectionId_productId: {
+            sectionId: editorsPicksSection.id,
+            productId: pinnedProducts[i].id,
+          },
         },
         update: { position: i },
         create: {
@@ -266,7 +275,8 @@ export async function seedStorefront(prisma: PrismaClient) {
         pageType: StorefrontPageType.CATEGORY,
         isPublished: true,
         seoTitle: `Shop ${primaryCategory.name} | ${brandName}`,
-        seoDescription: primaryCategory.description ?? `Browse ${primaryCategory.name} at ${brandName}.`,
+        seoDescription:
+          primaryCategory.description ?? `Browse ${primaryCategory.name} at ${brandName}.`,
       },
     });
 
