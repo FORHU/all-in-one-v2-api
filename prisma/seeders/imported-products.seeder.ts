@@ -26,7 +26,22 @@ interface ProductSeed {
   imageUrl: string;
   variants: VariantSeed[];
   rawData: Prisma.InputJsonValue;
+  brand?: string;
 }
+
+/**
+ * Per-tenant brand pools. Products are assigned a brand deterministically
+ * (index within the tenant's product list, modulo pool length) rather than
+ * hand-authored per entry — CatalogProduct.brand only needs to be populated
+ * with plausible, filterable values, not bespoke-per-item realism.
+ */
+const BRANDS_BY_TENANT: Record<string, string[]> = {
+  [TENANT_IDS.FASHION]: ['ADDICTSTYLE', 'STUDIO NUE', 'URBAN ECHO', 'NORTH FIELD'],
+  [TENANT_IDS.BEAUTY]: ['ASKMEBEAUTY', 'GLOW LAB', 'PURE DERM'],
+  [TENANT_IDS.ELECTRONICS]: ['DIGITFRIEND', 'CIRCUIT WORKS', 'PIXELCORE'],
+  [TENANT_IDS.LIVING]: ['LIVING CO.', 'HEARTH & OAK', 'NEST STUDIO'],
+  [TENANT_IDS.OUTDOOR]: ['OUTDOOR CO.', 'TRAILFORGE', 'SUMMIT GEAR'],
+};
 
 /**
  * Full 5-tenant product catalog (~7 products per tenant, each with 2-3
@@ -5751,6 +5766,9 @@ export async function seedImportedProducts(prisma: PrismaClient) {
 
     // B. Seed Catalog Product & primary media, linked to the resolved category
     const basePrice = Math.min(...item.variants.map((v) => v.sellingPrice));
+    const brandPool = BRANDS_BY_TENANT[item.tenantId] ?? [];
+    const brandIndex = perTenantCount[item.tenantId] || 0;
+    const brand = item.brand ?? (brandPool.length > 0 ? brandPool[brandIndex % brandPool.length] : undefined);
     const product = await prisma.catalogProduct.upsert({
       where: { tenantId_slug: { tenantId: item.tenantId, slug: item.slug } },
       update: {
@@ -5763,6 +5781,7 @@ export async function seedImportedProducts(prisma: PrismaClient) {
         categoryId: category.id,
         status: ProductStatus.PUBLISHED,
         featured: item.featured,
+        brand,
       },
       create: {
         tenantId: item.tenantId,
@@ -5776,6 +5795,7 @@ export async function seedImportedProducts(prisma: PrismaClient) {
         thumbnailUrl: item.imageUrl,
         status: ProductStatus.PUBLISHED,
         featured: item.featured,
+        brand,
         publishedAt: new Date(),
         media: {
           create: [
