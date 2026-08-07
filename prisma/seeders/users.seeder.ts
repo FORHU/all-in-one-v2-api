@@ -56,6 +56,17 @@ export async function seedUsers(prisma: PrismaClient) {
       isEmailVerified: true,
     },
 
+    // Seller
+    {
+      email: 'seller@marketplace.com',
+      username: 'seller1',
+      name: 'Verified Seller',
+      role: UserRole.SELLER,
+      password: passwordHash,
+      onboardingCompleted: true,
+      isEmailVerified: true,
+    },
+
     // 5 Customers
     {
       email: 'customer@marketplace.com',
@@ -116,29 +127,29 @@ export async function seedUsers(prisma: PrismaClient) {
 
   for (const user of usersToSeed) {
     const { firstName, lastName, ...userData } = user;
-    const existingUser = await prisma.authUser.findUnique({
+
+    const upsertedUser = await prisma.authUser.upsert({
       where: { email: userData.email },
+      update: userData,
+      create: userData,
     });
+    process.stdout.write(`✅ Seeded user [${upsertedUser.role}]: ${upsertedUser.email}\n`);
 
-    if (existingUser) {
-      process.stdout.write(`ℹ️  User already exists: ${userData.email}\n`);
-    } else {
-      const createdUser = await prisma.authUser.create({
-        data: userData,
+    // If this is a regular customer user, ensure CommerceCustomer profile exists
+    if (userData.role === UserRole.USER) {
+      const existingCustomer = await prisma.commerceCustomer.findUnique({
+        where: { userId: upsertedUser.id },
       });
-      process.stdout.write(`✅ Created user [${userData.role}]: ${userData.email}\n`);
-
-      // If this is a regular customer user, seed CommerceCustomer profile
-      if (userData.role === UserRole.USER) {
+      if (!existingCustomer) {
         await prisma.commerceCustomer.create({
           data: {
-            userId: createdUser.id,
-            email: createdUser.email,
+            userId: upsertedUser.id,
+            email: upsertedUser.email,
             firstName: firstName || 'Store',
             lastName: lastName || 'Customer',
           },
         });
-        process.stdout.write(`✅ Created CommerceCustomer profile for: ${userData.email}\n`);
+        process.stdout.write(`✅ Created CommerceCustomer profile for: ${upsertedUser.email}\n`);
       }
     }
   }
