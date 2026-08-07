@@ -91,7 +91,11 @@ const CATEGORY_TREE_BY_TENANT: Record<string, CategoryNode[]> = {
       slug: 'kitchen-dining',
       description: 'Dinnerware and dining essentials.',
     },
-    { name: 'Bedding & Bath', slug: 'bedding-bath', description: 'Sheets, towels and bath linens.' },
+    {
+      name: 'Bedding & Bath',
+      slug: 'bedding-bath',
+      description: 'Sheets, towels and bath linens.',
+    },
     {
       name: 'Storage & Organization',
       slug: 'storage-organization',

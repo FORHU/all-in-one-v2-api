@@ -17,11 +17,36 @@ interface GatewayProfile {
 
 // Cycled across each tenant's 5 orders for payment-method variety
 const GATEWAY_PROFILES: GatewayProfile[] = [
-  { gateway: PaymentGateway.PAYMONGO, channel: PaymentChannel.EWALLET, instrument: PaymentInstrument.GCASH, currency: 'PHP' },
-  { gateway: PaymentGateway.STRIPE, channel: PaymentChannel.CARD, instrument: PaymentInstrument.VISA, currency: 'USD' },
-  { gateway: PaymentGateway.PAYPAL, channel: PaymentChannel.BANK_TRANSFER, instrument: null, currency: 'USD' },
-  { gateway: PaymentGateway.XENDIT, channel: PaymentChannel.QR, instrument: PaymentInstrument.QRPH, currency: 'PHP' },
-  { gateway: PaymentGateway.MAYA, channel: PaymentChannel.EWALLET, instrument: PaymentInstrument.MAYA, currency: 'PHP' },
+  {
+    gateway: PaymentGateway.PAYMONGO,
+    channel: PaymentChannel.EWALLET,
+    instrument: PaymentInstrument.GCASH,
+    currency: 'PHP',
+  },
+  {
+    gateway: PaymentGateway.STRIPE,
+    channel: PaymentChannel.CARD,
+    instrument: PaymentInstrument.VISA,
+    currency: 'USD',
+  },
+  {
+    gateway: PaymentGateway.PAYPAL,
+    channel: PaymentChannel.BANK_TRANSFER,
+    instrument: null,
+    currency: 'USD',
+  },
+  {
+    gateway: PaymentGateway.XENDIT,
+    channel: PaymentChannel.QR,
+    instrument: PaymentInstrument.QRPH,
+    currency: 'PHP',
+  },
+  {
+    gateway: PaymentGateway.MAYA,
+    channel: PaymentChannel.EWALLET,
+    instrument: PaymentInstrument.MAYA,
+    currency: 'PHP',
+  },
 ];
 
 // Maps the order's fulfillment status onto a realistic payment status
@@ -62,7 +87,9 @@ export async function seedPayments(prisma: PrismaClient) {
     for (let i = 0; i < orders.length; i++) {
       const order = orders[i];
 
-      const existingPayment = await prisma.commercePayment.findFirst({ where: { orderId: order.id } });
+      const existingPayment = await prisma.commercePayment.findFirst({
+        where: { orderId: order.id },
+      });
       if (existingPayment) continue;
 
       const profile = GATEWAY_PROFILES[i % GATEWAY_PROFILES.length];
@@ -79,11 +106,18 @@ export async function seedPayments(prisma: PrismaClient) {
           amount: order.totalAmount,
           currency: profile.currency,
           status,
-          gatewayTransactionId: isSettled ? `tx_${profile.gateway.toLowerCase()}_${order.id.slice(0, 8)}` : null,
-          gatewayPaymentId: isSettled ? `py_${profile.gateway.toLowerCase()}_${order.id.slice(0, 8)}` : null,
+          gatewayTransactionId: isSettled
+            ? `tx_${profile.gateway.toLowerCase()}_${order.id.slice(0, 8)}`
+            : null,
+          gatewayPaymentId: isSettled
+            ? `py_${profile.gateway.toLowerCase()}_${order.id.slice(0, 8)}`
+            : null,
           events: {
             create: [
-              { status: PaymentStatus.CREATED, message: `Payment intent created via ${profile.gateway}` },
+              {
+                status: PaymentStatus.CREATED,
+                message: `Payment intent created via ${profile.gateway}`,
+              },
               { status, message: `Payment moved to ${status} for order ${order.id}` },
             ],
           },
@@ -92,7 +126,9 @@ export async function seedPayments(prisma: PrismaClient) {
               {
                 amount: order.totalAmount,
                 status,
-                rawResponse: { referenceNo: `${profile.gateway}-REF-${order.id.slice(0, 8).toUpperCase()}` },
+                rawResponse: {
+                  referenceNo: `${profile.gateway}-REF-${order.id.slice(0, 8).toUpperCase()}`,
+                },
               },
             ],
           },
