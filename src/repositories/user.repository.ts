@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../utils/prisma';
+import { paginate } from '../helpers/pagination.helper';
 
 export class UserRepository {
   static async findById(id: string) {
@@ -41,18 +42,49 @@ export class UserRepository {
     });
   }
 
-  static async findAll(page = 1, limit = 10) {
-    const skip = (page - 1) * limit;
-    const [data, total] = await Promise.all([
-      prisma.authUser.findMany({
-        where: { isDeleted: false },
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-      }),
-      prisma.authUser.count({ where: { isDeleted: false } }),
-    ]);
+  // Fields an admin can reasonably sort the user list by. Whitelisted so an
+  // arbitrary `?sortBy=` query param can't be handed straight to Prisma's
+  // orderBy (unknown fields throw a Prisma validation error).
+  private static readonly SORTABLE_FIELDS = new Set([
+    'createdAt',
+    'updatedAt',
+    'email',
+    'username',
+    'name',
+    'lastLoginAt',
+  ]);
 
-    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+  static async findAll(
+    page = 1,
+    limit = 10,
+    search?: string,
+    sortBy?: string,
+    sortOrder?: 'asc' | 'desc',
+  ) {
+    const where: Prisma.AuthUserWhereInput = {
+      isDeleted: false,
+      ...(search && {
+        OR: [
+          { email: { contains: search, mode: 'insensitive' } },
+          { username: { contains: search, mode: 'insensitive' } },
+          { name: { contains: search, mode: 'insensitive' } },
+        ],
+      }),
+    };
+
+    const orderBy: Prisma.AuthUserOrderByWithRelationInput =
+      sortBy && this.SORTABLE_FIELDS.has(sortBy)
+        ? { [sortBy]: sortOrder ?? 'asc' }
+        : { createdAt: 'desc' };
+
+    return paginate(prisma.authUser, {
+      where,
+      orderBy,
+      page,
+      limit,
+      search,
+      sortBy,
+      sortOrder,
+    });
   }
 }

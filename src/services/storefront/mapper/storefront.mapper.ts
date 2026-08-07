@@ -32,6 +32,7 @@ export function mapProductToDto(product: StorefrontRawProduct): StorefrontProduc
       null,
     price: getPriceAsNumber(firstVariant?.price) ?? getPriceAsNumber(product.price) ?? null,
     compareAtPrice: getPriceAsNumber(product.compareAtPrice) ?? null,
+    categoryId: product.categoryId ?? null,
     variants: (product.variants ?? []).map((v) => ({
       id: v.id,
       price: getPriceAsNumber(v.price) ?? 0,

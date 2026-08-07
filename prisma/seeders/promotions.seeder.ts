@@ -1,13 +1,27 @@
-import { PrismaClient, PromotionStatus } from '@prisma/client';
+import { PrismaClient, Prisma, PromotionStatus } from '@prisma/client';
 import { TENANT_IDS } from './tenants.seeder';
 
-export async function seedPromotions(prisma: PrismaClient) {
-  process.stdout.write('🌱 Seeding Platform Promotions & Campaign Engine...\n');
+interface PromotionSeed {
+  title: string;
+  code: string;
+  description: string;
+  status: PromotionStatus;
+  priority: number;
+  startDate: Date;
+  endDate: Date;
+  usageLimit: number;
+  usageCount?: number;
+  ruleType: string;
+  condition: Prisma.InputJsonValue;
+  rewardType: string;
+  rewardValue: number;
+  maxDiscount?: number;
+  targetType: string;
+}
 
-  // 1. Fashion Summer Sale Promo
-  await prisma.promotion.create({
-    data: {
-      tenantId: TENANT_IDS.FASHION,
+const PROMOTIONS_BY_TENANT: Record<string, PromotionSeed[]> = {
+  [TENANT_IDS.FASHION]: [
+    {
       title: 'Summer 2026 Fashion Campaign (20% OFF)',
       code: 'SUMMER2026',
       description: 'Get 20% OFF all fashion items on orders over $50.',
@@ -17,70 +31,443 @@ export async function seedPromotions(prisma: PrismaClient) {
       endDate: new Date('2026-08-31'),
       usageLimit: 1000,
       usageCount: 42,
-      rules: {
-        create: [
-          {
-            ruleType: 'MIN_CART_TOTAL',
-            condition: { minTotal: 50, currency: 'USD' },
-          },
-        ],
-      },
-      rewards: {
-        create: [
-          {
-            rewardType: 'PERCENTAGE_OFF',
-            value: 20.0,
-            maxDiscount: 50.0,
-          },
-        ],
-      },
-      targets: {
-        create: [
-          {
-            targetType: 'ALL',
-          },
-        ],
-      },
+      ruleType: 'MIN_CART_TOTAL',
+      condition: { minTotal: 50, currency: 'USD' },
+      rewardType: 'PERCENTAGE_OFF',
+      rewardValue: 20.0,
+      maxDiscount: 50.0,
+      targetType: 'ALL',
     },
-  });
-
-  // 2. Electronics Creator Tech Bundle Promo
-  await prisma.promotion.create({
-    data: {
-      tenantId: TENANT_IDS.ELECTRONICS,
-      title: 'Creator Tech Desk Bundle Discount ($100 OFF)',
+    {
+      title: 'New Drop Welcome Offer',
+      code: 'WELCOME15',
+      description: '15% off your first order storewide.',
+      status: PromotionStatus.ACTIVE,
+      priority: 8,
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-12-31'),
+      usageLimit: 5000,
+      ruleType: 'FIRST_ORDER',
+      condition: { firstOrderOnly: true },
+      rewardType: 'PERCENTAGE_OFF',
+      rewardValue: 15.0,
+      maxDiscount: 30.0,
+      targetType: 'ALL',
+    },
+    {
+      title: 'VIP Streetwear Members Discount',
+      code: 'VIP20',
+      description: '20% off for VIP loyalty members on outerwear.',
+      status: PromotionStatus.ACTIVE,
+      priority: 6,
+      startDate: new Date('2026-02-01'),
+      endDate: new Date('2026-11-30'),
+      usageLimit: 800,
+      ruleType: 'CUSTOMER_GROUP',
+      condition: { group: 'VIP' },
+      rewardType: 'PERCENTAGE_OFF',
+      rewardValue: 20.0,
+      targetType: 'CATEGORY',
+    },
+    {
+      title: 'Free Shipping over $50',
+      code: 'FREESHIP50',
+      description: 'Free standard shipping on orders over $50.',
+      status: PromotionStatus.ACTIVE,
+      priority: 4,
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-12-31'),
+      usageLimit: 10000,
+      ruleType: 'MIN_CART_TOTAL',
+      condition: { minTotal: 50, currency: 'USD' },
+      rewardType: 'FREE_SHIPPING',
+      rewardValue: 0,
+      targetType: 'ALL',
+    },
+    {
+      title: 'Flash Sale — 25% Off Footwear',
+      code: 'FLASH25',
+      description: 'Limited-time 25% off sneakers and footwear.',
+      status: PromotionStatus.SCHEDULED,
+      priority: 12,
+      startDate: new Date('2026-09-01'),
+      endDate: new Date('2026-09-07'),
+      usageLimit: 300,
+      ruleType: 'MIN_QUANTITY',
+      condition: { minQuantity: 1 },
+      rewardType: 'PERCENTAGE_OFF',
+      rewardValue: 25.0,
+      maxDiscount: 40.0,
+      targetType: 'CATEGORY',
+    },
+  ],
+  [TENANT_IDS.BEAUTY]: [
+    {
+      title: 'Glow Up Sale (10% OFF)',
+      code: 'GLOWUP10',
+      description: '10% off all skincare and makeup.',
+      status: PromotionStatus.ACTIVE,
+      priority: 5,
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-12-31'),
+      usageLimit: 2000,
+      ruleType: 'MIN_CART_TOTAL',
+      condition: { minTotal: 25, currency: 'USD' },
+      rewardType: 'PERCENTAGE_OFF',
+      rewardValue: 10.0,
+      maxDiscount: 20.0,
+      targetType: 'ALL',
+    },
+    {
+      title: 'Skincare Ritual Bundle Discount',
+      code: 'SKINCARE20',
+      description: '20% off when you buy 3 or more skincare items.',
+      status: PromotionStatus.ACTIVE,
+      priority: 7,
+      startDate: new Date('2026-03-01'),
+      endDate: new Date('2026-10-31'),
+      usageLimit: 600,
+      ruleType: 'MIN_QUANTITY',
+      condition: { minQuantity: 3 },
+      rewardType: 'PERCENTAGE_OFF',
+      rewardValue: 20.0,
+      maxDiscount: 35.0,
+      targetType: 'CATEGORY',
+    },
+    {
+      title: 'First Glow Welcome Discount',
+      code: 'FIRSTGLOW',
+      description: '$10 off your first beauty order.',
+      status: PromotionStatus.ACTIVE,
+      priority: 9,
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-12-31'),
+      usageLimit: 5000,
+      ruleType: 'FIRST_ORDER',
+      condition: { firstOrderOnly: true },
+      rewardType: 'FIXED_AMOUNT_OFF',
+      rewardValue: 10.0,
+      targetType: 'ALL',
+    },
+    {
+      title: 'Routine Refill Reward',
+      code: 'ROUTINE15',
+      description: '15% off when restocking your beauty routine.',
+      status: PromotionStatus.ACTIVE,
+      priority: 5,
+      startDate: new Date('2026-02-01'),
+      endDate: new Date('2026-12-31'),
+      usageLimit: 1500,
+      ruleType: 'MIN_CART_TOTAL',
+      condition: { minTotal: 40, currency: 'USD' },
+      rewardType: 'PERCENTAGE_OFF',
+      rewardValue: 15.0,
+      maxDiscount: 25.0,
+      targetType: 'ALL',
+    },
+    {
+      title: 'VIP Beauty Insider Discount',
+      code: 'VIPBEAUTY',
+      description: '25% off fragrance for VIP insiders.',
+      status: PromotionStatus.ACTIVE,
+      priority: 11,
+      startDate: new Date('2026-04-01'),
+      endDate: new Date('2026-12-31'),
+      usageLimit: 400,
+      ruleType: 'CUSTOMER_GROUP',
+      condition: { group: 'VIP' },
+      rewardType: 'PERCENTAGE_OFF',
+      rewardValue: 25.0,
+      maxDiscount: 30.0,
+      targetType: 'CATEGORY',
+    },
+  ],
+  [TENANT_IDS.ELECTRONICS]: [
+    {
+      title: 'Creator Tech Bundle Discount ($100 OFF)',
       code: 'CREATOR100',
-      description: '$100 Instant Discount on Creator Workstation bundles.',
+      description: '$100 instant discount on creator workstation bundles.',
       status: PromotionStatus.ACTIVE,
       priority: 5,
       startDate: new Date('2026-01-01'),
       endDate: new Date('2026-12-31'),
       usageLimit: 500,
-      rules: {
-        create: [
-          {
-            ruleType: 'MIN_CART_TOTAL',
-            condition: { minTotal: 500, currency: 'USD' },
-          },
-        ],
-      },
-      rewards: {
-        create: [
-          {
-            rewardType: 'FIXED_AMOUNT_OFF',
-            value: 100.0,
-          },
-        ],
-      },
-      targets: {
-        create: [
-          {
-            targetType: 'CATEGORY',
-          },
-        ],
-      },
+      ruleType: 'MIN_CART_TOTAL',
+      condition: { minTotal: 500, currency: 'USD' },
+      rewardType: 'FIXED_AMOUNT_OFF',
+      rewardValue: 100.0,
+      targetType: 'CATEGORY',
     },
-  });
+    {
+      title: 'Gamer Gear Discount',
+      code: 'GAMER10',
+      description: '10% off all gaming accessories.',
+      status: PromotionStatus.ACTIVE,
+      priority: 6,
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-12-31'),
+      usageLimit: 1500,
+      ruleType: 'MIN_CART_TOTAL',
+      condition: { minTotal: 20, currency: 'USD' },
+      rewardType: 'PERCENTAGE_OFF',
+      rewardValue: 10.0,
+      maxDiscount: 20.0,
+      targetType: 'CATEGORY',
+    },
+    {
+      title: 'New Tech Launch Discount',
+      code: 'NEWTECH15',
+      description: '15% off newly launched wearables and smart home devices.',
+      status: PromotionStatus.ACTIVE,
+      priority: 8,
+      startDate: new Date('2026-02-01'),
+      endDate: new Date('2026-09-30'),
+      usageLimit: 700,
+      ruleType: 'MIN_QUANTITY',
+      condition: { minQuantity: 1 },
+      rewardType: 'PERCENTAGE_OFF',
+      rewardValue: 15.0,
+      maxDiscount: 40.0,
+      targetType: 'CATEGORY',
+    },
+    {
+      title: 'Free Shipping on Tech Orders',
+      code: 'FREESHIPTECH',
+      description: 'Free shipping on all electronics orders over $75.',
+      status: PromotionStatus.ACTIVE,
+      priority: 3,
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-12-31'),
+      usageLimit: 10000,
+      ruleType: 'MIN_CART_TOTAL',
+      condition: { minTotal: 75, currency: 'USD' },
+      rewardType: 'FREE_SHIPPING',
+      rewardValue: 0,
+      targetType: 'ALL',
+    },
+    {
+      title: 'Audio Flash Sale',
+      code: 'AUDIOFLASH',
+      description: 'Limited-time discount on headphones and speakers.',
+      status: PromotionStatus.SCHEDULED,
+      priority: 12,
+      startDate: new Date('2026-10-01'),
+      endDate: new Date('2026-10-10'),
+      usageLimit: 250,
+      ruleType: 'MIN_QUANTITY',
+      condition: { minQuantity: 1 },
+      rewardType: 'PERCENTAGE_OFF',
+      rewardValue: 30.0,
+      maxDiscount: 45.0,
+      targetType: 'CATEGORY',
+    },
+  ],
+  [TENANT_IDS.LIVING]: [
+    {
+      title: 'Home Style Refresh Sale',
+      code: 'HOMESTYLE15',
+      description: '15% off home decor and furniture.',
+      status: PromotionStatus.ACTIVE,
+      priority: 6,
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-12-31'),
+      usageLimit: 1200,
+      ruleType: 'MIN_CART_TOTAL',
+      condition: { minTotal: 60, currency: 'USD' },
+      rewardType: 'PERCENTAGE_OFF',
+      rewardValue: 15.0,
+      maxDiscount: 60.0,
+      targetType: 'ALL',
+    },
+    {
+      title: 'Cozy Season Discount',
+      code: 'COZY10',
+      description: '10% off bedding and bath essentials.',
+      status: PromotionStatus.ACTIVE,
+      priority: 5,
+      startDate: new Date('2026-09-01'),
+      endDate: new Date('2026-12-31'),
+      usageLimit: 900,
+      ruleType: 'MIN_CART_TOTAL',
+      condition: { minTotal: 40, currency: 'USD' },
+      rewardType: 'PERCENTAGE_OFF',
+      rewardValue: 10.0,
+      maxDiscount: 25.0,
+      targetType: 'CATEGORY',
+    },
+    {
+      title: 'New Home Welcome Offer',
+      code: 'NEWHOME20',
+      description: '$20 off your first order of $100 or more.',
+      status: PromotionStatus.ACTIVE,
+      priority: 9,
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-12-31'),
+      usageLimit: 3000,
+      ruleType: 'FIRST_ORDER',
+      condition: { firstOrderOnly: true, minTotal: 100 },
+      rewardType: 'FIXED_AMOUNT_OFF',
+      rewardValue: 20.0,
+      targetType: 'ALL',
+    },
+    {
+      title: 'Free Delivery on Furniture',
+      code: 'FREESHIPHOME',
+      description: 'Free delivery on all furniture orders.',
+      status: PromotionStatus.ACTIVE,
+      priority: 4,
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-12-31'),
+      usageLimit: 10000,
+      ruleType: 'MIN_CART_TOTAL',
+      condition: { minTotal: 150, currency: 'USD' },
+      rewardType: 'FREE_SHIPPING',
+      rewardValue: 0,
+      targetType: 'CATEGORY',
+    },
+    {
+      title: 'Room Refresh Flash Sale',
+      code: 'REFRESH25',
+      description: '25% off select decor for a limited time.',
+      status: PromotionStatus.SCHEDULED,
+      priority: 12,
+      startDate: new Date('2026-11-01'),
+      endDate: new Date('2026-11-10'),
+      usageLimit: 350,
+      ruleType: 'MIN_QUANTITY',
+      condition: { minQuantity: 1 },
+      rewardType: 'PERCENTAGE_OFF',
+      rewardValue: 25.0,
+      maxDiscount: 50.0,
+      targetType: 'CATEGORY',
+    },
+  ],
+  [TENANT_IDS.OUTDOOR]: [
+    {
+      title: 'Trailblazer Discount',
+      code: 'TRAILBLAZER15',
+      description: '15% off camping and hiking gear.',
+      status: PromotionStatus.ACTIVE,
+      priority: 6,
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-12-31'),
+      usageLimit: 1000,
+      ruleType: 'MIN_CART_TOTAL',
+      condition: { minTotal: 50, currency: 'USD' },
+      rewardType: 'PERCENTAGE_OFF',
+      rewardValue: 15.0,
+      maxDiscount: 40.0,
+      targetType: 'ALL',
+    },
+    {
+      title: 'Adventure Starter Discount',
+      code: 'ADVENTURE10',
+      description: '10% off your first outdoor gear order.',
+      status: PromotionStatus.ACTIVE,
+      priority: 8,
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-12-31'),
+      usageLimit: 4000,
+      ruleType: 'FIRST_ORDER',
+      condition: { firstOrderOnly: true },
+      rewardType: 'PERCENTAGE_OFF',
+      rewardValue: 10.0,
+      maxDiscount: 20.0,
+      targetType: 'ALL',
+    },
+    {
+      title: 'Gear Up Bundle Discount',
+      code: 'GEARUP20',
+      description: '20% off when buying 2 or more items.',
+      status: PromotionStatus.ACTIVE,
+      priority: 7,
+      startDate: new Date('2026-03-01'),
+      endDate: new Date('2026-10-31'),
+      usageLimit: 700,
+      ruleType: 'MIN_QUANTITY',
+      condition: { minQuantity: 2 },
+      rewardType: 'PERCENTAGE_OFF',
+      rewardValue: 20.0,
+      maxDiscount: 45.0,
+      targetType: 'CATEGORY',
+    },
+    {
+      title: 'Free Shipping on Trail Gear',
+      code: 'FREESHIPOUT',
+      description: 'Free shipping on orders over $60.',
+      status: PromotionStatus.ACTIVE,
+      priority: 3,
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-12-31'),
+      usageLimit: 10000,
+      ruleType: 'MIN_CART_TOTAL',
+      condition: { minTotal: 60, currency: 'USD' },
+      rewardType: 'FREE_SHIPPING',
+      rewardValue: 0,
+      targetType: 'ALL',
+    },
+    {
+      title: 'Summit Sale',
+      code: 'SUMMITSALE25',
+      description: 'Limited-time 25% off select trail and water gear.',
+      status: PromotionStatus.SCHEDULED,
+      priority: 12,
+      startDate: new Date('2026-07-01'),
+      endDate: new Date('2026-07-14'),
+      usageLimit: 300,
+      ruleType: 'MIN_QUANTITY',
+      condition: { minQuantity: 1 },
+      rewardType: 'PERCENTAGE_OFF',
+      rewardValue: 25.0,
+      maxDiscount: 60.0,
+      targetType: 'CATEGORY',
+    },
+  ],
+};
 
-  process.stdout.write('✅ Seeded Platform Promotions, Rules, Rewards & Targets!\n');
+export async function seedPromotions(prisma: PrismaClient) {
+  process.stdout.write('🌱 Seeding Platform Promotions & Campaign Engine for 5 Tenants...\n');
+
+  for (const [tenantId, promotions] of Object.entries(PROMOTIONS_BY_TENANT)) {
+    for (const promo of promotions) {
+      const existing = await prisma.promotion.findFirst({
+        where: { tenantId, code: promo.code },
+      });
+      if (existing) continue;
+
+      await prisma.promotion.create({
+        data: {
+          tenantId,
+          title: promo.title,
+          code: promo.code,
+          description: promo.description,
+          status: promo.status,
+          priority: promo.priority,
+          startDate: promo.startDate,
+          endDate: promo.endDate,
+          usageLimit: promo.usageLimit,
+          usageCount: promo.usageCount ?? 0,
+          rules: {
+            create: [{ ruleType: promo.ruleType, condition: promo.condition }],
+          },
+          rewards: {
+            create: [
+              {
+                rewardType: promo.rewardType,
+                value: promo.rewardValue,
+                maxDiscount: promo.maxDiscount,
+              },
+            ],
+          },
+          targets: {
+            create: [{ targetType: promo.targetType }],
+          },
+        },
+      });
+    }
+  }
+
+  process.stdout.write('✅ Seeded Platform Promotions, Rules, Rewards & Targets for all tenants!\n');
 }
+
+export default seedPromotions;

@@ -8,6 +8,7 @@ import { seedImportedProducts } from './seeders/imported-products.seeder';
 import { seedAttributes } from './seeders/attributes.seeder';
 import { seedSizeGuides } from './seeders/size-guides.seeder';
 import { seedCollections } from './seeders/collections.seeder';
+import { seedStorefront } from './seeders/storefront.seeder';
 import { seedPromotions } from './seeders/promotions.seeder';
 import { seedInventory } from './seeders/inventory.seeder';
 import { seedCMS } from './seeders/cms.seeder';
@@ -22,16 +23,17 @@ async function main() {
     await seedUsers(prisma);
     await seedTenants(prisma);
     await seedCategories(prisma);
-    await seedCommerce(prisma);
+    await seedSuppliers(prisma);
     await seedImportedProducts(prisma);
     await seedAttributes(prisma);
     await seedSizeGuides(prisma);
     await seedCollections(prisma);
+    await seedStorefront(prisma);
     await seedPromotions(prisma);
     await seedInventory(prisma);
     await seedCMS(prisma);
+    await seedCommerce(prisma);
     await seedPayments(prisma);
-    await seedSuppliers(prisma);
     process.stdout.write('🎉 All seeder modules executed successfully in v2-api!\n');
   } catch (error) {
     process.stderr.write(`❌ Seeding failed: ${error}\n`);

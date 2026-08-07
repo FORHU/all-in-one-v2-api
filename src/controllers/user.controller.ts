@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import UserService from '../services/user.service';
 import { responseSuccess, responseError } from '../helpers/response.helper';
-import { parsePagination, pageFromRepo } from '../helpers/pagination.helper';
+import { parsePagination } from '../helpers/pagination.helper';
 
 export default class UserController {
   /**
@@ -24,9 +24,11 @@ export default class UserController {
    */
   static async index(req: Request, res: Response, next: NextFunction) {
     try {
-      const { page, limit } = parsePagination(req.query as Record<string, unknown>);
-      const result = await UserService.listUsers(page, limit);
-      return responseSuccess(res, 200, pageFromRepo(result));
+      const { page, limit, search, sortBy, sortOrder } = parsePagination(
+        req.query as Record<string, unknown>,
+      );
+      const result = await UserService.listUsers(page, limit, search, sortBy, sortOrder);
+      return responseSuccess(res, 200, result);
     } catch (error) {
       next(error);
     }
