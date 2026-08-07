@@ -168,7 +168,7 @@ export async function seedStorefront(prisma: PrismaClient) {
       });
     }
 
-    const trendingSection = await prisma.storefrontSection.upsert({
+    await prisma.storefrontSection.upsert({
       where: { tenantId_slug: { tenantId, slug: 'home-trending-now' } },
       update: {},
       create: {
@@ -183,7 +183,7 @@ export async function seedStorefront(prisma: PrismaClient) {
       },
     });
 
-    const bestSellersSection = await prisma.storefrontSection.upsert({
+    await prisma.storefrontSection.upsert({
       where: { tenantId_slug: { tenantId, slug: 'home-best-sellers' } },
       update: {},
       create: {
@@ -198,7 +198,7 @@ export async function seedStorefront(prisma: PrismaClient) {
       },
     });
 
-    const newArrivalsSection = await prisma.storefrontSection.upsert({
+    await prisma.storefrontSection.upsert({
       where: { tenantId_slug: { tenantId, slug: 'home-new-arrivals' } },
       update: {},
       create: {
@@ -213,7 +213,7 @@ export async function seedStorefront(prisma: PrismaClient) {
       },
     });
 
-    const collectionSection = await prisma.storefrontSection.upsert({
+    await prisma.storefrontSection.upsert({
       where: { tenantId_slug: { tenantId, slug: 'home-featured-collection' } },
       update: { collectionId: primaryCollection?.id ?? null },
       create: {
