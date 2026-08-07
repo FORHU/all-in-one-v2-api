@@ -77,6 +77,7 @@ export interface StorefrontProductDto {
   thumbnailUrl: string | null;
   price: number | null;
   compareAtPrice: number | null;
+  categoryId: string | null;
   variants: { id: string; price: number; sku: string | null }[];
 }
 

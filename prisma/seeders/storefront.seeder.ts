@@ -78,6 +78,17 @@ export async function seedStorefront(prisma: PrismaClient) {
       take: 6,
     });
 
+    // The tenant's merchant-flagged "main" products (CatalogProduct.featured).
+    // Per Module 7, these belong in a FEATURED-strategy StorefrontSection, not
+    // read directly off CatalogProduct by the storefront — the section is what
+    // the FeaturedStrategy actually queries at runtime, with pinned items here
+    // taking priority over its dynamic featured=true fallback query.
+    const featuredProducts = await prisma.catalogProduct.findMany({
+      where: { tenantId, featured: true },
+      orderBy: { createdAt: 'asc' },
+      take: 6,
+    });
+
     const collections = await prisma.catalogCollection.findMany({
       where: { tenantId, parentId: null },
       orderBy: { createdAt: 'asc' },
@@ -113,6 +124,44 @@ export async function seedStorefront(prisma: PrismaClient) {
       },
     });
 
+    // "Main products" section — this is the table-driven replacement for
+    // reading CatalogProduct.featured straight off the product table. The
+    // FEATURED strategy queries featured=true dynamically at request time,
+    // and pinned StorefrontSectionItem rows below take priority over that
+    // query, giving merchandisers an explicit override.
+    const featuredSection = await prisma.storefrontSection.upsert({
+      where: { tenantId_slug: { tenantId, slug: 'home-featured-products' } },
+      update: {},
+      create: {
+        tenantId,
+        pageId: homePage.id,
+        title: 'Featured Products',
+        slug: 'home-featured-products',
+        strategy: StorefrontSectionStrategy.FEATURED,
+        sortOrder: 1,
+        maxItems: 12,
+        isEnabled: true,
+      },
+    });
+
+    const pinnedFeaturedProducts = featuredProducts.slice(0, 3);
+    for (let i = 0; i < pinnedFeaturedProducts.length; i++) {
+      await prisma.storefrontSectionItem.upsert({
+        where: {
+          sectionId_productId: {
+            sectionId: featuredSection.id,
+            productId: pinnedFeaturedProducts[i].id,
+          },
+        },
+        update: { position: i },
+        create: {
+          sectionId: featuredSection.id,
+          productId: pinnedFeaturedProducts[i].id,
+          position: i,
+        },
+      });
+    }
+
     const trendingSection = await prisma.storefrontSection.upsert({
       where: { tenantId_slug: { tenantId, slug: 'home-trending-now' } },
       update: {},
@@ -122,7 +171,7 @@ export async function seedStorefront(prisma: PrismaClient) {
         title: 'Trending Now',
         slug: 'home-trending-now',
         strategy: StorefrontSectionStrategy.TRENDING,
-        sortOrder: 1,
+        sortOrder: 2,
         maxItems: 12,
         isEnabled: true,
       },
@@ -137,7 +186,7 @@ export async function seedStorefront(prisma: PrismaClient) {
         title: 'Best Sellers',
         slug: 'home-best-sellers',
         strategy: StorefrontSectionStrategy.BEST_SELLERS,
-        sortOrder: 2,
+        sortOrder: 3,
         maxItems: 12,
         isEnabled: true,
       },
@@ -152,7 +201,7 @@ export async function seedStorefront(prisma: PrismaClient) {
         title: 'New Arrivals',
         slug: 'home-new-arrivals',
         strategy: StorefrontSectionStrategy.NEW_ARRIVALS,
-        sortOrder: 3,
+        sortOrder: 4,
         maxItems: 12,
         isEnabled: true,
       },
@@ -168,7 +217,7 @@ export async function seedStorefront(prisma: PrismaClient) {
         slug: 'home-featured-collection',
         strategy: StorefrontSectionStrategy.COLLECTION,
         collectionId: primaryCollection?.id ?? null,
-        sortOrder: 4,
+        sortOrder: 5,
         maxItems: 12,
         isEnabled: true,
       },
@@ -183,7 +232,7 @@ export async function seedStorefront(prisma: PrismaClient) {
         title: "Editor's Picks",
         slug: 'home-editors-picks',
         strategy: StorefrontSectionStrategy.MANUAL,
-        sortOrder: 5,
+        sortOrder: 6,
         maxItems: 8,
         isEnabled: true,
       },

@@ -15,6 +15,20 @@ export const SUPPLIER_IDS = {
   SPOCKET: 'bd234567-8901-4234-e567-890123abcdef',
 };
 
+/**
+ * Canonical SupplierCredential IDs, one per active supplier. Credentials are
+ * platform-wide (no tenantId) — a single key set authenticates on behalf of
+ * every tenant, per the documented Module 4 architecture. Values here are
+ * seed placeholders only; real deployments must overwrite them via a secrets
+ * pipeline, never by committing live keys to this file.
+ */
+export const SUPPLIER_CREDENTIAL_IDS = {
+  CJ_DROPSHIPPING: 'c1d20000-0000-4000-8000-000000000001',
+  PRINTFUL: 'c1d20000-0000-4000-8000-000000000002',
+  PRINTIFY: 'c1d20000-0000-4000-8000-000000000003',
+  SPOCKET: 'c1d20000-0000-4000-8000-000000000004',
+};
+
 export async function seedSuppliers(prisma: PrismaClient) {
   process.stdout.write('🌱 Seeding Supplier Partners...\n');
 
@@ -77,6 +91,56 @@ export async function seedSuppliers(prisma: PrismaClient) {
       create: supplier,
     });
     process.stdout.write(`✅ Seeded supplier: ${supplier.displayName}\n`);
+  }
+
+  // Seed one production SupplierCredential per active supplier. AliExpress is
+  // skipped — its adapter is an unfinished stub, so a credential row would be
+  // unused and misleading.
+  const credentialsToSeed = [
+    {
+      id: SUPPLIER_CREDENTIAL_IDS.CJ_DROPSHIPPING,
+      supplierId: SUPPLIER_IDS.CJ_DROPSHIPPING,
+      apiKey: 'seed-cj-dropshipping-api-key-placeholder',
+      apiSecret: 'seed-cj-dropshipping-api-secret-placeholder',
+    },
+    {
+      id: SUPPLIER_CREDENTIAL_IDS.PRINTFUL,
+      supplierId: SUPPLIER_IDS.PRINTFUL,
+      apiKey: 'seed-printful-api-key-placeholder',
+      apiSecret: null,
+    },
+    {
+      id: SUPPLIER_CREDENTIAL_IDS.PRINTIFY,
+      supplierId: SUPPLIER_IDS.PRINTIFY,
+      apiKey: 'seed-printify-api-key-placeholder',
+      apiSecret: null,
+    },
+    {
+      id: SUPPLIER_CREDENTIAL_IDS.SPOCKET,
+      supplierId: SUPPLIER_IDS.SPOCKET,
+      apiKey: 'seed-spocket-api-key-placeholder',
+      apiSecret: null,
+    },
+  ];
+
+  for (const credential of credentialsToSeed) {
+    await prisma.supplierCredential.upsert({
+      where: { id: credential.id },
+      update: {
+        apiKey: credential.apiKey,
+        apiSecret: credential.apiSecret,
+        isActive: true,
+      },
+      create: {
+        id: credential.id,
+        supplierId: credential.supplierId,
+        environment: 'production',
+        apiKey: credential.apiKey,
+        apiSecret: credential.apiSecret,
+        isActive: true,
+      },
+    });
+    process.stdout.write(`✅ Seeded credential for supplier: ${credential.supplierId}\n`);
   }
 }
 

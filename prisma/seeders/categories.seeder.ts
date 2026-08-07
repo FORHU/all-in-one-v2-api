@@ -26,6 +26,11 @@ const CATEGORY_TREE_BY_TENANT: Record<string, CategoryNode[]> = {
       description: 'Sneakers, boots and everyday shoes.',
     },
     {
+      name: 'Shoes',
+      slug: 'shoes',
+      description: 'Dress shoes, heels, loafers and formal footwear.',
+    },
+    {
       name: 'Outerwear',
       slug: 'outerwear',
       description: 'Hoodies, jackets and layering pieces.',
