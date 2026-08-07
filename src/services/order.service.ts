@@ -1,7 +1,7 @@
 import OrderRepository from '../repositories/order.repository';
 import CartRepository from '../repositories/cart.repository';
 import CustomerRepository from '../repositories/customer.repository';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, Prisma } from '@prisma/client';
 import { throwResponse } from '../utils/throw-response';
 import { requireTenantId } from '../utils/async-context';
 
@@ -96,13 +96,29 @@ export default class OrderService {
       }
     }
 
-    const totalAmount = cart.items.reduce((acc: number, item: CartItemLike) => {
-      const price = Number(item.unitPrice);
-      return acc + price * item.quantity;
-    }, 0);
+    // Decimal, not float: `0.1 + 0.2` is not `0.3`, and a cart of enough cheap
+    // line items drifts far enough to disagree with what the gateway charges.
+    const subtotal = cart.items.reduce(
+      (acc: Prisma.Decimal, item: CartItemLike) =>
+        acc.plus(new Prisma.Decimal(item.unitPrice as Prisma.Decimal.Value).times(item.quantity)),
+      new Prisma.Decimal(0),
+    );
+
+    // Tax and shipping are stored per order but not yet calculated — the tax
+    // engine (TaxClass/TaxRate) has no resolver wired to checkout. They are held
+    // at zero rather than folded into the subtotal, so switching them on later
+    // is a change to this block alone and historical orders stay reproducible.
+    const discountAmount = new Prisma.Decimal(0);
+    const taxAmount = new Prisma.Decimal(0);
+    const shippingAmount = new Prisma.Decimal(0);
+    const totalAmount = subtotal.minus(discountAmount).plus(taxAmount).plus(shippingAmount);
 
     const order = await OrderRepository.createOrder({
       tenant: { connect: { id: tenantId } },
+      subtotal,
+      discountAmount,
+      taxAmount,
+      shippingAmount,
       totalAmount,
       currency,
       status: OrderStatus.PENDING,
@@ -117,7 +133,7 @@ export default class OrderService {
           return {
             productVariantId: item.productVariantId,
             quantity: item.quantity,
-            unitPrice: Number(item.unitPrice),
+            unitPrice: new Prisma.Decimal(item.unitPrice as Prisma.Decimal.Value),
             productTitle: variant?.product?.title || 'Unknown Product',
             variantTitle: variant?.title,
             sku: variant?.sku,
