@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, UserRole } from '@prisma/client';
 import { prisma } from '../utils/prisma';
 import { paginate } from '../helpers/pagination.helper';
 
@@ -60,9 +60,17 @@ export class UserRepository {
     search?: string,
     sortBy?: string,
     sortOrder?: 'asc' | 'desc',
+    role?: string,
+    isActive?: boolean,
   ) {
+    const validRole =
+      role && (Object.values(UserRole) as string[]).includes(role)
+        ? (role as UserRole)
+        : undefined;
     const where: Prisma.AuthUserWhereInput = {
       isDeleted: false,
+      ...(validRole && { role: validRole }),
+      ...(isActive !== undefined && { isActive }),
       ...(search && {
         OR: [
           { email: { contains: search, mode: 'insensitive' } },
