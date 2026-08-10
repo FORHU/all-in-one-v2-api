@@ -179,11 +179,12 @@ model CatalogCategory {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  tenant     Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  parent     CatalogCategory?         @relation("CategoryHierarchy", fields: [tenantId, parentId], references: [tenantId, id])
-  children   CatalogCategory[]        @relation("CategoryHierarchy")
-  products   CatalogProduct[]
-  salesStats AnalyticsCategorySales[]
+  tenant      Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent      CatalogCategory?         @relation("CategoryHierarchy", fields: [tenantId, parentId], references: [tenantId, id])
+  children    CatalogCategory[]        @relation("CategoryHierarchy")
+  products    CatalogProduct[]
+  salesStats  AnalyticsCategorySales[]
+  collections CatalogCollection[]
 
   @@unique([tenantId, slug])
   @@unique([tenantId, id])
@@ -1607,7 +1608,12 @@ model CatalogCollection {
   // Self-referential nesting: a LOOKBOOK parent can hold OUTFIT + ROUTINE children
   parentId String? // null = top-level collection; set = sub-collection of a parent
 
+  // Which category page (e.g. "Women", "Men") this look is featured under —
+  // null = not tied to any single category (shows nowhere category-scoped).
+  categoryId String?
+
   tenant             Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category           CatalogCategory?        @relation(fields: [tenantId, categoryId], references: [tenantId, id], onDelete: SetNull)
   parent             CatalogCollection?      @relation("CollectionHierarchy", fields: [tenantId, parentId], references: [tenantId, id], onDelete: Restrict)
   children           CatalogCollection[]     @relation("CollectionHierarchy")
   items              CatalogCollectionItem[]
@@ -1619,6 +1625,7 @@ model CatalogCollection {
   @@unique([tenantId, id])
   @@index([tenantId, type])
   @@index([tenantId, isPublic])
+  @@index([tenantId, categoryId])
   @@index([parentId])
   @@index([imageFileId])
   @@map("catalog_collections")

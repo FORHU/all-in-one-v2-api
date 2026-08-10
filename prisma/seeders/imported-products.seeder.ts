@@ -494,7 +494,7 @@ const CATALOG_DATASET: ProductSeed[] = [
     featured: false,
     compareAtPrice: 85,
     shippingEstimate: 4.38,
-    imageUrl: 'https://images.unsplash.com/photo-1602293589930-45821b9b2b6f?w=800&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=800&q=80',
     variants: [
       {
         externalId: 'CJ-VAR-FSH-011-A',
@@ -848,7 +848,7 @@ const CATALOG_DATASET: ProductSeed[] = [
     featured: false,
     compareAtPrice: 80,
     shippingEstimate: 4.07,
-    imageUrl: 'https://images.unsplash.com/photo-1544966503-7cc5ac882d5f?w=800&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1548126032-079a0fb0099d?w=800&q=80',
     variants: [
       {
         externalId: 'CJ-VAR-FSH-020-A',
@@ -2460,7 +2460,7 @@ const CATALOG_DATASET: ProductSeed[] = [
     tags: ['sneakers', 'hiking-style', 'casual'],
     featured: false,
     shippingEstimate: 4.26,
-    imageUrl: 'https://images.unsplash.com/photo-1528701800489-20be9c1a48b0?w=800&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?w=800&q=80',
     variants: [
       {
         externalId: 'CJ-VAR-FSH-061-A',
@@ -3682,7 +3682,7 @@ const CATALOG_DATASET: ProductSeed[] = [
     featured: true,
     compareAtPrice: 95,
     shippingEstimate: 5.24,
-    imageUrl: 'https://images.unsplash.com/photo-1544966503-7cc5ac882d5f?w=800&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1520975916090-3105956dac38?w=800&q=80',
     variants: [
       {
         externalId: 'CJ-VAR-FSH-092-A',
@@ -4037,7 +4037,7 @@ const CATALOG_DATASET: ProductSeed[] = [
     tags: ['coat', 'cashmere', 'wrap-coat'],
     featured: false,
     shippingEstimate: 6.1,
-    imageUrl: 'https://images.unsplash.com/photo-1544966503-7cc5ac882d5f?w=800&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1543076447-215ad9ba6923?w=800&q=80',
     variants: [
       {
         externalId: 'CJ-VAR-FSH-101-A',
@@ -4861,7 +4861,7 @@ const CATALOG_DATASET: ProductSeed[] = [
     tags: ['backpack', 'canvas', 'bag'],
     featured: true,
     shippingEstimate: 5.93,
-    imageUrl: 'https://images.unsplash.com/photo-1524498898872-2ecb27daf5f6?w=800&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1544816155-12df9643f363?w=800&q=80',
     variants: [
       {
         externalId: 'CJ-VAR-FSH-122-A',
@@ -5137,7 +5137,7 @@ const CATALOG_DATASET: ProductSeed[] = [
     featured: false,
     compareAtPrice: 81.25,
     shippingEstimate: 4.57,
-    imageUrl: 'https://images.unsplash.com/photo-1524498898872-2ecb27daf5f6?w=800&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=800&q=80',
     variants: [
       {
         externalId: 'CJ-VAR-FSH-129-A',
@@ -5411,7 +5411,7 @@ const CATALOG_DATASET: ProductSeed[] = [
     tags: ['clutch', 'wristlet', 'evening-bag'],
     featured: false,
     shippingEstimate: 5.02,
-    imageUrl: 'https://images.unsplash.com/photo-1524498898872-2ecb27daf5f6?w=800&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1591561954557-26941169b49e?w=800&q=80',
     variants: [
       {
         externalId: 'CJ-VAR-FSH-136-A',
@@ -5689,7 +5689,7 @@ const CATALOG_DATASET: ProductSeed[] = [
     tags: ['moisturizer', 'hydration', 'hyaluronic-acid'],
     featured: false,
     shippingEstimate: 1.8,
-    imageUrl: 'https://images.unsplash.com/photo-1570194065650-d99fb4bedf0a?w=800&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=800&q=80',
     variants: [
       {
         externalId: 'CJ-VAR-BTY-003-A',
@@ -6349,7 +6349,7 @@ const CATALOG_DATASET: ProductSeed[] = [
     tags: ['dinnerware', 'ceramic', 'kitchen'],
     featured: true,
     shippingEstimate: 9.0,
-    imageUrl: 'https://images.unsplash.com/photo-1584346133934-a3afd2035dd7?w=800&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?w=800&q=80',
     variants: [
       {
         externalId: 'CJ-VAR-LIV-005-A',
@@ -7014,6 +7014,273 @@ const CATALOG_DATASET: ProductSeed[] = [
       score: 8.5,
       verdict: 'SELL',
     },
+  },
+  {
+    tenantId: TENANT_IDS.FASHION,
+    categorySlug: 'kids',
+    externalId: 'CJ-PID-FSH-KID-007',
+    externalSku: 'CJ-SKU-KID-DRESS-RUFFLE',
+    title: 'Ruffle Sleeve Cotton Dress (Kids)',
+    slug: 'ruffle-sleeve-cotton-dress-kids',
+    description:
+      'Soft cotton dress with ruffle cap sleeves and a twirl-friendly A-line skirt for everyday and party wear.',
+    tags: ['kids', 'dress', 'girls'],
+    featured: false,
+    shippingEstimate: 2.8,
+    imageUrl: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=800&q=80',
+    variants: [
+      { externalId: 'CJ-VAR-FSH-KID-007-A', sku: 'KID-007-PNK-4T', title: 'Blush Pink / 4T', costPrice: 5.0, sellingPrice: 19.0, stock: 55 },
+      { externalId: 'CJ-VAR-FSH-KID-007-B', sku: 'KID-007-PNK-5', title: 'Blush Pink / 5', costPrice: 5.0, sellingPrice: 19.0, stock: 48 },
+    ],
+    rawData: { productNameEn: 'Ruffle Sleeve Cotton Dress (Kids)', categoryName: 'Kids', weight: '0.16kg', score: 8.2, verdict: 'SELL' },
+  },
+  {
+    tenantId: TENANT_IDS.FASHION,
+    categorySlug: 'kids',
+    externalId: 'CJ-PID-FSH-KID-008',
+    externalSku: 'CJ-SKU-KID-PAJAMA-STRIPE',
+    title: 'Striped Cotton Pajama Set (Kids)',
+    slug: 'striped-cotton-pajama-set-kids',
+    description:
+      'Snug-fit two-piece pajama set in breathable striped cotton jersey, built for a full night of comfortable sleep.',
+    tags: ['kids', 'pajamas', 'sleepwear'],
+    featured: false,
+    shippingEstimate: 2.4,
+    imageUrl: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=80',
+    variants: [
+      { externalId: 'CJ-VAR-FSH-KID-008-A', sku: 'KID-008-BLU-4T', title: 'Sky Blue Stripe / 4T', costPrice: 4.2, sellingPrice: 15.0, stock: 60 },
+      { externalId: 'CJ-VAR-FSH-KID-008-B', sku: 'KID-008-GRY-6', title: 'Grey Stripe / 6', costPrice: 4.2, sellingPrice: 15.0, stock: 52 },
+    ],
+    rawData: { productNameEn: 'Striped Cotton Pajama Set (Kids)', categoryName: 'Kids', weight: '0.18kg', score: 8.0, verdict: 'SELL' },
+  },
+  {
+    tenantId: TENANT_IDS.FASHION,
+    categorySlug: 'kids',
+    externalId: 'CJ-PID-FSH-KID-009',
+    externalSku: 'CJ-SKU-KID-SHORTS-DENIM',
+    title: 'Denim Shorts with Adjustable Waist (Kids)',
+    slug: 'denim-shorts-adjustable-waist-kids',
+    description:
+      'Everyday denim shorts with an internal adjustable waistband for a growing fit and reinforced knee-friendly stitching.',
+    tags: ['kids', 'shorts', 'denim'],
+    featured: false,
+    shippingEstimate: 2.6,
+    imageUrl: 'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&q=80',
+    variants: [
+      { externalId: 'CJ-VAR-FSH-KID-009-A', sku: 'KID-009-DNM-3T', title: 'Classic Denim / 3T', costPrice: 5.2, sellingPrice: 18.0, stock: 50 },
+      { externalId: 'CJ-VAR-FSH-KID-009-B', sku: 'KID-009-DNM-5', title: 'Classic Denim / 5', costPrice: 5.2, sellingPrice: 18.0, stock: 44 },
+    ],
+    rawData: { productNameEn: 'Denim Shorts with Adjustable Waist (Kids)', categoryName: 'Kids', weight: '0.15kg', score: 7.9, verdict: 'SELL' },
+  },
+  {
+    tenantId: TENANT_IDS.FASHION,
+    categorySlug: 'kids',
+    externalId: 'CJ-PID-FSH-KID-010',
+    externalSku: 'CJ-SKU-KID-VEST-PUFFER',
+    title: 'Puffer Vest (Kids)',
+    slug: 'puffer-vest-kids',
+    description:
+      'Lightweight quilted puffer vest with a stand collar and zip front — an easy warmth layer over any outfit.',
+    tags: ['kids', 'vest', 'outerwear'],
+    featured: true,
+    compareAtPrice: 34.0,
+    shippingEstimate: 3.1,
+    imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&q=80',
+    variants: [
+      { externalId: 'CJ-VAR-FSH-KID-010-A', sku: 'KID-010-RED-4T', title: 'Cherry Red / 4T', costPrice: 6.8, sellingPrice: 26.0, stock: 42 },
+      { externalId: 'CJ-VAR-FSH-KID-010-B', sku: 'KID-010-NVY-6', title: 'Navy / 6', costPrice: 6.8, sellingPrice: 26.0, stock: 38 },
+    ],
+    rawData: { productNameEn: 'Puffer Vest (Kids)', categoryName: 'Kids', weight: '0.20kg', score: 8.3, verdict: 'SELL' },
+  },
+  {
+    tenantId: TENANT_IDS.FASHION,
+    categorySlug: 'kids',
+    externalId: 'CJ-PID-FSH-KID-011',
+    externalSku: 'CJ-SKU-KID-DRESS-HOODIE',
+    title: 'Graphic Hoodie Dress (Kids)',
+    slug: 'graphic-hoodie-dress-kids',
+    description:
+      'Cozy fleece hoodie dress with a front graphic and kangaroo pocket — pairs with leggings for an easy playdate look.',
+    tags: ['kids', 'dress', 'hoodie'],
+    featured: false,
+    shippingEstimate: 2.9,
+    imageUrl: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=800&q=80',
+    variants: [
+      { externalId: 'CJ-VAR-FSH-KID-011-A', sku: 'KID-011-GRY-4T', title: 'Heather Grey / 4T', costPrice: 5.6, sellingPrice: 21.0, stock: 46 },
+      { externalId: 'CJ-VAR-FSH-KID-011-B', sku: 'KID-011-PNK-5', title: 'Dusty Pink / 5', costPrice: 5.6, sellingPrice: 21.0, stock: 40 },
+    ],
+    rawData: { productNameEn: 'Graphic Hoodie Dress (Kids)', categoryName: 'Kids', weight: '0.22kg', score: 8.1, verdict: 'SELL' },
+  },
+  {
+    tenantId: TENANT_IDS.FASHION,
+    categorySlug: 'kids',
+    externalId: 'CJ-PID-FSH-KID-012',
+    externalSku: 'CJ-SKU-KID-OVERALLSHORTS-CORD',
+    title: 'Corduroy Overall Shorts (Kids)',
+    slug: 'corduroy-overall-shorts-kids',
+    description:
+      'Wide-wale corduroy overall shorts with adjustable straps and a front bib pocket — a durable staple for cooler days.',
+    tags: ['kids', 'overalls', 'corduroy'],
+    featured: false,
+    shippingEstimate: 3.0,
+    imageUrl: 'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&q=80',
+    variants: [
+      { externalId: 'CJ-VAR-FSH-KID-012-A', sku: 'KID-012-TAN-3T', title: 'Tan / 3T', costPrice: 6.0, sellingPrice: 23.0, stock: 36 },
+      { externalId: 'CJ-VAR-FSH-KID-012-B', sku: 'KID-012-TAN-5', title: 'Tan / 5', costPrice: 6.0, sellingPrice: 23.0, stock: 32 },
+    ],
+    rawData: { productNameEn: 'Corduroy Overall Shorts (Kids)', categoryName: 'Kids', weight: '0.24kg', score: 7.8, verdict: 'SELL' },
+  },
+  {
+    tenantId: TENANT_IDS.FASHION,
+    categorySlug: 'kids',
+    externalId: 'CJ-PID-FSH-KID-013',
+    externalSku: 'CJ-SKU-KID-SWIMTRUNKS-UPF',
+    title: 'Swim Trunks with UPF Protection (Kids)',
+    slug: 'swim-trunks-upf-protection-kids',
+    description:
+      'Quick-dry swim trunks with UPF 50+ sun protection, an elastic waistband and a mesh lining for all-day pool play.',
+    tags: ['kids', 'swimwear', 'boys'],
+    featured: false,
+    shippingEstimate: 2.2,
+    imageUrl: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&q=80',
+    variants: [
+      { externalId: 'CJ-VAR-FSH-KID-013-A', sku: 'KID-013-BLU-4T', title: 'Ocean Blue / 4T', costPrice: 4.0, sellingPrice: 16.0, stock: 45 },
+      { externalId: 'CJ-VAR-FSH-KID-013-B', sku: 'KID-013-GRN-6', title: 'Palm Green / 6', costPrice: 4.0, sellingPrice: 16.0, stock: 40 },
+    ],
+    rawData: { productNameEn: 'Swim Trunks with UPF Protection (Kids)', categoryName: 'Kids', weight: '0.10kg', score: 8.0, verdict: 'SELL' },
+  },
+  {
+    tenantId: TENANT_IDS.FASHION,
+    categorySlug: 'kids',
+    externalId: 'CJ-PID-FSH-KID-014',
+    externalSku: 'CJ-SKU-KID-SWIMSUIT-ONEPIECE',
+    title: 'One-Piece Swimsuit (Kids)',
+    slug: 'one-piece-swimsuit-kids',
+    description:
+      'Chlorine-resistant one-piece swimsuit with UPF 50+ protection and a full back for confident splashing.',
+    tags: ['kids', 'swimwear', 'girls'],
+    featured: false,
+    shippingEstimate: 2.1,
+    imageUrl: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=800&q=80',
+    variants: [
+      { externalId: 'CJ-VAR-FSH-KID-014-A', sku: 'KID-014-PNK-4T', title: 'Coral Pink / 4T', costPrice: 4.3, sellingPrice: 17.0, stock: 42 },
+      { externalId: 'CJ-VAR-FSH-KID-014-B', sku: 'KID-014-YLW-5', title: 'Sunshine Yellow / 5', costPrice: 4.3, sellingPrice: 17.0, stock: 38 },
+    ],
+    rawData: { productNameEn: 'One-Piece Swimsuit (Kids)', categoryName: 'Kids', weight: '0.09kg', score: 7.9, verdict: 'SELL' },
+  },
+  {
+    tenantId: TENANT_IDS.FASHION,
+    categorySlug: 'kids',
+    externalId: 'CJ-PID-FSH-KID-015',
+    externalSku: 'CJ-SKU-KID-BEANIE-KNIT',
+    title: 'Knit Beanie (Kids)',
+    slug: 'knit-beanie-kids',
+    description:
+      'Soft ribbed-knit beanie with a fold cuff and a small pom detail — a warm finishing touch for cold-weather looks.',
+    tags: ['kids', 'beanie', 'accessory'],
+    featured: false,
+    shippingEstimate: 1.5,
+    imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&q=80',
+    variants: [
+      { externalId: 'CJ-VAR-FSH-KID-015-A', sku: 'KID-015-GRY-ONE', title: 'Heather Grey / One Size', costPrice: 2.0, sellingPrice: 9.0, stock: 70 },
+      { externalId: 'CJ-VAR-FSH-KID-015-B', sku: 'KID-015-RED-ONE', title: 'Cherry Red / One Size', costPrice: 2.0, sellingPrice: 9.0, stock: 65 },
+    ],
+    rawData: { productNameEn: 'Knit Beanie (Kids)', categoryName: 'Kids', weight: '0.05kg', score: 7.7, verdict: 'SELL' },
+  },
+  {
+    tenantId: TENANT_IDS.FASHION,
+    categorySlug: 'kids',
+    externalId: 'CJ-PID-FSH-KID-016',
+    externalSku: 'CJ-SKU-KID-SNEAKERS-VELCRO',
+    title: 'Velcro Strap Sneakers (Kids)',
+    slug: 'velcro-strap-sneakers-kids',
+    description:
+      'Easy on-and-off sneakers with dual hook-and-loop straps and a cushioned sole built for early walkers and up.',
+    tags: ['kids', 'sneakers', 'footwear'],
+    featured: false,
+    shippingEstimate: 3.4,
+    imageUrl: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&q=80',
+    variants: [
+      { externalId: 'CJ-VAR-FSH-KID-016-A', sku: 'KID-016-WHT-9', title: 'White / Toddler 9', costPrice: 7.0, sellingPrice: 22.0, stock: 48 },
+      { externalId: 'CJ-VAR-FSH-KID-016-B', sku: 'KID-016-PNK-10', title: 'Pink / Toddler 10', costPrice: 7.0, sellingPrice: 22.0, stock: 44 },
+    ],
+    rawData: { productNameEn: 'Velcro Strap Sneakers (Kids)', categoryName: 'Kids', weight: '0.38kg', score: 8.2, verdict: 'SELL' },
+  },
+  {
+    tenantId: TENANT_IDS.FASHION,
+    categorySlug: 'kids',
+    externalId: 'CJ-PID-FSH-KID-017',
+    externalSku: 'CJ-SKU-KID-JACKET-FLEECE',
+    title: 'Fleece Zip Jacket (Kids)',
+    slug: 'fleece-zip-jacket-kids',
+    description:
+      'Midweight polar fleece jacket with a full zip and elasticated cuffs, layers cleanly under a raincoat or worn alone.',
+    tags: ['kids', 'fleece', 'outerwear'],
+    featured: false,
+    shippingEstimate: 3.2,
+    imageUrl: 'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&q=80',
+    variants: [
+      { externalId: 'CJ-VAR-FSH-KID-017-A', sku: 'KID-017-NVY-4T', title: 'Navy / 4T', costPrice: 6.4, sellingPrice: 24.0, stock: 40 },
+      { externalId: 'CJ-VAR-FSH-KID-017-B', sku: 'KID-017-GRY-6', title: 'Heather Grey / 6', costPrice: 6.4, sellingPrice: 24.0, stock: 36 },
+    ],
+    rawData: { productNameEn: 'Fleece Zip Jacket (Kids)', categoryName: 'Kids', weight: '0.26kg', score: 8.0, verdict: 'SELL' },
+  },
+  {
+    tenantId: TENANT_IDS.FASHION,
+    categorySlug: 'kids',
+    externalId: 'CJ-PID-FSH-KID-018',
+    externalSku: 'CJ-SKU-KID-LEGGINGS-2PACK',
+    title: 'Cotton Leggings 2-Pack (Kids)',
+    slug: 'cotton-leggings-2-pack-kids',
+    description:
+      'Stretch cotton-blend leggings sold as a two-pack — a soft, flexible base layer for everyday mixing and matching.',
+    tags: ['kids', 'leggings', 'basics'],
+    featured: false,
+    shippingEstimate: 2.0,
+    imageUrl: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=80',
+    variants: [
+      { externalId: 'CJ-VAR-FSH-KID-018-A', sku: 'KID-018-BLK-4T', title: 'Black + Grey / 4T', costPrice: 3.6, sellingPrice: 14.0, stock: 55 },
+      { externalId: 'CJ-VAR-FSH-KID-018-B', sku: 'KID-018-GRY-5', title: 'Grey + Navy / 5', costPrice: 3.6, sellingPrice: 14.0, stock: 50 },
+    ],
+    rawData: { productNameEn: 'Cotton Leggings 2-Pack (Kids)', categoryName: 'Kids', weight: '0.12kg', score: 7.6, verdict: 'SELL' },
+  },
+  {
+    tenantId: TENANT_IDS.FASHION,
+    categorySlug: 'kids',
+    externalId: 'CJ-PID-FSH-KID-019',
+    externalSku: 'CJ-SKU-KID-CAP-BASEBALL',
+    title: 'Baseball Cap (Kids)',
+    slug: 'baseball-cap-kids',
+    description:
+      'Structured cotton twill baseball cap with an adjustable back strap, sized for smaller heads.',
+    tags: ['kids', 'cap', 'accessory'],
+    featured: false,
+    shippingEstimate: 1.4,
+    imageUrl: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=800&q=80',
+    variants: [
+      { externalId: 'CJ-VAR-FSH-KID-019-A', sku: 'KID-019-NVY-ONE', title: 'Navy / One Size', costPrice: 1.8, sellingPrice: 8.0, stock: 75 },
+      { externalId: 'CJ-VAR-FSH-KID-019-B', sku: 'KID-019-RED-ONE', title: 'Cherry Red / One Size', costPrice: 1.8, sellingPrice: 8.0, stock: 68 },
+    ],
+    rawData: { productNameEn: 'Baseball Cap (Kids)', categoryName: 'Kids', weight: '0.06kg', score: 7.5, verdict: 'SELL' },
+  },
+  {
+    tenantId: TENANT_IDS.FASHION,
+    categorySlug: 'kids',
+    externalId: 'CJ-PID-FSH-KID-020',
+    externalSku: 'CJ-SKU-KID-BOOTS-RAIN',
+    title: 'Rain Boots (Kids)',
+    slug: 'rain-boots-kids',
+    description:
+      'Glossy waterproof rain boots with a pull-on handle and a slip-resistant tread for puddle-jumping days.',
+    tags: ['kids', 'boots', 'rain'],
+    featured: false,
+    shippingEstimate: 3.6,
+    imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&q=80',
+    variants: [
+      { externalId: 'CJ-VAR-FSH-KID-020-A', sku: 'KID-020-YLW-9', title: 'Sunshine Yellow / Toddler 9', costPrice: 5.5, sellingPrice: 19.0, stock: 40 },
+      { externalId: 'CJ-VAR-FSH-KID-020-B', sku: 'KID-020-BLU-10', title: 'Ocean Blue / Toddler 10', costPrice: 5.5, sellingPrice: 19.0, stock: 36 },
+    ],
+    rawData: { productNameEn: 'Rain Boots (Kids)', categoryName: 'Kids', weight: '0.44kg', score: 7.8, verdict: 'SELL' },
   },
 ];
 
