@@ -86,13 +86,6 @@ export class UserRepository {
     return paginate(prisma.authUser, {
       where,
       orderBy,
-      include: {
-        customer: {
-          include: {
-            _count: { select: { orders: true } },
-          },
-        },
-      },
       page,
       limit,
       search,

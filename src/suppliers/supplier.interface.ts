@@ -41,7 +41,11 @@ export interface SupplierAdapter {
   /**
    * Search for products on the supplier's platform.
    */
-  searchProducts(query: string): Promise<unknown[]>;
+  searchProducts(
+    query: string,
+    page: number,
+    limit: number,
+  ): Promise<{ items: unknown[]; total: number }>;
 
   /**
    * Fetch full details for a specific external product ID.

@@ -1,6 +1,7 @@
 import express from 'express';
 import authRoute from './auth.route';
 import userRoute from './user.route';
+import customerRoute from './customer.route';
 import fileUploadRoute from './fileUpload.route';
 import healthRouter from './health.route';
 import productRoute from './product.route';
@@ -40,6 +41,7 @@ router.get('/v2', (_, res) => {
 
 router.use('/v2/auth', authRoute);
 router.use('/v2/users', userRoute);
+router.use('/v2/customers', customerRoute);
 router.use('/v2/file-uploads', fileUploadRoute);
 router.use('/v2/products', productRoute);
 router.use('/v2/products', productSyncRoute);

@@ -122,24 +122,34 @@ export class PrintfulAdapter implements SupplierAdapter {
    * Search Printful's catalog for products matching a query string.
    * Results are cached for 24 hours to avoid hammering the catalog API.
    */
-  async searchProducts(query: string): Promise<PrintfulCatalogProduct[]> {
+  async searchProducts(
+    query: string,
+    page: number,
+    limit: number,
+  ): Promise<{ items: PrintfulCatalogProduct[]; total: number }> {
     try {
       const cached = await CacheUtil.get<PrintfulCatalogProduct[]>(PRINTFUL_CATALOG_ALL_KEY);
       const catalog = cached ?? (await this.getCatalog());
 
-      if (!catalog) return [];
+      if (!catalog) return { items: [], total: 0 };
 
       const lq = query.toLowerCase();
-      return catalog.filter(
+      const matches = catalog.filter(
         (p) =>
           p.title.toLowerCase().includes(lq) ||
           p.type_name.toLowerCase().includes(lq) ||
           p.brand?.toLowerCase().includes(lq) ||
           p.model?.toLowerCase().includes(lq),
       );
+
+      // Printful's catalog has no server-side search — we already fetched the
+      // whole (cached) catalog above, so pagination here just slices the
+      // in-memory match list. No extra Printful API calls per page.
+      const start = (page - 1) * limit;
+      return { items: matches.slice(start, start + limit), total: matches.length };
     } catch (error) {
       logger.error('[PrintfulAdapter:searchProducts] Error:', error);
-      return [];
+      return { items: [], total: 0 };
     }
   }
 

@@ -3,7 +3,14 @@ import CacheUtil from '../../utils/cache.util';
 import logger from '../../utils/logger';
 import { PlaceOrderPayload, SupplierAdapter, SupplierStock } from '../supplier.interface';
 import { CJ_API_KEY, CJ_BASE_URL, CJ_RATE_LIMIT_MS } from '../../config';
-import { CJApiResponse, CJTokenData, CJProductDetail, CJVariant, CJProduct } from './cj.types';
+import {
+  CJApiResponse,
+  CJTokenData,
+  CJProductDetail,
+  CJVariant,
+  CJProductListV2Data,
+  CJProductListV2Item,
+} from './cj.types';
 
 const CACHE_VERSION = 'v1';
 const CJ_ACCESS_TOKEN_KEY = `cj:access_token:${CACHE_VERSION}`;
@@ -214,29 +221,24 @@ export class CJDropshippingAdapter implements SupplierAdapter {
 
   // --- SupplierAdapter Implementation ---
 
-  async searchProducts(query: string): Promise<CJProduct[]> {
-    const res = await this.request<Record<string, unknown>>('/product/listV2', 'GET', undefined, {
+  async searchProducts(
+    query: string,
+    page: number,
+    limit: number,
+  ): Promise<{ items: CJProductListV2Item[]; total: number }> {
+    const res = await this.request<CJProductListV2Data>('/product/listV2', 'GET', undefined, {
       keyWord: query,
-      page: 1,
-      size: 20,
+      page,
+      size: limit,
     });
 
-    if (!res || !res.data) return [];
+    if (!res?.data) return { items: [], total: 0 };
 
-    // CJ returns nested content sometimes
-    let list: CJProduct[] = [];
-    if (Array.isArray(res.data.list)) list = res.data.list as CJProduct[];
-    else if (res.data.content) {
-      const content = res.data.content as Record<string, unknown> | Array<unknown>;
-      if (Array.isArray(content)) {
-        list = content.flatMap(
-          (c) => (c as Record<string, unknown>).productList || c,
-        ) as CJProduct[];
-      } else if ((content as Record<string, unknown>).productList) {
-        list = (content as Record<string, unknown>).productList as CJProduct[];
-      }
-    }
-    return list;
+    // Depending on the requested `size`, CJ returns `content` as either a flat
+    // array of products, or a single wrapper object holding `productList`.
+    const items = (res.data.content ?? []).flatMap((c) => c.productList ?? c);
+
+    return { items, total: res.data.totalRecords ?? 0 };
   }
 
   async getProduct(externalId: string): Promise<CJProductDetail | null> {

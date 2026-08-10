@@ -22,10 +22,10 @@ export class ProductSearchService {
       // Query all suppliers concurrently
       const results = await Promise.allSettled(
         activeAdapters.map(async (adapter) => {
-          const rawProducts = await adapter.searchProducts(query);
+          const { items } = await adapter.searchProducts(query, page, limit);
           return {
             supplierId: adapter.supplierId,
-            products: rawProducts.map((p) => this.normalizeProduct(p, adapter.supplierId)),
+            products: items.map((p) => this.normalizeProduct(p, adapter.supplierId)),
           };
         }),
       );
