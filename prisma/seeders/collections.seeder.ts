@@ -877,7 +877,8 @@ function humanizeSlug(slug: string): string {
     .join(' ');
 }
 
-const pick = (pool: string[], index: number) => pool[((index % pool.length) + pool.length) % pool.length];
+const pick = (pool: string[], index: number) =>
+  pool[((index % pool.length) + pool.length) % pool.length];
 
 interface GeneratedLookComplement {
   pool: string[];
@@ -932,7 +933,11 @@ const GENERATED_LOOK_CONFIGS: GeneratedLookConfig[] = [
     anchorSlots: ['Footwear'],
     complements: [
       { pool: [...WOMENS_FASHION_SLUGS, ...MENS_FASHION_SLUGS], slot: 'UpperGarment' },
-      { pool: [...WOMENS_FASHION_SLUGS, ...MENS_FASHION_SLUGS], slot: 'LowerGarment', isOptional: true },
+      {
+        pool: [...WOMENS_FASHION_SLUGS, ...MENS_FASHION_SLUGS],
+        slot: 'LowerGarment',
+        isOptional: true,
+      },
     ],
   },
 ];
@@ -946,7 +951,9 @@ function buildGeneratedLooks(): CollectionSeed[] {
       const anchorSlot = pick(config.anchorSlots, index);
       const anchorTitle = humanizeSlug(anchorSlug);
 
-      const items: CollectionItemSeed[] = [{ productSlug: anchorSlug, slot: anchorSlot, position: 0 }];
+      const items: CollectionItemSeed[] = [
+        { productSlug: anchorSlug, slot: anchorSlot, position: 0 },
+      ];
 
       config.complements.forEach((complement, cIdx) => {
         // Offset each complement differently so item 1 and item 2 rarely
