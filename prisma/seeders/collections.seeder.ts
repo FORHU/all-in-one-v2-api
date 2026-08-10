@@ -16,6 +16,8 @@ interface CollectionSeed {
   description: string;
   metadata?: Prisma.InputJsonValue;
   items: CollectionItemSeed[];
+  /** Category this look is featured under (e.g. "Shop the Look" on that category page). */
+  categorySlug?: string;
 }
 
 const COLLECTIONS_BY_TENANT: Record<string, CollectionSeed[]> = {
@@ -26,6 +28,7 @@ const COLLECTIONS_BY_TENANT: Record<string, CollectionSeed[]> = {
       type: CollectionType.OUTFIT,
       description: 'Complete 4-piece oversized monochrome fit for warm-weather city days.',
       metadata: { colorTheme: 'Monochrome Black' },
+      categorySlug: 'mens-fashion',
       items: [
         {
           productSlug: 'heavyweight-oversized-fleece-hoodie',
@@ -60,6 +63,7 @@ const COLLECTIONS_BY_TENANT: Record<string, CollectionSeed[]> = {
       type: CollectionType.LOOKBOOK,
       description: 'Layered streetwear looks for off-duty days around the city.',
       metadata: { season: 'Fall 2026', style: 'Streetwear' },
+      categorySlug: 'mens-fashion',
       items: [
         {
           productSlug: 'essential-oversized-graphic-tee',
@@ -87,6 +91,7 @@ const COLLECTIONS_BY_TENANT: Record<string, CollectionSeed[]> = {
       type: CollectionType.OUTFIT,
       description: 'Relaxed weekend fit built around cargo pants and a graphic tee.',
       metadata: { colorTheme: 'Olive & Black' },
+      categorySlug: 'mens-fashion',
       items: [
         {
           productSlug: 'tactical-relaxed-cargo-pants',
@@ -115,6 +120,7 @@ const COLLECTIONS_BY_TENANT: Record<string, CollectionSeed[]> = {
       type: CollectionType.LOOKBOOK,
       description: 'A polished evening look pairing a wrap dress with a statement bomber.',
       metadata: { season: 'Spring 2026', style: 'Evening' },
+      categorySlug: 'womens-fashion',
       items: [
         {
           productSlug: 'floral-wrap-midi-dress',
@@ -137,6 +143,7 @@ const COLLECTIONS_BY_TENANT: Record<string, CollectionSeed[]> = {
       type: CollectionType.OUTFIT,
       description: 'A head-to-toe blacked-out fit for maximum versatility.',
       metadata: { colorTheme: 'All Black' },
+      categorySlug: 'mens-fashion',
       items: [
         {
           productSlug: 'heavyweight-oversized-fleece-hoodie',
@@ -153,6 +160,97 @@ const COLLECTIONS_BY_TENANT: Record<string, CollectionSeed[]> = {
         {
           productSlug: 'urban-air-cushion-running-sneakers',
           variantSku: 'SNK-005-BLK-42',
+          slot: 'Footwear',
+          position: 2,
+        },
+      ],
+    },
+    {
+      title: 'Formal Oxford Edit',
+      slug: 'formal-oxford-edit',
+      type: CollectionType.OUTFIT,
+      description: 'A sharp office-to-evening fit built around classic leather Oxfords.',
+      metadata: { style: 'Formal' },
+      categorySlug: 'shoes',
+      items: [
+        {
+          productSlug: 'classic-oxford-button-down-shirt',
+          variantSku: 'MEN-009-BLACK-L',
+          slot: 'UpperGarment',
+          position: 0,
+        },
+        {
+          productSlug: 'tailored-fit-dress-trousers',
+          variantSku: 'MEN-014-OLIVE-W30',
+          slot: 'LowerGarment',
+          position: 1,
+        },
+        {
+          productSlug: 'classic-leather-oxford-dress-shoes',
+          variantSku: 'SHO-064-IVORY-EU-41',
+          slot: 'Footwear',
+          position: 2,
+        },
+      ],
+    },
+    {
+      title: 'Everyday Accessory Layers',
+      slug: 'everyday-accessory-layers',
+      type: CollectionType.OUTFIT,
+      description: 'A streetwear staple pulled together by a belt and aviators.',
+      metadata: { style: 'Streetwear' },
+      categorySlug: 'accessories',
+      items: [
+        {
+          productSlug: 'essential-oversized-graphic-tee',
+          variantSku: 'TEE-002-WHT-M',
+          slot: 'UpperGarment',
+          position: 0,
+        },
+        {
+          productSlug: 'tactical-relaxed-cargo-pants',
+          variantSku: 'CGO-003-BLK-30',
+          slot: 'LowerGarment',
+          position: 1,
+        },
+        {
+          productSlug: 'reversible-leather-belt',
+          variantSku: 'ACC-102-TAN-ONE-SIZE',
+          slot: 'Accessory',
+          position: 2,
+        },
+        {
+          productSlug: 'polarized-aviator-sunglasses',
+          variantSku: 'ACC-103-GOLD-ONE-SIZE',
+          slot: 'Accessory',
+          position: 3,
+          isOptional: true,
+        },
+      ],
+    },
+    {
+      title: 'Playground Ready Set',
+      slug: 'playground-ready-set',
+      type: CollectionType.OUTFIT,
+      description: 'A durable, easy-on-easy-off fit built for a full day at the park.',
+      metadata: { style: 'Casual' },
+      categorySlug: 'kids',
+      items: [
+        {
+          productSlug: 'graphic-print-cotton-tee-kids',
+          variantSku: 'KID-001-BLU-3T',
+          slot: 'UpperGarment',
+          position: 0,
+        },
+        {
+          productSlug: 'fleece-jogger-pants-kids',
+          variantSku: 'KID-002-GRY-3T',
+          slot: 'LowerGarment',
+          position: 1,
+        },
+        {
+          productSlug: 'canvas-sneakers-kids',
+          variantSku: 'KID-006-WHT-11',
           slot: 'Footwear',
           position: 2,
         },
@@ -640,11 +738,278 @@ const COLLECTIONS_BY_TENANT: Record<string, CollectionSeed[]> = {
   ],
 };
 
+// ============================================================
+// Bulk-generated "Shop the Look" content — ensures every major
+// fashion category (Women/Men/Kids/Accessories/Shoes) has at least
+// 20 looks. Built programmatically from already-seeded product slugs
+// rather than hand-authoring ~100 near-identical literal objects.
+// Each anchor product is paired with 1-2 complementary items from
+// other categories to form a believable outfit; `variantSku` is
+// intentionally omitted (optional on CollectionItemSeed) — the
+// frontend renders an empty size chip gracefully when unset, and
+// pairing a specific variant per generated item isn't worth hardcoding
+// ~150 more SKU strings for.
+// ============================================================
+
+const WOMENS_FASHION_SLUGS = [
+  'floral-wrap-midi-dress',
+  'high-waisted-wide-leg-trousers',
+  'satin-slip-midi-dress',
+  'ribbed-knit-bodycon-dress',
+  'linen-button-front-maxi-dress',
+  'pleated-tennis-skirt',
+  'cropped-cardigan-sweater',
+  'off-shoulder-ruffle-blouse',
+  'high-rise-skinny-jeans',
+  'puff-sleeve-poplin-blouse',
+  'wrap-front-knit-sweater-dress',
+  'denim-a-line-mini-skirt',
+  'silk-cami-top',
+  'faux-leather-leggings',
+  'tiered-boho-maxi-skirt',
+  'cut-out-bodycon-party-dress',
+  'cable-knit-oversized-sweater',
+  'tailored-blazer-dress',
+  'ruched-bodycon-midi-skirt',
+  'floral-chiffon-wrap-blouse',
+];
+
+const MENS_FASHION_SLUGS = [
+  'essential-oversized-graphic-tee',
+  'tactical-relaxed-cargo-pants',
+  'slim-fit-stretch-chino-trousers',
+  'classic-oxford-button-down-shirt',
+  'merino-wool-crew-neck-sweater',
+  'straight-leg-selvedge-denim-jeans',
+  'linen-short-sleeve-resort-shirt',
+  'quarter-zip-pullover-sweatshirt',
+  'tailored-fit-dress-trousers',
+  'flannel-plaid-button-up-shirt',
+  'waffle-knit-henley-long-sleeve',
+  'performance-stretch-polo-shirt',
+  'corduroy-five-pocket-pants',
+  'ribbed-knit-turtleneck-sweater',
+  'relaxed-fit-denim-shacket',
+  'track-pants-with-side-stripe',
+  'cotton-twill-utility-shorts',
+  'vintage-wash-graphic-crewneck-sweatshirt',
+  'slim-fit-stretch-jeans',
+  'textured-knit-zip-up-cardigan',
+];
+
+const KIDS_SLUGS = [
+  'graphic-print-cotton-tee-kids',
+  'fleece-jogger-pants-kids',
+  'zip-up-hoodie-kids',
+  'denim-overalls-kids',
+  'rain-jacket-with-hood-kids',
+  'canvas-sneakers-kids',
+  'ruffle-sleeve-cotton-dress-kids',
+  'striped-cotton-pajama-set-kids',
+  'denim-shorts-adjustable-waist-kids',
+  'puffer-vest-kids',
+  'graphic-hoodie-dress-kids',
+  'corduroy-overall-shorts-kids',
+  'swim-trunks-upf-protection-kids',
+  'one-piece-swimsuit-kids',
+  'knit-beanie-kids',
+  'velcro-strap-sneakers-kids',
+  'fleece-zip-jacket-kids',
+  'cotton-leggings-2-pack-kids',
+  'baseball-cap-kids',
+  'rain-boots-kids',
+];
+
+const ACCESSORIES_SLUGS = [
+  'structured-6-panel-snapback-cap',
+  'reversible-leather-belt',
+  'polarized-aviator-sunglasses',
+  'silk-twill-neck-scarf',
+  'chunky-chain-statement-necklace',
+  'minimalist-quartz-wrist-watch',
+  'wool-blend-beanie',
+  'leather-trifold-wallet',
+  'beaded-layered-bracelet-set',
+  'cat-eye-sunglasses',
+  'cashmere-knit-scarf',
+  'hoop-earrings-set-gold-tone',
+  'woven-straw-fedora-hat',
+  'silk-pocket-square',
+  'leather-card-holder-wallet',
+  'statement-drop-earrings',
+  'adjustable-baseball-cap',
+  'braided-leather-bracelet',
+  'wide-brim-wool-felt-hat',
+  'layered-pendant-necklace',
+];
+
+const SHOES_SLUGS = [
+  'classic-leather-oxford-dress-shoes',
+  'penny-loafers-in-full-grain-leather',
+  'pointed-toe-stiletto-pumps',
+  'block-heel-ankle-strap-sandals',
+  'patent-leather-derby-shoes',
+  'velvet-embroidered-loafers',
+  'suede-monk-strap-shoes',
+  'strappy-evening-heels',
+  'classic-ballet-flats',
+  'tassel-loafers-in-burnished-leather',
+  'platform-peep-toe-heels',
+  'formal-cap-toe-oxfords',
+  'kitten-heel-mary-janes',
+  'slip-on-leather-loafers-with-horsebit',
+  'satin-bridal-heels',
+  'wingtip-brogue-dress-shoes',
+  'metallic-strappy-sandal-heels',
+  'chelsea-dress-boots',
+  'espadrille-wedge-heels',
+  'croc-embossed-leather-loafers',
+];
+
+const LOOK_STYLES = ['Casual', 'Formal', 'Athleisure', 'Streetwear', 'Evening'];
+
+/** "floral-wrap-midi-dress" -> "Floral Wrap Midi Dress" — good enough for a generated look title. */
+function humanizeSlug(slug: string): string {
+  return slug
+    .replace(/-kids$/, '')
+    .split('-')
+    .map((word) => (word.length ? word[0].toUpperCase() + word.slice(1) : word))
+    .join(' ');
+}
+
+const pick = (pool: string[], index: number) =>
+  pool[((index % pool.length) + pool.length) % pool.length];
+
+interface GeneratedLookComplement {
+  pool: string[];
+  slot: string;
+  isOptional?: boolean;
+}
+
+interface GeneratedLookConfig {
+  categorySlug: string;
+  anchorSlugs: string[];
+  anchorSlots: string[]; // cycled per anchor for slot-label variety
+  complements: GeneratedLookComplement[];
+}
+
+const GENERATED_LOOK_CONFIGS: GeneratedLookConfig[] = [
+  {
+    categorySlug: 'womens-fashion',
+    anchorSlugs: WOMENS_FASHION_SLUGS,
+    anchorSlots: ['Dress', 'UpperGarment', 'LowerGarment'],
+    complements: [
+      { pool: SHOES_SLUGS, slot: 'Footwear' },
+      { pool: ACCESSORIES_SLUGS, slot: 'Accessory', isOptional: true },
+    ],
+  },
+  {
+    categorySlug: 'mens-fashion',
+    anchorSlugs: MENS_FASHION_SLUGS,
+    anchorSlots: ['UpperGarment', 'LowerGarment'],
+    complements: [
+      { pool: SHOES_SLUGS, slot: 'Footwear' },
+      { pool: ACCESSORIES_SLUGS, slot: 'Accessory', isOptional: true },
+    ],
+  },
+  {
+    categorySlug: 'kids',
+    anchorSlugs: KIDS_SLUGS,
+    anchorSlots: ['UpperGarment', 'LowerGarment'],
+    complements: [{ pool: KIDS_SLUGS, slot: 'Accessory' }],
+  },
+  {
+    categorySlug: 'accessories',
+    anchorSlugs: ACCESSORIES_SLUGS,
+    anchorSlots: ['Accessory'],
+    complements: [
+      { pool: [...WOMENS_FASHION_SLUGS, ...MENS_FASHION_SLUGS], slot: 'UpperGarment' },
+      { pool: SHOES_SLUGS, slot: 'Footwear', isOptional: true },
+    ],
+  },
+  {
+    categorySlug: 'shoes',
+    anchorSlugs: SHOES_SLUGS,
+    anchorSlots: ['Footwear'],
+    complements: [
+      { pool: [...WOMENS_FASHION_SLUGS, ...MENS_FASHION_SLUGS], slot: 'UpperGarment' },
+      {
+        pool: [...WOMENS_FASHION_SLUGS, ...MENS_FASHION_SLUGS],
+        slot: 'LowerGarment',
+        isOptional: true,
+      },
+    ],
+  },
+];
+
+function buildGeneratedLooks(): CollectionSeed[] {
+  const looks: CollectionSeed[] = [];
+
+  for (const config of GENERATED_LOOK_CONFIGS) {
+    config.anchorSlugs.forEach((anchorSlug, index) => {
+      const style = pick(LOOK_STYLES, index);
+      const anchorSlot = pick(config.anchorSlots, index);
+      const anchorTitle = humanizeSlug(anchorSlug);
+
+      const items: CollectionItemSeed[] = [
+        { productSlug: anchorSlug, slot: anchorSlot, position: 0 },
+      ];
+
+      config.complements.forEach((complement, cIdx) => {
+        // Offset each complement differently so item 1 and item 2 rarely
+        // land on the same product, and re-roll on the rare collision with
+        // the anchor itself (e.g. the kids pool complementing a kids anchor).
+        let complementSlug = pick(complement.pool, index + cIdx * 7 + 3);
+        if (complementSlug === anchorSlug) {
+          complementSlug = pick(complement.pool, index + cIdx * 7 + 4);
+        }
+        items.push({
+          productSlug: complementSlug,
+          slot: complement.slot,
+          position: cIdx + 1,
+          isOptional: complement.isOptional,
+        });
+      });
+
+      looks.push({
+        title: `${anchorTitle} Edit`,
+        slug: `${anchorSlug}-edit`,
+        type: CollectionType.OUTFIT,
+        description: `A ${style.toLowerCase()} look built around the ${anchorTitle}.`,
+        metadata: { style },
+        categorySlug: config.categorySlug,
+        items,
+      });
+    });
+  }
+
+  return looks;
+}
+
 export async function seedCollections(prisma: PrismaClient) {
   process.stdout.write('🌱 Seeding Catalog Collections for 5 Tenants...\n');
 
   for (const [tenantId, collections] of Object.entries(COLLECTIONS_BY_TENANT)) {
-    for (const colDef of collections) {
+    const allCollections =
+      tenantId === TENANT_IDS.FASHION ? [...collections, ...buildGeneratedLooks()] : collections;
+
+    for (const colDef of allCollections) {
+      // Resolve the category this look is featured under (e.g. "Shop the
+      // Look" on that category page) — categories.seeder must run first.
+      let categoryId: string | undefined;
+      if (colDef.categorySlug) {
+        const category = await prisma.catalogCategory.findUnique({
+          where: { tenantId_slug: { tenantId, slug: colDef.categorySlug } },
+        });
+        if (!category) {
+          process.stderr.write(
+            `⚠️ Category [${colDef.categorySlug}] not found for tenant [${tenantId}]. Leaving collection [${colDef.slug}] uncategorized.\n`,
+          );
+        } else {
+          categoryId = category.id;
+        }
+      }
+
       const collection = await prisma.catalogCollection.upsert({
         where: { tenantId_slug: { tenantId, slug: colDef.slug } },
         update: {
@@ -652,6 +1017,7 @@ export async function seedCollections(prisma: PrismaClient) {
           description: colDef.description,
           type: colDef.type,
           metadata: colDef.metadata,
+          categoryId,
         },
         create: {
           tenantId,
@@ -661,6 +1027,7 @@ export async function seedCollections(prisma: PrismaClient) {
           description: colDef.description,
           metadata: colDef.metadata,
           isPublic: true,
+          categoryId,
         },
       });
 

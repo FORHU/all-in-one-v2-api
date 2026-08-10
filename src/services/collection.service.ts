@@ -6,9 +6,25 @@ import { Prisma, CollectionType } from '@prisma/client';
 export default class CollectionService {
   // ─── Collections ────────────────────────────────────────────────────────────
 
-  /** All top-level collections (parentId = null). Optionally filter by type. */
-  static async listCollections(type?: CollectionType) {
-    return CollectionRepository.findAllRoot(requireTenantId(), type);
+  /**
+   * All top-level collections (parentId = null). Optionally filter by type
+   * and/or by the category page they're featured under (e.g. "Shop the
+   * Look" on the Women page only shows looks tagged to womens-fashion). An
+   * unknown categorySlug intentionally narrows to zero results rather than
+   * silently falling back to "show everything" — same convention as
+   * ProductService.listProducts.
+   */
+  static async listCollections(type?: CollectionType, categorySlug?: string) {
+    const tenantId = requireTenantId();
+
+    let categoryId: string | undefined;
+    if (categorySlug) {
+      const resolved = await CollectionRepository.findCategoryIdBySlug(tenantId, categorySlug);
+      if (!resolved) return [];
+      categoryId = resolved;
+    }
+
+    return CollectionRepository.findAllRoot(tenantId, type, categoryId);
   }
 
   static async getCollectionById(id: string) {

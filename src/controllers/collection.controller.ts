@@ -9,7 +9,8 @@ export default class CollectionController {
   static async list(req: Request, res: Response, next: NextFunction) {
     try {
       const type = req.query.type as CollectionType | undefined;
-      const collections = await CollectionService.listCollections(type);
+      const categorySlug = req.query.categorySlug as string | undefined;
+      const collections = await CollectionService.listCollections(type, categorySlug);
       return responseSuccess(res, 200, collections);
     } catch (error) {
       next(error);

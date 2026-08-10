@@ -43,12 +43,26 @@ export default class CollectionRepository {
   // ─── Collections ────────────────────────────────────────────────────────────
 
   /** All top-level collections for a tenant (parentId = null). */
-  static async findAllRoot(tenantId: string, type?: CollectionType) {
+  static async findAllRoot(tenantId: string, type?: CollectionType, categoryId?: string) {
     return prisma.catalogCollection.findMany({
-      where: { tenantId, parentId: null, isDeleted: false, ...(type ? { type } : {}) },
+      where: {
+        tenantId,
+        parentId: null,
+        isDeleted: false,
+        ...(type ? { type } : {}),
+        ...(categoryId ? { categoryId } : {}),
+      },
       include: collectionWithItems,
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  static async findCategoryIdBySlug(tenantId: string, slug: string): Promise<string | null> {
+    const category = await prisma.catalogCategory.findUnique({
+      where: { tenantId_slug: { tenantId, slug } },
+      select: { id: true },
+    });
+    return category?.id ?? null;
   }
 
   static async findById(tenantId: string, id: string) {
