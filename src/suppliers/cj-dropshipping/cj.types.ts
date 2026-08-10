@@ -31,6 +31,34 @@ export interface CJProductListResponse {
   totalPages?: number;
 }
 
+/**
+ * Real response shape of GET /product/listV2, confirmed by calling it
+ * directly — distinct field names from CJProduct, which reflects
+ * /product/query's shape instead.
+ */
+export interface CJProductListV2Item {
+  id: string;
+  nameEn: string;
+  sku: string;
+  bigImage: string;
+  sellPrice: number;
+  /**
+   * Set instead of the product fields above when CJ wraps the page in a
+   * single result object rather than returning products directly —
+   * depends on the requested page `size`. Callers must unwrap this when set.
+   */
+  productList?: CJProductListV2Item[];
+  [key: string]: unknown;
+}
+
+export interface CJProductListV2Data {
+  pageSize: number;
+  pageNumber: number;
+  totalRecords: number;
+  totalPages: number;
+  content: CJProductListV2Item[];
+}
+
 export interface CJTokenData {
   accessToken: string;
   accessTokenExpiryDate: string;

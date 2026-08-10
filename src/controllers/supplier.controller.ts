@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import SupplierService from '../services/supplier.service';
 import { responseSuccess } from '../helpers/response.helper';
+import { parsePagination, buildPage } from '../helpers/pagination.helper';
 
 export const createPartner = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -64,8 +65,14 @@ export const searchSupplierProducts = async (req: Request, res: Response, next: 
   try {
     const { supplierId } = req.params;
     const { q } = req.query;
-    const results = await SupplierService.searchSupplier(supplierId, String(q || ''));
-    return responseSuccess(res, 200, results);
+    const { page, limit } = parsePagination(req.query as Record<string, unknown>);
+    const { items, total } = await SupplierService.searchSupplier(
+      supplierId,
+      String(q || ''),
+      page,
+      limit,
+    );
+    return responseSuccess(res, 200, buildPage(items, total, { page, limit }));
   } catch (error) {
     next(error);
   }

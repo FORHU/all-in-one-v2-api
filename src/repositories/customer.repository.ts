@@ -1,7 +1,88 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, UserRole } from '@prisma/client';
 import { prisma } from '../utils/prisma';
+import { buildPage } from '../helpers/pagination.helper';
 
 export default class CustomerRepository {
+  // Fields the admin customers list can sort by. Whitelisted for the same
+  // reason as UserRepository.SORTABLE_FIELDS — an arbitrary `?sortBy=` can't
+  // be handed straight to Prisma's orderBy.
+  private static readonly SORTABLE_FIELDS = new Set([
+    'createdAt',
+    'updatedAt',
+    'email',
+    'username',
+    'name',
+    'lastLoginAt',
+  ]);
+
+  /**
+   * Paginated list for the admin customers page, scoped to one tenant.
+   * AuthUser/CommerceCustomer have no tenantId of their own — one identity
+   * can shop across verticals — so tenant membership is derived: an AuthUser
+   * counts as this tenant's customer only if their linked CommerceCustomer
+   * has an order or cart in it. That also means `customer` is never null on
+   * the results, unlike the old unscoped query.
+   */
+  static async findAll(
+    tenantId: string,
+    page = 1,
+    limit = 10,
+    search?: string,
+    sortBy?: string,
+    sortOrder?: 'asc' | 'desc',
+    isActive?: boolean,
+  ) {
+    const where: Prisma.AuthUserWhereInput = {
+      isDeleted: false,
+      role: UserRole.USER,
+      ...(isActive !== undefined && { isActive }),
+      customer: {
+        is: {
+          OR: [{ orders: { some: { tenantId } } }, { carts: { some: { tenantId } } }],
+        },
+      },
+      ...(search && {
+        OR: [
+          { email: { contains: search, mode: 'insensitive' } },
+          { username: { contains: search, mode: 'insensitive' } },
+          { name: { contains: search, mode: 'insensitive' } },
+        ],
+      }),
+    };
+
+    const orderBy: Prisma.AuthUserOrderByWithRelationInput =
+      sortBy && this.SORTABLE_FIELDS.has(sortBy)
+        ? { [sortBy]: sortOrder ?? 'asc' }
+        : { createdAt: 'desc' };
+
+    // Called directly against prisma.authUser (not through the paginate()
+    // helper) because its minimal PaginatableDelegate interface can't
+    // represent Prisma's include-conditional return type — going through it
+    // would type `items` as plain AuthUser, dropping `customer`.
+    const skip = (page - 1) * limit;
+    const [items, total] = await Promise.all([
+      prisma.authUser.findMany({
+        where,
+        orderBy,
+        skip,
+        take: limit,
+        include: {
+          customer: {
+            include: {
+              // Order count is tenant-scoped too — a customer who's shopped
+              // in two verticals shouldn't have the other tenant's orders
+              // padding this number.
+              _count: { select: { orders: { where: { tenantId } } } },
+            },
+          },
+        },
+      }),
+      prisma.authUser.count({ where }),
+    ]);
+
+    return buildPage(items, total, { page, limit, sortBy, sortOrder, search });
+  }
+
   static async findById(id: string) {
     return prisma.commerceCustomer.findUnique({
       where: { id },

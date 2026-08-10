@@ -1,6 +1,7 @@
 import logger from './utils/logger';
 import { redis } from './infrastructure/redis';
 import { rabbitmq } from './infrastructure/rabbitmq';
+import { registerSuppliers } from './suppliers';
 
 /**
  * Initial setup logic for the application
@@ -19,6 +20,8 @@ export default async function setup() {
   } catch (error) {
     logger.warn('RabbitMQ unavailable on startup. Will reconnect in background.', error);
   }
+
+  registerSuppliers();
 
   logger.info('Setup completed.');
 }

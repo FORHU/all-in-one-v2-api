@@ -28,9 +28,9 @@ export default class SupplierService {
     return SupplierRepository.getSupplierProducts(partnerId);
   }
 
-  static async searchSupplier(supplierId: string, query: string) {
+  static async searchSupplier(supplierId: string, query: string, page: number, limit: number) {
     const adapter = supplierRegistry.get(supplierId);
-    return adapter.searchProducts(query);
+    return adapter.searchProducts(query, page, limit);
   }
 
   static async getSupplierProduct(supplierId: string, externalId: string) {
