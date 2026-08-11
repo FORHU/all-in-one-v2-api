@@ -30,12 +30,96 @@ export type ProductListingRow = Prisma.CatalogProductGetPayload<{
   include: typeof LISTING_INCLUDE;
 }>;
 
+const ADMIN_LISTING_INCLUDE = {
+  category: { select: { id: true, name: true } },
+  media: { where: { isPrimary: true }, take: 1 },
+  variants: { where: { deletedAt: null }, select: { stock: true } },
+  _count: { select: { variants: { where: { deletedAt: null } } } },
+} satisfies Prisma.CatalogProductInclude;
+
+// `omit` mirrors the `findAllForAdmin` query below — brand is excluded
+// there (pending migration 20260807071552_add_catalog_product_brand), so
+// the row type must exclude it too or TS considers it a required field
+// that's actually missing from every row returned at runtime.
+export type AdminProductListingRow = Prisma.CatalogProductGetPayload<{
+  include: typeof ADMIN_LISTING_INCLUDE;
+  omit: { brand: true };
+}>;
+
 /**
  * Every method takes `tenantId` explicitly — see CategoryRepository for the
  * same convention. Products live one level below Tenant in the isolation
  * model, so every query is tenant-scoped from the base `where` up.
  */
 export default class ProductRepository {
+  // Fields the admin products table can sort by — same whitelist reasoning
+  // as CustomerRepository.SORTABLE_FIELDS.
+  private static readonly ADMIN_SORTABLE_FIELDS = new Set([
+    'createdAt',
+    'updatedAt',
+    'title',
+    'price',
+    'status',
+    'brand',
+  ]);
+
+  /**
+   * Paginated list for the admin products table. Unlike `findManyForListing`
+   * (the public storefront listing), this returns products in every status —
+   * DRAFT/READY/ARCHIVED included — so merchants can manage a product before
+   * it's published, and requires no category/color/size faceting.
+   */
+  static async findAllForAdmin(
+    tenantId: string,
+    page = 1,
+    limit = 20,
+    search?: string,
+    sortBy?: string,
+    sortOrder?: 'asc' | 'desc',
+    status?: ProductStatus,
+  ): Promise<PageResult<AdminProductListingRow>> {
+    const where: Prisma.CatalogProductWhereInput = {
+      tenantId,
+      deletedAt: null,
+      ...(status && { status }),
+      ...(search && {
+        // `brand` intentionally excluded from this OR — the migration that
+        // adds `catalog_products.brand` (20260807071552_add_catalog_product_brand)
+        // hasn't been applied yet, so referencing the column here throws.
+        // Re-add once the column exists.
+        OR: [
+          { title: { contains: search, mode: 'insensitive' } },
+          { slug: { contains: search, mode: 'insensitive' } },
+        ],
+      }),
+    };
+
+    // 'brand' is excluded from the sort whitelist for the same reason —
+    // `orderBy: { brand }` would reference the not-yet-existing column.
+    const orderBy: Prisma.CatalogProductOrderByWithRelationInput =
+      sortBy && sortBy !== 'brand' && this.ADMIN_SORTABLE_FIELDS.has(sortBy)
+        ? { [sortBy]: sortOrder ?? 'asc' }
+        : { createdAt: 'desc' };
+
+    const skip = (page - 1) * limit;
+    const [items, total] = await Promise.all([
+      prisma.catalogProduct.findMany({
+        where,
+        orderBy,
+        skip,
+        take: limit,
+        include: ADMIN_LISTING_INCLUDE,
+        // Prisma selects all scalar columns by default; `brand` is declared
+        // in schema.prisma but the column doesn't exist in the database yet
+        // (see OR comment above) — omit it here or every query throws.
+        omit: { brand: true },
+      }),
+      prisma.catalogProduct.count({ where }),
+    ]);
+
+    return buildPage(items, total, { page, limit, sortBy, sortOrder, search });
+  }
+
   private static buildWhere(
     tenantId: string,
     filters: ProductListingFilters,
