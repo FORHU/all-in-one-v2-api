@@ -1,6 +1,10 @@
+import { ProductStatus } from '@prisma/client';
 import ProductRepository, { ProductListingFilters } from '../repositories/product.repository';
 import { requireTenantId } from '../utils/async-context';
-import { mapProductToListingDto } from './product/mapper/product.mapper';
+import {
+  mapProductToAdminListingDto,
+  mapProductToListingDto,
+} from './product/mapper/product.mapper';
 
 export interface ListProductsQuery {
   categorySlug?: string;
@@ -58,6 +62,29 @@ export default class ProductService {
       limit: pageResult.limit,
       totalPages: pageResult.totalPages,
       facets,
+    };
+  }
+
+  static async listProductsForAdmin(
+    page?: number,
+    limit?: number,
+    search?: string,
+    sortBy?: string,
+    sortOrder?: 'asc' | 'desc',
+    status?: ProductStatus,
+  ) {
+    const result = await ProductRepository.findAllForAdmin(
+      requireTenantId(),
+      page,
+      limit,
+      search,
+      sortBy,
+      sortOrder,
+      status,
+    );
+    return {
+      ...result,
+      items: result.items.map(mapProductToAdminListingDto),
     };
   }
 }

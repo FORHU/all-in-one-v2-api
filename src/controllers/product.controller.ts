@@ -1,7 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import Joi from 'joi';
+import { ProductStatus } from '@prisma/client';
 import ProductService from '../services/product.service';
 import { responseSuccess } from '../helpers/response.helper';
+import { parsePagination } from '../helpers/pagination.helper';
 
 const listQuerySchema = Joi.object({
   categorySlug: Joi.string().optional(),
@@ -38,6 +40,33 @@ export default class ProductController {
         page: value.page,
         limit: value.limit,
       });
+      return responseSuccess(res, 200, result);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * GET /api/v2/products/admin
+   * Admin product management listing — every status, no auth-less public access.
+   */
+  static async adminList(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { page, limit, search, sortBy, sortOrder } = parsePagination(
+        req.query as Record<string, unknown>,
+      );
+      const status = Object.values(ProductStatus).includes(req.query.status as ProductStatus)
+        ? (req.query.status as ProductStatus)
+        : undefined;
+
+      const result = await ProductService.listProductsForAdmin(
+        page,
+        limit,
+        search,
+        sortBy,
+        sortOrder,
+        status,
+      );
       return responseSuccess(res, 200, result);
     } catch (err) {
       next(err);

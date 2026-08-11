@@ -29,3 +29,23 @@ export interface ProductFacetsDto {
   colors: ProductAttributeOptionDto[];
   sizes: ProductAttributeOptionDto[];
 }
+
+export interface AdminProductListingItemDto {
+  id: string;
+  slug: string;
+  title: string;
+  brand: string | null;
+  status: string;
+  visibility: string;
+  thumbnailUrl: string | null;
+  price: number | null;
+  salePrice: number | null;
+  compareAtPrice: number | null;
+  category: { id: string; name: string } | null;
+  variantCount: number;
+  inStock: boolean;
+  createdBy: string | null;
+  updatedBy: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
