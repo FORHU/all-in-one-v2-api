@@ -8,6 +8,9 @@ import {
 
 const router = express.Router();
 
+// Listing orders is an admin operation, same as GET /api/v2/customers.
+router.get('/', authenticate, requirePermission('orders:read'), OrderController.index);
+
 // Guests may check out with an x-session-id cart, so auth is optional here.
 router.post('/checkout', optionalAuthenticate, OrderController.checkout);
 
