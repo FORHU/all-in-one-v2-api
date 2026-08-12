@@ -6,14 +6,14 @@ import {
   getSupplierAnalytics,
   getCustomerAnalytics,
 } from './analytics.controller';
-import { authenticate, authorize, ADMIN_ROLES } from '../../middleware/auth.middleware';
+import { authenticate, requirePermission } from '../../middleware/auth.middleware';
 
 const router = express.Router();
 
-router.get('/daily', authenticate, authorize(...ADMIN_ROLES), getDailySales);
-router.get('/top-products', authenticate, authorize(...ADMIN_ROLES), getTopProducts);
-router.get('/categories', authenticate, authorize(...ADMIN_ROLES), getCategorySales);
-router.get('/suppliers', authenticate, authorize(...ADMIN_ROLES), getSupplierAnalytics);
-router.get('/customers', authenticate, authorize(...ADMIN_ROLES), getCustomerAnalytics);
+router.get('/daily', authenticate, requirePermission('analytics:read'), getDailySales);
+router.get('/top-products', authenticate, requirePermission('analytics:read'), getTopProducts);
+router.get('/categories', authenticate, requirePermission('analytics:read'), getCategorySales);
+router.get('/suppliers', authenticate, requirePermission('analytics:read'), getSupplierAnalytics);
+router.get('/customers', authenticate, requirePermission('analytics:read'), getCustomerAnalytics);
 
 export default router;

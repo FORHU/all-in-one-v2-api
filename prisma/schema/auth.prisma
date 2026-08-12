@@ -20,7 +20,7 @@ model AuthUser {
   avatar              AuthFile?           @relation("UserAvatar", fields: [avatarId], references: [id])
   sessions            AuthSession[]
   socialAccounts      AuthSocialAccount[]
-  customer            CommerceCustomer?
+  customers           CommerceCustomer[]
   tenantMemberships   TenantMembership[]
   auditLogs           AuditLog[]
   notifications       Notification[]
@@ -90,8 +90,6 @@ model AuthFile {
 
 enum UserRole {
   USER
-  ADMIN
   SUPER_ADMIN
   DEVELOPER
-  SELLER
 }

@@ -36,9 +36,9 @@ export default class CustomerRepository {
       isDeleted: false,
       role: UserRole.USER,
       ...(isActive !== undefined && { isActive }),
-      customer: {
-        is: {
-          OR: [{ orders: { some: { tenantId } } }, { carts: { some: { tenantId } } }],
+      customers: {
+        some: {
+          tenantId,
         },
       },
       ...(search && {
@@ -55,10 +55,6 @@ export default class CustomerRepository {
         ? { [sortBy]: sortOrder ?? 'asc' }
         : { createdAt: 'desc' };
 
-    // Called directly against prisma.authUser (not through the paginate()
-    // helper) because its minimal PaginatableDelegate interface can't
-    // represent Prisma's include-conditional return type — going through it
-    // would type `items` as plain AuthUser, dropping `customer`.
     const skip = (page - 1) * limit;
     const [items, total] = await Promise.all([
       prisma.authUser.findMany({
@@ -67,11 +63,9 @@ export default class CustomerRepository {
         skip,
         take: limit,
         include: {
-          customer: {
+          customers: {
+            where: { tenantId },
             include: {
-              // Order count is tenant-scoped too — a customer who's shopped
-              // in two verticals shouldn't have the other tenant's orders
-              // padding this number.
               _count: { select: { orders: { where: { tenantId } } } },
             },
           },
@@ -93,18 +87,18 @@ export default class CustomerRepository {
     });
   }
 
-  static async findByUserId(userId: string) {
+  static async findByUserId(tenantId: string, userId: string) {
     return prisma.commerceCustomer.findUnique({
-      where: { userId },
+      where: { tenantId_userId: { tenantId, userId } },
       include: {
         addresses: true,
       },
     });
   }
 
-  static async findByEmail(email: string) {
+  static async findByEmail(tenantId: string, email: string) {
     return prisma.commerceCustomer.findUnique({
-      where: { email },
+      where: { tenantId_email: { tenantId, email } },
       include: {
         addresses: true,
       },
@@ -118,18 +112,20 @@ export default class CustomerRepository {
   }
 
   /**
-   * Returns the Customer record for a signed-in User, creating it on first use.
-   *
-   * `req.user.id` is a User id, but carts and orders are keyed by Customer id —
-   * everything that checks ownership has to go through here first.
+   * Returns the Customer record for a signed-in User within a tenant, creating it on first use.
    */
-  static async findOrCreateForUser(user: { id: string; email: string; name?: string | null }) {
-    const existing = await prisma.commerceCustomer.findUnique({ where: { userId: user.id } });
+  static async findOrCreateForUser(
+    user: { id: string; email: string; name?: string | null },
+    tenantId: string,
+  ) {
+    const existing = await prisma.commerceCustomer.findUnique({
+      where: { tenantId_userId: { tenantId, userId: user.id } },
+    });
     if (existing) return existing;
 
-    // The user may have ordered as a guest under this email before signing up;
-    // claim that record rather than colliding with the unique constraint.
-    const byEmail = await prisma.commerceCustomer.findUnique({ where: { email: user.email } });
+    const byEmail = await prisma.commerceCustomer.findUnique({
+      where: { tenantId_email: { tenantId, email: user.email } },
+    });
     if (byEmail) {
       return prisma.commerceCustomer.update({
         where: { id: byEmail.id },
@@ -139,6 +135,7 @@ export default class CustomerRepository {
 
     return prisma.commerceCustomer.create({
       data: {
+        tenantId,
         userId: user.id,
         email: user.email,
         firstName: user.name ?? undefined,

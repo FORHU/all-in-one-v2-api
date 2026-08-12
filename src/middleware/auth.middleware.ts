@@ -117,6 +117,3 @@ export const requirePermission = (permission: Permission) => {
     return res.status(403).json({ message: 'Insufficient permissions' });
   };
 };
-
-/** Roles allowed to administer the platform (catalog, orders, CMS, suppliers). */
-export const ADMIN_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DEVELOPER];

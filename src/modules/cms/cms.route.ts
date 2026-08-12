@@ -1,6 +1,6 @@
 import express from 'express';
 import CMSController from './cms.controller';
-import { authenticate, authorize, ADMIN_ROLES } from '../../middleware/auth.middleware';
+import { authenticate, requirePermission } from '../../middleware/auth.middleware';
 
 const router = express.Router();
 
@@ -9,13 +9,18 @@ router.get('/banners', CMSController.getBanners);
 router.get('/announcements', CMSController.getAnnouncements);
 router.get('/faqs', CMSController.getFAQs);
 
-router.post('/banners', authenticate, authorize(...ADMIN_ROLES), CMSController.createBanner);
+router.post(
+  '/banners',
+  authenticate,
+  requirePermission('catalog:write'),
+  CMSController.createBanner,
+);
 router.post(
   '/announcements',
   authenticate,
-  authorize(...ADMIN_ROLES),
+  requirePermission('catalog:write'),
   CMSController.createAnnouncement,
 );
-router.post('/faqs', authenticate, authorize(...ADMIN_ROLES), CMSController.createFAQ);
+router.post('/faqs', authenticate, requirePermission('catalog:write'), CMSController.createFAQ);
 
 export default router;
