@@ -99,11 +99,12 @@ model CommerceCustomer {
   id        String   @id @default(uuid())
   userId    String   @unique
   email     String   @unique
-  firstName String?
-  lastName  String?
-  phone     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  firstName        String?
+  lastName         String?
+  phone            String?
+  stripeCustomerId String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   user       AuthUser                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   addresses  CommerceShippingAddress[]

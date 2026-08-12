@@ -1,4 +1,5 @@
 import { prisma } from '../../utils/prisma';
+import InventoryRepository from '../inventory/inventory.repository';
 
 export interface AddItemInput {
   tenantId?: string;
@@ -63,6 +64,8 @@ export class CartService {
       throw new Error('Product variant not found');
     }
 
+    const stockSummary = await InventoryRepository.getStockSummaryByVariant(productVariantId);
+
     const existingItem = await prisma.commerceCartItem.findUnique({
       where: {
         cartId_productVariantId: {
@@ -71,6 +74,11 @@ export class CartService {
         },
       },
     });
+
+    const newQuantity = existingItem ? existingItem.quantity + quantity : quantity;
+    if (stockSummary.totalAvailable < newQuantity) {
+      throw new Error(`Insufficient stock. Only ${stockSummary.totalAvailable} available.`);
+    }
 
     if (existingItem) {
       await prisma.commerceCartItem.update({

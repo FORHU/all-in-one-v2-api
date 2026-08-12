@@ -3,6 +3,13 @@ import jwt from 'jsonwebtoken';
 import { UserRole } from '@prisma/client';
 import AuthRepo from '../modules/auth/auth.repository';
 import { ACCESS_TOKEN_SECRET } from '../config';
+import {
+  PLATFORM_ROLE_PERMISSIONS,
+  TENANT_ROLE_PERMISSIONS,
+  Permission,
+} from '../modules/auth/permissions';
+import { getTenantId } from '../utils/async-context';
+import TenantRepository from '../modules/tenant/tenant.repository';
 
 type AuthUser = NonNullable<Awaited<ReturnType<typeof AuthRepo.findUserById>>>;
 
@@ -77,6 +84,39 @@ export const authorize =
 
     next();
   };
+
+/**
+ * Enforces a specific granular permission.
+ * Checks the user's platform role first. If insufficient, checks their tenant role
+ * for the currently active tenant (if any).
+ */
+export const requirePermission = (permission: Permission) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+
+    // 1. Check if their platform role grants the permission
+    const platformPerms = PLATFORM_ROLE_PERMISSIONS[req.user.role] || [];
+    if (platformPerms.includes(permission)) {
+      return next();
+    }
+
+    // 2. If not, check if they have a tenant membership that grants it
+    const tenantId = getTenantId();
+    if (tenantId) {
+      const membership = await TenantRepository.getMembership(tenantId, req.user.id);
+      if (membership) {
+        const tenantPerms = TENANT_ROLE_PERMISSIONS[membership.role] || [];
+        if (tenantPerms.includes(permission)) {
+          return next();
+        }
+      }
+    }
+
+    return res.status(403).json({ message: 'Insufficient permissions' });
+  };
+};
 
 /** Roles allowed to administer the platform (catalog, orders, CMS, suppliers). */
 export const ADMIN_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DEVELOPER];
