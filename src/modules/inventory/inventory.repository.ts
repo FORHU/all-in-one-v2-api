@@ -11,11 +11,7 @@ export default class InventoryRepository {
     'updatedAt',
   ]);
 
-  private static readonly TRANSACTION_SORTABLE_FIELDS = new Set([
-    'createdAt',
-    'quantity',
-    'type',
-  ]);
+  private static readonly TRANSACTION_SORTABLE_FIELDS = new Set(['createdAt', 'quantity', 'type']);
 
   // ─── Locations ─────────────────────────────────────────────────────────────
 
