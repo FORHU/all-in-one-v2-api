@@ -1,0 +1,92 @@
+// ==============================================================================
+// TENANCY: STOREFRONT VERTICALS & MEMBERSHIP
+// ==============================================================================
+
+enum TenantRole {
+  OWNER
+  ADMIN
+  MANAGER
+  SELLER
+  EDITOR
+  VIEWER
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+model TenantMembership {
+  id        String     @id @default(uuid())
+  tenantId  String
+  userId    String
+  role      TenantRole
+  status    String     @default("ACTIVE") // ACTIVE, SUSPENDED, INVITED
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  tenant Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+  @@index([userId])
+  @@map("tenant_memberships")
+}
+
+/// A storefront vertical — e.g. "fashion", "beauty", "sports". Each one gets
+/// its own subdomain, catalog and CMS content, but shares the platform's users,
+/// customers and supplier integrations.
+model Tenant {
+  id        String       @id @default(uuid())
+  slug      String       @unique // subdomain: fashion -> fashion.example.com
+  name      String
+  domain    String?      @unique // optional custom domain
+  status    TenantStatus @default(ACTIVE)
+  settings  Json? // theme, logo, contact details
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  categories            CatalogCategory[]
+  products              CatalogProduct[]
+  variants              CatalogProductVariant[]
+  pricingRules          CatalogPricingRule[]
+  carts                 CommerceCart[]
+  orders                CommerceOrder[]
+  pages                 CmsPage[]
+  banners               CmsBanner[]
+  announcements         CmsAnnouncement[]
+  faqs                  CmsFAQ[]
+  productSocialFeeds    MarketingSocialFeed[]
+  productSocialAds      MarketingSocialAd[]
+  shareableSocialLinks  MarketingShareableLink[]
+  inventoryTransactions InventoryTransaction[]
+  notifications         Notification[]
+  reviews               ProductReview[]
+  wishlists             Wishlist[]
+  coupons               Coupon[]
+  returns               Return[]
+  refunds               Refund[]
+  productSalesStats     AnalyticsProductSales[]
+  categorySalesStats    AnalyticsCategorySales[]
+  supplierStats         AnalyticsSupplier[]
+  customerStats         AnalyticsCustomer[]
+  dailySalesStats       AnalyticsDailySales[]
+  collections           CatalogCollection[]
+  attributes            CatalogAttribute[]
+  promotions            Promotion[]
+  inventoryLocations    InventoryLocation[]
+  inventoryStocks       InventoryStock[]
+  taxClasses            TaxClass[]
+  taxRates              TaxRate[]
+  supplierSyncJobs      SupplierSyncJob[]
+  storefrontSections    StorefrontSection[]
+  storefrontPages       StorefrontPage[]
+  memberships           TenantMembership[]
+  inventoryReservations InventoryReservation[]
+  cartItems             CommerceCartItem[]
+  orderItems            CommerceOrderItem[]
+
+  @@map("tenants")
+}

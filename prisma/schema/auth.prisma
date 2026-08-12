@@ -1,0 +1,97 @@
+// ==============================================================================
+// AUTH: USERS, SESSIONS, SOCIAL ACCOUNTS & FILES
+// ==============================================================================
+
+model AuthUser {
+  id                  String              @id @default(uuid())
+  email               String              @unique
+  password            String? // Optional for social-only users
+  name                String?
+  username            String              @unique
+  role                UserRole            @default(USER)
+  isActive            Boolean             @default(true)
+  lastLoginAt         DateTime?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  avatarId            String?
+  isDeleted           Boolean             @default(false)
+  isEmailVerified     Boolean             @default(false)
+  onboardingCompleted Boolean             @default(false)
+  avatar              AuthFile?           @relation("UserAvatar", fields: [avatarId], references: [id])
+  sessions            AuthSession[]
+  socialAccounts      AuthSocialAccount[]
+  customer            CommerceCustomer?
+  tenantMemberships   TenantMembership[]
+  auditLogs           AuditLog[]
+  notifications       Notification[]
+
+  @@map("auth_users")
+}
+
+model AuthSession {
+  id                String    @id @default(uuid())
+  userId            String
+  createdAt         DateTime  @default(now())
+  expiresAt         DateTime
+  refreshTokenHash  String    @unique
+  provider          String?
+  providerAvatarUrl String?
+  revokedAt         DateTime?
+  lastUsedAt        DateTime?
+  ipAddress         String?
+  userAgent         String?
+
+  user AuthUser @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("auth_sessions")
+}
+
+model AuthSocialAccount {
+  id             String    @id @default(uuid())
+  userId         String
+  platform       String
+  providerUserId String
+  accessToken    String
+  refreshToken   String?
+  expiresAt      DateTime?
+  scopes         String?
+  avatarUrl      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  user           AuthUser  @relation(fields: [userId], references: [id])
+
+  @@unique([userId, platform])
+  @@unique([platform, providerUserId])
+  @@map("auth_social_accounts")
+}
+
+model AuthFile {
+  id                    String                  @id @default(uuid())
+  filename              String?
+  fileUrl               String?
+  mimeType              String? // e.g. "application/pdf", "image/gif", "video/mp4"
+  fileSize              Int? // in bytes
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  deletedAt             DateTime?
+  metaData              Json?
+  users                 AuthUser[]              @relation("UserAvatar")
+  productMedia          CatalogProductMedia[]
+  socialAds             MarketingSocialAd[]
+  collections           CatalogCollection[]     @relation("CollectionImageFile")
+  collectionItems       CatalogCollectionItem[] @relation("CollectionItemImageFile")
+  supplierProductImages SupplierProductImage[]
+  supplierVariantImages SupplierVariantImage[]
+  cmsBanners            CmsBanner[]             @relation("BannerImageFile")
+
+  @@map("auth_files")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+  DEVELOPER
+  SELLER
+}

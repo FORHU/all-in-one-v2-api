@@ -1,0 +1,413 @@
+// ==============================================================================
+// CATALOG: CATEGORIES, PRODUCTS, VARIANTS, MEDIA, SIZE GUIDES,
+//          PRICING RULES, COLLECTIONS & EAV ATTRIBUTES
+// ==============================================================================
+
+enum ProductStatus {
+  DRAFT
+  READY
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ProductVisibility {
+  PUBLIC
+  PRIVATE
+  HIDDEN
+  MEMBERS_ONLY
+}
+
+enum MediaType {
+  IMAGE
+  GIF
+  VIDEO
+  AUDIO
+  DOCUMENT
+  ARCHIVE
+  OTHER
+}
+
+enum MarkupType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum CollectionType {
+  OUTFIT
+  LOOKBOOK
+  BUNDLE
+  ROUTINE
+  SETUP
+  ROOM_BUNDLE
+}
+
+enum AttributeType {
+  SELECT
+  TEXT
+  NUMBER
+  BOOLEAN
+}
+
+model CatalogCategory {
+  id             String    @id @default(uuid())
+  tenantId       String
+  name           String
+  slug           String
+  description    String?
+  parentId       String?
+  sortOrder      Int       @default(0)
+  seoTitle       String?
+  seoDescription String?
+  deletedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  tenant      Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent      CatalogCategory?         @relation("CategoryHierarchy", fields: [tenantId, parentId], references: [tenantId, id])
+  children    CatalogCategory[]        @relation("CategoryHierarchy")
+  products    CatalogProduct[]
+  salesStats  AnalyticsCategorySales[]
+  collections CatalogCollection[]
+
+  @@unique([tenantId, slug])
+  @@unique([tenantId, id])
+  @@index([parentId])
+  @@index([tenantId])
+  @@index([tenantId, deletedAt])
+  @@map("catalog_categories")
+}
+
+model CatalogProduct {
+  id             String            @id @default(uuid())
+  tenantId       String
+  title          String
+  slug           String // Required for URL routing — auto-generated from title if not provided
+  description    String?
+  tags           String[]
+  status         ProductStatus     @default(DRAFT)
+  visibility     ProductVisibility @default(PUBLIC)
+  featured       Boolean           @default(false)
+  brand          String? // Merchant/label brand name shown on storefront cards and filters
+  price          Decimal?          @db.Decimal(18, 4) // Main display selling price
+  salePrice      Decimal?          @db.Decimal(18, 4) // Active discounted price (if on sale)
+  compareAtPrice Decimal?          @db.Decimal(18, 4) // Crossed-out original price (MSRP / "fake" price before discount)
+  discount       Json? // Structured discount details: { type: "PERCENTAGE"|"FIXED", value: 20, percentage: 20, savings: 240, badge: "20% OFF", endDate: "..." }
+  thumbnailUrl   String? // Quick-access primary image URL
+  seoTitle       String?
+  seoDescription String?
+  publishedAt    DateTime?
+  deletedAt      DateTime?
+  createdBy      String?
+  updatedBy      String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  // Every reference below is tenant-qualified: the FK includes tenantId, so the
+  // database itself rejects a product pointing at another tenant's category,
+  // pricing rule or tax class. onDelete is Restrict rather than SetNull because
+  // a composite FK can only null *all* its columns, and tenantId is required.
+  categoryId String?
+  category   CatalogCategory? @relation(fields: [tenantId, categoryId], references: [tenantId, id], onDelete: Restrict)
+
+  pricingRuleId String?
+  pricingRule   CatalogPricingRule? @relation(fields: [tenantId, pricingRuleId], references: [tenantId, id], onDelete: Restrict)
+
+  taxClassId String?
+  taxClass   TaxClass? @relation(fields: [tenantId, taxClassId], references: [tenantId, id], onDelete: Restrict)
+
+  tenant                 Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  variants               CatalogProductVariant[]
+  supplierProducts       SupplierProduct[]
+  media                  CatalogProductMedia[]
+  sizeGuides             CatalogSizeGuide[]
+  socialAds              MarketingSocialAd[]
+  shareableSocialLinks   MarketingShareableLink[]
+  reviews                ProductReview[]
+  salesStats             AnalyticsProductSales[]
+  collectionItems        CatalogCollectionItem[]
+  storefrontSectionItems StorefrontSectionItem[]
+
+  @@unique([tenantId, slug])
+  @@unique([tenantId, id])
+  @@index([categoryId])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, featured])
+  @@index([tenantId, deletedAt])
+  @@index([tenantId, brand])
+  @@index([taxClassId])
+  @@index([tenantId, createdAt])
+  @@map("catalog_products")
+}
+
+model CatalogProductVariant {
+  id              String    @id @default(uuid())
+  tenantId        String
+  productId       String
+  sku             String?
+  title           String
+  price           Decimal   @db.Decimal(18, 4) // Actual selling price
+  compareAtPrice  Decimal?  @db.Decimal(18, 4) // Crossed-out original price
+  baseCost        Decimal?  @db.Decimal(18, 4) // Supplier cost
+  sellingPrice    Decimal?  @db.Decimal(18, 4) // Configured selling price
+  calculatedPrice Decimal?  @db.Decimal(18, 4) // Price after automated markup rule
+  discount        Json? // Structured discount details
+  version         Int       @default(1) // Optimistic concurrency version
+  deletedAt       DateTime?
+  attributes      Json? // e.g. { color: "red", size: "XL" }
+
+  sizeEntryId   String? // null = no size chart row linked yet
+  pricingRuleId String? // Optional pricing/markup rule override for this variant
+
+  tenant                Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product               CatalogProduct            @relation(fields: [tenantId, productId], references: [tenantId, id], onDelete: Restrict)
+  // CatalogSizeEntry is not tenant-scoped (it hangs off a size guide, which hangs
+  // off a product), so this one stays a plain FK and keeps SetNull.
+  sizeEntry             CatalogSizeEntry?         @relation(fields: [sizeEntryId], references: [id], onDelete: SetNull)
+  pricingRule           CatalogPricingRule?       @relation("VariantPricingRules", fields: [tenantId, pricingRuleId], references: [tenantId, id], onDelete: Restrict)
+  supplierVariants      SupplierVariant[]
+  orderItems            CommerceOrderItem[]
+  cartItems             CommerceCartItem[]
+  media                 CatalogProductMedia[]
+  inventoryTransactions InventoryTransaction[]
+  wishlistItems         WishlistItem[]
+  collectionItems       CatalogCollectionItem[]
+  variantAttributes     CatalogVariantAttribute[]
+  inventoryStocks       InventoryStock[]
+  inventoryReservations InventoryReservation[]
+
+  @@unique([tenantId, sku])
+  @@unique([tenantId, id])
+  @@index([productId])
+  @@index([tenantId])
+  @@index([sizeEntryId])
+  @@index([pricingRuleId])
+  @@index([tenantId, deletedAt])
+  @@map("catalog_product_variants")
+}
+
+model CatalogProductMedia {
+  id               String    @id @default(uuid())
+  productId        String
+  productVariantId String?
+  fileId           String?
+  url              String
+  type             MediaType @default(IMAGE)
+  altText          String?
+  position         Int       @default(0)
+  isPrimary        Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+
+  product        CatalogProduct         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productVariant CatalogProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
+  file           AuthFile?              @relation(fields: [fileId], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@index([productVariantId])
+  @@index([fileId])
+  @@map("catalog_product_media")
+}
+
+/// A size chart / size guide for a product.
+/// Works across any vertical:
+///   - Fashion: Chest / Waist / Hips / Inseam / Length (CM or INCH)
+///   - Electronics: Screen Size / Dimensions (MM or INCH)
+///   - Furniture: Width / Height / Depth (CM or MM)
+///   - Footwear: Foot Length mapped to US / EU / UK / JP sizes
+model CatalogSizeGuide {
+  id          String   @id @default(uuid())
+  productId   String
+  label       String // e.g. "International Size Chart", "EU Shoe Sizing"
+  description String? // Optional help text shown below the chart
+  unit        String   @default("CM") // "CM" | "MM" | "INCH" | "US" | "EU" | "UK" | "JP"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  product CatalogProduct     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  entries CatalogSizeEntry[]
+
+  @@index([productId])
+  @@map("catalog_size_guides")
+}
+
+/// A single row in a size chart.
+/// Each row represents one size label and its corresponding measurements.
+model CatalogSizeEntry {
+  id        String @id @default(uuid())
+  guideId   String
+  sizeLabel String // e.g. "XS", "S", "M", "L", "XL", "42", "EU 38"
+  position  Int    @default(0) // Sort order within the chart
+
+  // Measurement columns — all optional; only populate what applies to the product
+  chest      Decimal? @db.Decimal(12, 2) // Apparel upper body
+  waist      Decimal? @db.Decimal(12, 2) // Apparel / bottoms
+  hips       Decimal? @db.Decimal(12, 2) // Apparel lower body
+  inseam     Decimal? @db.Decimal(12, 2) // Pants / trousers
+  length     Decimal? @db.Decimal(12, 2) // Dress / jacket length
+  shoulder   Decimal? @db.Decimal(12, 2) // Shoulder width
+  sleeve     Decimal? @db.Decimal(12, 2) // Sleeve length
+  footLength Decimal? @db.Decimal(12, 2) // Footwear
+  width      Decimal? @db.Decimal(12, 2) // Product width (furniture, electronics)
+  height     Decimal? @db.Decimal(12, 2) // Product height
+  depth      Decimal? @db.Decimal(12, 2) // Product depth
+  screenSize Decimal? @db.Decimal(12, 2) // Electronics (diagonal inches)
+  weight     Decimal? @db.Decimal(12, 2) // Weight of the product at this size
+  weightUnit String? // "KG" | "LB" | "G" | "OZ"
+
+  guide    CatalogSizeGuide        @relation(fields: [guideId], references: [id], onDelete: Cascade)
+  variants CatalogProductVariant[] // All variants that reference this size row
+
+  @@index([guideId, position])
+  @@map("catalog_size_entries")
+}
+
+model CatalogPricingRule {
+  id            String     @id @default(uuid())
+  tenantId      String
+  name          String
+  markupType    MarkupType
+  markupValue   Decimal    @db.Decimal(18, 4)
+  minimumProfit Decimal?   @db.Decimal(18, 4)
+  isActive      Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  tenant   Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  products CatalogProduct[]
+  variants CatalogProductVariant[] @relation("VariantPricingRules")
+
+  @@unique([tenantId, name])
+  @@unique([tenantId, id])
+  @@index([tenantId])
+  @@map("catalog_pricing_rules")
+}
+
+/// A curated grouping of products — universal across all storefront verticals.
+/// type examples: "OUTFIT", "SETUP", "ROUTINE", "BUNDLE", "LOOKBOOK", "ROOM_BUNDLE"
+/// slot examples: "UpperGarment", "Monitor", "Cleanser", "Sofa", "Supplement"
+///
+/// Collections can be nested: a parent LOOKBOOK can contain child collections
+/// of any type (e.g. a Fashion OUTFIT + a Beauty ROUTINE together).
+/// Admin decides what to combine — no hard-coded vertical constraints.
+model CatalogCollection {
+  id          String         @id @default(uuid())
+  tenantId    String
+  title       String
+  slug        String
+  description String?
+  type        CollectionType
+  sortOrder   Int            @default(0)
+  imageFileId String? // Optional direct link to uploaded AuthFile
+  imageUrl    String? // Hero/render image for the complete collection
+  metadata    Json? // Vertical-specific params: { climate, style, roomType, season, etc. }
+  isPublic    Boolean        @default(true)
+  isDeleted   Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  // Self-referential nesting: a LOOKBOOK parent can hold OUTFIT + ROUTINE children
+  parentId String? // null = top-level collection; set = sub-collection of a parent
+
+  // Which category page (e.g. "Women", "Men") this look is featured under —
+  // null = not tied to any single category (shows nowhere category-scoped).
+  categoryId String?
+
+  tenant             Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category           CatalogCategory?        @relation(fields: [tenantId, categoryId], references: [tenantId, id], onDelete: SetNull)
+  parent             CatalogCollection?      @relation("CollectionHierarchy", fields: [tenantId, parentId], references: [tenantId, id], onDelete: Restrict)
+  children           CatalogCollection[]     @relation("CollectionHierarchy")
+  items              CatalogCollectionItem[]
+  pageSections       CmsPageSection[]
+  imageFile          AuthFile?               @relation("CollectionImageFile", fields: [imageFileId], references: [id], onDelete: SetNull)
+  storefrontSections StorefrontSection[]
+
+  @@unique([tenantId, slug])
+  @@unique([tenantId, id])
+  @@index([tenantId, type])
+  @@index([tenantId, isPublic])
+  @@index([tenantId, categoryId])
+  @@index([parentId])
+  @@index([imageFileId])
+  @@map("catalog_collections")
+}
+
+/// A single product slot within a CatalogCollection.
+/// position = display/layer order (0 = back, higher = front for fashion; 0 = primary for bundles).
+/// Every item MUST link to a product — clicking it on the storefront navigates to that product page.
+/// productVariantId is optional: when null, the frontend shows the product's default/primary variant.
+model CatalogCollectionItem {
+  id               String   @id @default(uuid())
+  collectionId     String
+  productId        String // Required — every slot must point to a catalog product
+  productVariantId String? // Optional — null = show product's default variant
+  imageFileId      String? // Optional direct link to uploaded AuthFile
+  slot             String? // e.g. "UpperGarment", "Monitor", "Cleanser", "Sofa"
+  imageUrl         String? // Override image for this item's slot (falls back to product thumbnailUrl)
+  position         Int      @default(0)
+  isOptional       Boolean  @default(false) // whether the item is required or optional in the set
+  metadata         Json? // e.g. { colorSwatch, sizeGuide, note }
+  createdAt        DateTime @default(now())
+
+  collection     CatalogCollection      @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  product        CatalogProduct         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productVariant CatalogProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
+  imageFile      AuthFile?              @relation("CollectionItemImageFile", fields: [imageFileId], references: [id], onDelete: SetNull)
+
+  @@index([collectionId, position])
+  @@index([productId])
+  @@index([productVariantId])
+  @@index([imageFileId])
+  @@map("catalog_collection_items")
+}
+
+/// Tenant-scoped attribute definition (e.g. "Color", "RAM", "Size", "Material", "Volume").
+model CatalogAttribute {
+  id           String        @id @default(uuid())
+  tenantId     String
+  name         String // Display name e.g. "Color"
+  code         String // Machine slug e.g. "color"
+  type         AttributeType @default(SELECT)
+  isFilterable Boolean       @default(true)
+  isSearchable Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  tenant Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  values CatalogAttributeValue[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("catalog_attributes")
+}
+
+/// Dynamic value option for an attribute (e.g. "Red", "16GB", "Extra Large").
+model CatalogAttributeValue {
+  id          String   @id @default(uuid())
+  attributeId String
+  value       String // Normalized value e.g. "red", "16gb"
+  label       String // Human label e.g. "Crimson Red"
+  swatchColor String? // Optional hex color swatch e.g. "#FF0000"
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  attribute CatalogAttribute          @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  variants  CatalogVariantAttribute[]
+
+  @@unique([attributeId, value])
+  @@index([attributeId])
+  @@map("catalog_attribute_values")
+}
+
+/// Join table connecting CatalogProductVariant to CatalogAttributeValue.
+model CatalogVariantAttribute {
+  variantId String
+  valueId   String
+
+  variant CatalogProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  value   CatalogAttributeValue @relation(fields: [valueId], references: [id], onDelete: Cascade)
+
+  @@id([variantId, valueId])
+  @@index([variantId])
+  @@index([valueId])
+  @@map("catalog_variant_attributes")
+}

@@ -1,0 +1,295 @@
+// ==============================================================================
+// SYSTEM: JOBS, AUDIT LOGS, NOTIFICATIONS, REVIEWS, WISHLISTS & ANALYTICS
+// ==============================================================================
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  PAUSED
+  CANCELLED
+}
+
+enum LogLevel {
+  INFO
+  WARN
+  ERROR
+  DEBUG
+}
+
+enum NotificationType {
+  ORDER_STATUS
+  PAYMENT_CONFIRMED
+  SHIPMENT_TRACKING
+  SYSTEM_ALERT
+  PROMOTION
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  SMS
+  PUSH
+}
+
+// --- Background Jobs ---
+
+model Job {
+  id          String    @id @default(uuid())
+  type        String // e.g., 'PRODUCT_SYNC'
+  content     String? // A friendly name/description
+  status      JobStatus @default(PENDING)
+  payload     Json? // Input parameters & progress tracking
+  error       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  logs JobLog[]
+
+  @@map("jobs")
+}
+
+model JobLog {
+  id        String   @id @default(uuid())
+  jobId     String
+  level     LogLevel @default(INFO)
+  message   String
+  details   Json?
+  createdAt DateTime @default(now())
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@map("job_logs")
+}
+
+// --- Audit Logs ---
+
+model AuditLog {
+  id            String   @id @default(uuid())
+  userId        String?
+  action        String // e.g. "UPDATE_PRICING_RULE", "DELETE_PRODUCT"
+  entity        String // e.g. "Product", "User"
+  entityId      String?
+  details       Json?
+  beforeState   Json? // State prior to mutation
+  afterState    Json? // State after mutation
+  requestId     String? // Tracing request identifier
+  correlationId String? // Distributed tracing correlation ID
+  ipAddress     String?
+  createdAt     DateTime @default(now())
+
+  user AuthUser? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([requestId])
+  @@map("audit_logs")
+}
+
+// --- Notifications ---
+
+model Notification {
+  id        String              @id @default(uuid())
+  tenantId  String
+  userId    String
+  type      NotificationType    @default(SYSTEM_ALERT)
+  channel   NotificationChannel @default(IN_APP)
+  title     String
+  message   String
+  isRead    Boolean             @default(false)
+  readAt    DateTime?
+  sentAt    DateTime?
+  expiresAt DateTime?
+  data      Json?
+  createdAt DateTime            @default(now())
+
+  tenant Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// --- Reviews & Wishlists ---
+
+model ProductReview {
+  id            String   @id @default(uuid())
+  tenantId      String
+  productId     String
+  customerId    String
+  rating        Int
+  title         String?
+  comment       String?
+  isVerified    Boolean  @default(false)
+  merchantReply String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product  CatalogProduct   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  customer CommerceCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  images   ReviewImage[]
+
+  @@index([tenantId])
+  @@index([productId])
+  @@index([customerId])
+  @@map("product_reviews")
+}
+
+model ReviewImage {
+  id        String   @id @default(uuid())
+  reviewId  String
+  url       String
+  createdAt DateTime @default(now())
+
+  review ProductReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId])
+  @@map("review_images")
+}
+
+model Wishlist {
+  id         String   @id @default(uuid())
+  tenantId   String
+  customerId String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer CommerceCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  items    WishlistItem[]
+
+  @@unique([tenantId, customerId])
+  @@index([tenantId])
+  @@index([customerId])
+  @@map("wishlists")
+}
+
+model WishlistItem {
+  id               String   @id @default(uuid())
+  wishlistId       String
+  productVariantId String
+  createdAt        DateTime @default(now())
+
+  wishlist       Wishlist              @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  productVariant CatalogProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+
+  @@unique([wishlistId, productVariantId])
+  @@map("wishlist_items")
+}
+
+// --- Analytics Rollups ---
+
+/// Per-product sales rollup. Keyed at product level because every read of this
+/// table (best-sellers, trending, top-10 reports) ranks products, not variants.
+/// The previous @@unique([tenantId, productVariantId]) could not be upserted at
+/// all: the column was nullable, Postgres treats NULLs as distinct so rollup
+/// rows duplicated without limit, and Prisma types compound-unique inputs as
+/// non-nullable so the where clause was inexpressible.
+/// If variant-level granularity is needed later, add a separate table rather
+/// than making this key nullable again.
+model AnalyticsProductSales {
+  id           String    @id @default(uuid())
+  tenantId     String
+  productId    String
+  totalSold    Int       @default(0)
+  totalRevenue Decimal   @default(0) @db.Decimal(18, 4)
+  totalOrders  Int       @default(0)
+  lastSoldAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  tenant  Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product CatalogProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, productId])
+  @@index([tenantId])
+  @@index([productId])
+  @@index([tenantId, totalSold])
+  @@map("analytics_product_sales")
+}
+
+model AnalyticsCategorySales {
+  id                String   @id @default(uuid())
+  tenantId          String
+  categoryId        String
+  totalRevenue      Decimal  @default(0) @db.Decimal(18, 4)
+  totalOrders       Int      @default(0)
+  totalProductsSold Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category CatalogCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, categoryId])
+  @@index([tenantId])
+  @@index([categoryId])
+  @@map("analytics_category_sales")
+}
+
+model AnalyticsSupplier {
+  id               String   @id @default(uuid())
+  tenantId         String
+  supplierId       String
+  productsImported Int      @default(0)
+  totalOrders      Int      @default(0)
+  totalRevenue     Decimal  @default(0) @db.Decimal(18, 4)
+  failedOrders     Int      @default(0)
+  avgDeliveryDays  Decimal? @db.Decimal(5, 2)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier SupplierPartner @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, supplierId])
+  @@index([tenantId])
+  @@index([supplierId])
+  @@map("analytics_suppliers")
+}
+
+model AnalyticsCustomer {
+  id            String    @id @default(uuid())
+  tenantId      String
+  customerId    String
+  lifetimeSpend Decimal   @default(0) @db.Decimal(18, 4)
+  totalOrders   Int       @default(0)
+  avgOrderValue Decimal   @default(0) @db.Decimal(18, 4)
+  lastOrderedAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer CommerceCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, customerId])
+  @@index([tenantId])
+  @@index([customerId])
+  @@index([tenantId, lifetimeSpend])
+  @@map("analytics_customers")
+}
+
+model AnalyticsDailySales {
+  id                   String   @id @default(uuid())
+  tenantId             String
+  date                 DateTime @db.Date
+  ordersCount          Int      @default(0)
+  revenueAmount        Decimal  @default(0) @db.Decimal(18, 4)
+  bestSellingProductId String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, date])
+  @@index([tenantId])
+  @@index([tenantId, date])
+  @@map("analytics_daily_sales")
+}

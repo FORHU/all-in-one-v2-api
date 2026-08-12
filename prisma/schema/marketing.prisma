@@ -1,0 +1,88 @@
+// ==============================================================================
+// MARKETING: SOCIAL FEEDS, ADS & SHAREABLE LINKS
+// ==============================================================================
+
+enum AdSocialPlatform {
+  META
+  GOOGLE
+  TIKTOK
+  PINTEREST
+  CUSTOM
+}
+
+enum AdSocialStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+model MarketingSocialFeed {
+  id           String           @id @default(uuid())
+  tenantId     String
+  name         String // e.g. "Google Merchant Feed", "Meta Catalog"
+  platform     AdSocialPlatform @default(META)
+  feedUrl      String? // Public XML / JSON feed endpoint
+  isActive     Boolean          @default(true)
+  config       Json? // Category mapping, pricing overrides
+  lastSyncedAt DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("marketing_social_feeds")
+}
+
+model MarketingSocialAd {
+  id               String           @id @default(uuid())
+  tenantId         String
+  productId        String
+  mediaFileId      String? // Video creative or image banner file
+  mediaUrl         String? // Direct URL or fallback for ad creative
+  title            String
+  headline         String?
+  description      String?
+  platform         AdSocialPlatform @default(META)
+  externalAdId     String? // Ad ID on Meta Ads / Google Ads API
+  status           AdSocialStatus   @default(DRAFT)
+  adUrl            String? // Target URL with UTM params
+  dailyBudget      Decimal?         @db.Decimal(18, 4)
+  totalSpend       Decimal?         @default(0) @db.Decimal(18, 4)
+  clicksCount      Int              @default(0)
+  conversionsCount Int              @default(0)
+  revenueGenerated Decimal?         @default(0) @db.Decimal(18, 4)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product   CatalogProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  mediaFile AuthFile?      @relation(fields: [mediaFileId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([productId])
+  @@index([mediaFileId])
+  @@map("marketing_social_ads")
+}
+
+model MarketingShareableLink {
+  id          String   @id @default(uuid())
+  tenantId    String
+  productId   String
+  code        String   @unique // Short tracking code e.g. "x89f2a"
+  utmSource   String? // e.g. "facebook", "tiktok", "instagram"
+  utmMedium   String? // e.g. "ad", "influencer", "story"
+  utmCampaign String? // e.g. "summer_sale"
+  clicks      Int      @default(0)
+  conversions Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant  Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product CatalogProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([productId])
+  @@map("marketing_shareable_links")
+}

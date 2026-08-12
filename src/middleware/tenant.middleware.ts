@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { Tenant, TenantStatus } from '@prisma/client';
-import TenantRepository from '../repositories/tenant.repository';
+import TenantRepository from '../modules/tenant/tenant.repository';
 import CacheUtil from '../utils/cache.util';
 import { asyncLocalStorage, getContext } from '../utils/async-context';
 import { ROOT_DOMAIN, DEFAULT_TENANT_SLUG } from '../config';

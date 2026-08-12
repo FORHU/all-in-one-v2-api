@@ -1,8 +1,8 @@
 import { Request } from 'express';
-import CustomerRepository from '../repositories/customer.repository';
+import CustomerRepository from '../modules/commerce/customer.repository';
 import { ADMIN_ROLES } from '../middleware/auth.middleware';
-import type { CartOwner } from '../services/cart.service';
-import type { OrderViewer } from '../services/order.service';
+import type { CartOwner } from '../modules/commerce/cart.service';
+import type { OrderViewer } from '../modules/commerce/order.service';
 
 /**
  * Resolves the signed-in user to their Customer id, creating the Customer

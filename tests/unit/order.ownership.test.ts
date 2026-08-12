@@ -1,4 +1,4 @@
-import OrderService from '../../src/services/order.service';
+import OrderService from '../../src/modules/commerce/order.service';
 
 const customerOrder = { customerId: 'cust-1', sessionId: null };
 const guestOrder = { customerId: null, sessionId: 'sess-abc' };

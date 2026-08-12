@@ -1,0 +1,83 @@
+// ==============================================================================
+// PROMOTIONS: CAMPAIGNS, RULES, REWARDS & TARGETS
+// ==============================================================================
+
+enum PromotionStatus {
+  DRAFT
+  ACTIVE
+  SCHEDULED
+  EXPIRED
+  DISABLED
+}
+
+/// Decoupled promotion rule engine root for campaigns, coupons, and discounts.
+model Promotion {
+  id          String          @id @default(uuid())
+  tenantId    String
+  title       String
+  code        String? // Optional promo coupon code (e.g. "SUMMER20")
+  description String?
+  status      PromotionStatus @default(ACTIVE)
+  priority    Int             @default(0)
+  startDate   DateTime?
+  endDate     DateTime?
+  usageLimit  Int?
+  usageCount  Int             @default(0)
+  deletedAt   DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  tenant  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rules   PromotionRule[]
+  rewards PromotionReward[]
+  targets PromotionTarget[]
+  orders  CommerceOrder[]
+
+  @@index([tenantId, status])
+  @@index([code])
+  @@index([tenantId, deletedAt])
+  @@map("promotions")
+}
+
+/// Qualification condition for a promotion.
+model PromotionRule {
+  id          String   @id @default(uuid())
+  promotionId String
+  ruleType    String // "MIN_CART_TOTAL" | "MIN_QUANTITY" | "CUSTOMER_GROUP" | "FIRST_ORDER"
+  condition   Json // e.g. { minTotal: 100, currency: "USD" }
+  createdAt   DateTime @default(now())
+
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+
+  @@index([promotionId])
+  @@map("promotion_rules")
+}
+
+/// Payout / reward definition for a promotion.
+model PromotionReward {
+  id          String   @id @default(uuid())
+  promotionId String
+  rewardType  String // "PERCENTAGE_OFF" | "FIXED_AMOUNT_OFF" | "FREE_SHIPPING" | "BUY_X_GET_Y"
+  value       Decimal  @db.Decimal(18, 4)
+  maxDiscount Decimal? @db.Decimal(18, 4)
+  createdAt   DateTime @default(now())
+
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+
+  @@index([promotionId])
+  @@map("promotion_rewards")
+}
+
+/// Target scope for a promotion (Products, Variants, Collections, Categories).
+model PromotionTarget {
+  id          String   @id @default(uuid())
+  promotionId String
+  targetType  String // "ALL" | "PRODUCT" | "VARIANT" | "COLLECTION" | "CATEGORY"
+  targetId    String? // ID of product, variant, collection, or category
+  createdAt   DateTime @default(now())
+
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+
+  @@index([promotionId, targetType, targetId])
+  @@map("promotion_targets")
+}

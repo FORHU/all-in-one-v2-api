@@ -91,7 +91,9 @@ graph TD
 
 Most Express boilerplates stop at **JWT + Prisma**. This template gives you the architecture of a serious production enterprise platform:
 
-- **Strict SRC pattern** — Controllers, Services, Repositories with enforced boundaries
+- **Domain-Driven Design (DDD)** — Source code logically grouped by domain under `src/modules/`
+- **Modular Database Schema** — Prisma models split into multiple files under `prisma/schema/`
+- **Multi-Tenant Ready** — Strict tenant isolation built directly into the database constraints
 - **Event-Driven Architecture** — RabbitMQ as a first-class citizen, not an afterthought
 - **Full Observability** — Correlation IDs flow from HTTP → RabbitMQ → Worker → every log line
 - **Production-Grade Resilience** — Exponential backoff reconnect, graceful shutdown, health probes
@@ -107,7 +109,6 @@ This template intentionally does not include:
 - CQRS / Event Sourcing
 - Socket.IO
 - Kubernetes manifests
-- Multi-tenancy
 - AWS-specific integrations
 
 These can be added as extensions, but are intentionally excluded from the core template to keep the foundation deterministic, maintainable, and broadly applicable.
@@ -162,10 +163,27 @@ npm run worker
 ## 📂 Project Structure
 
 ```text
+prisma/
+├── schema/                 # Modular Prisma schemas
+│   ├── auth.prisma         # Authentication & Sessions
+│   ├── catalog.prisma      # Products & Categories
+│   ├── commerce.prisma     # Orders & Carts
+│   ├── inventory.prisma    # Stock & Locations
+│   ├── tenant.prisma       # Tenants & Memberships
+│   └── ...                 # Other domains
+├── migrations/             # Generated database migrations
+└── seed.ts                 # Database seeder
+
 src/
-├── controllers/            # HTTP request handlers (thin layer, no business logic)
-├── services/               # Business logic, orchestrates repos + publishes events
-├── repositories/           # Data access via Prisma
+├── modules/                # Domain-driven feature modules
+│   ├── auth/               # auth.controller.ts, auth.service.ts, auth.repository.ts
+│   ├── catalog/            # product.*, category.*, attribute.*
+│   ├── commerce/           # order.*, cart.*, payment.*
+│   ├── inventory/          # inventory.*
+│   ├── storefront/         # storefront.*, size-guide.*
+│   ├── system/             # notifications, analytics, jobs
+│   ├── tenant/             # tenant.*, audit.*
+│   └── ...                 # Other domain modules
 ├── middleware/
 │   ├── correlation.middleware.ts   # Assigns requestId + correlationId to every request
 │   ├── auth.middleware.ts

@@ -225,7 +225,7 @@ export async function seedInventory(prisma: PrismaClient) {
 
     for (let i = 0; i < variants.length; i++) {
       const variant = variants[i];
-      const baseStock = variant.stock || 100;
+      const baseStock = 100; // stock is now managed via InventoryStock, not the variant
 
       // Primary warehouse holds the majority of stock for every variant
       await prisma.inventoryStock.upsert({

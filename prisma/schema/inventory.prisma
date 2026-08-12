@@ -1,0 +1,111 @@
+// ==============================================================================
+// INVENTORY: LOCATIONS, STOCK, RESERVATIONS & TRANSACTIONS
+// ==============================================================================
+
+enum InventoryTransactionType {
+  PURCHASE
+  SALE
+  RETURN
+  SUPPLIER_SYNC
+  MANUAL_ADJUSTMENT
+}
+
+enum InventoryReservationStatus {
+  PENDING
+  CONFIRMED
+  RELEASED
+  CANCELLED
+}
+
+/// Physical or virtual stock location (Warehouse, Retail Store, Supplier Hub).
+model InventoryLocation {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String // e.g. "Main Warehouse", "Downtown Store"
+  code      String // e.g. "WH-MAIN-01"
+  type      String // "WAREHOUSE" | "RETAIL_STORE" | "SUPPLIER_HUB" | "VIRTUAL"
+  isPrimary Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  address   Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  stocks       InventoryStock[]
+  reservations InventoryReservation[]
+
+  @@unique([tenantId, code])
+  @@unique([tenantId, id])
+  @@index([tenantId])
+  @@map("inventory_locations")
+}
+
+model InventoryReservation {
+  id          String                     @id @default(uuid())
+  tenantId    String
+  variantId   String
+  locationId  String
+  referenceId String? // e.g. cartId, orderId
+  quantity    Int
+  status      InventoryReservationStatus @default(PENDING)
+  expiresAt   DateTime?
+  releasedAt  DateTime?
+  createdAt   DateTime                   @default(now())
+  updatedAt   DateTime                   @updatedAt
+
+  tenant   Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  variant  CatalogProductVariant @relation(fields: [tenantId, variantId], references: [tenantId, id], onDelete: Cascade)
+  location InventoryLocation     @relation(fields: [tenantId, locationId], references: [tenantId, id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([variantId])
+  @@index([locationId])
+  @@index([referenceId])
+  @@index([expiresAt])
+  @@map("inventory_reservations")
+}
+
+/// Multi-location inventory stock count per variant & location.
+model InventoryStock {
+  id           String   @id @default(uuid())
+  tenantId     String
+  variantId    String
+  locationId   String
+  onHand       Int      @default(0) // Physical count in warehouse
+  reserved     Int      @default(0) // Locked in active checkouts/pending orders
+  available    Int      @default(0) // Computed / stored (onHand - reserved)
+  reorderPoint Int      @default(5)
+  version      Int      @default(1) // Optimistic concurrency version
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant   Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  variant  CatalogProductVariant @relation(fields: [tenantId, variantId], references: [tenantId, id], onDelete: Cascade)
+  location InventoryLocation     @relation(fields: [tenantId, locationId], references: [tenantId, id], onDelete: Cascade)
+
+  @@unique([variantId, locationId])
+  @@index([tenantId])
+  @@index([variantId])
+  @@index([locationId])
+  @@map("inventory_stocks")
+}
+
+model InventoryTransaction {
+  id               String                   @id @default(uuid())
+  tenantId         String
+  productVariantId String
+  type             InventoryTransactionType
+  quantity         Int // Positive (restock/return) or negative (sale)
+  previousStock    Int
+  newStock         Int
+  referenceId      String? // e.g. orderId or supplierSyncLogId
+  notes            String?
+  createdAt        DateTime                 @default(now())
+
+  tenant         Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productVariant CatalogProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([productVariantId])
+  @@map("inventory_transactions")
+}

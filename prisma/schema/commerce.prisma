@@ -1,0 +1,500 @@
+// ==============================================================================
+// COMMERCE: CUSTOMERS, CARTS, ORDERS, PAYMENTS, SHIPMENTS, COUPONS,
+//           RETURNS, REFUNDS & TAX ENGINE
+// ==============================================================================
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  PARTIALLY_FULFILLED
+  FULFILLED
+  CANCELLED
+  REFUNDED
+}
+
+enum SupplierOrderStatus {
+  PENDING
+  PLACED
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  CREATED
+  PENDING
+  PROCESSING
+  WAITING_CONFIRMATION
+  PAID
+  FAILED
+  CANCELLED
+  REFUNDED
+  VOID
+  EXPIRED
+}
+
+enum ShipmentStatus {
+  PENDING
+  LABEL_CREATED
+  PICKED_UP
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
+  RETURNED
+}
+
+enum PaymentGateway {
+  PAYMONGO
+  STRIPE
+  PAYPAL
+  XENDIT
+  MAYA
+}
+
+enum PaymentChannel {
+  CARD
+  EWALLET
+  BANK_TRANSFER
+  QR
+  CASH_ON_DELIVERY
+}
+
+enum PaymentInstrument {
+  VISA
+  MASTERCARD
+  AMEX
+  GCASH
+  MAYA
+  BPI
+  BDO
+  METROBANK
+  QRPH
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  FREE_SHIPPING
+}
+
+enum ReturnStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RECEIVED
+  COMPLETED
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model CommerceCustomer {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  email     String   @unique
+  firstName String?
+  lastName  String?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user       AuthUser                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  addresses  CommerceShippingAddress[]
+  carts      CommerceCart[]
+  orders     CommerceOrder[]
+  reviews    ProductReview[]
+  wishlists  Wishlist[]
+  returns    Return[]
+  statistics AnalyticsCustomer[]
+
+  @@map("commerce_customers")
+}
+
+model CommerceShippingAddress {
+  id           String   @id @default(uuid())
+  customerId   String
+  fullName     String
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  state        String?
+  postalCode   String
+  country      String
+  phone        String?
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  customer CommerceCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  orders   CommerceOrder[]
+
+  @@index([customerId])
+  @@map("commerce_shipping_addresses")
+}
+
+model CommerceCart {
+  id         String   @id @default(uuid())
+  tenantId   String
+  customerId String?
+  sessionId  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant   Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer CommerceCustomer?  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  items    CommerceCartItem[]
+
+  @@unique([tenantId, customerId])
+  @@unique([tenantId, sessionId])
+  @@index([customerId])
+  @@index([tenantId])
+  @@map("commerce_carts")
+}
+
+model CommerceCartItem {
+  id               String   @id @default(uuid())
+  tenantId         String
+  cartId           String
+  productVariantId String
+  quantity         Int      @default(1)
+  unitPrice        Decimal  @db.Decimal(18, 4)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  tenant         Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  cart           CommerceCart          @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productVariant CatalogProductVariant @relation(fields: [tenantId, productVariantId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([cartId, productVariantId])
+  @@index([tenantId])
+  @@map("commerce_cart_items")
+}
+
+model CommerceOrder {
+  id       String @id @default(uuid())
+  tenantId String
+
+  /// Human-readable reference shown to customers and used in support tickets.
+  /// Backed by a Postgres sequence (order_number_seq) so concurrent checkouts
+  /// cannot collide — never generate this in application code.
+  orderNumber String @default(dbgenerated("('ORD-'::text || lpad((nextval('order_number_seq'::regclass))::text, 8, '0'::text))"))
+
+  status OrderStatus @default(PENDING)
+
+  // Money breakdown. total = subtotal - discount + tax + shipping.
+  // Each component is stored rather than derived so a historical order still
+  // reproduces exactly what the customer was charged, even after tax rates change.
+  subtotal       Decimal @default(0) @db.Decimal(18, 4)
+  discountAmount Decimal @default(0) @db.Decimal(18, 4)
+  taxAmount      Decimal @default(0) @db.Decimal(18, 4)
+  shippingAmount Decimal @default(0) @db.Decimal(18, 4)
+  totalAmount    Decimal @db.Decimal(18, 4)
+
+  currency          String   @default("USD")
+  customerId        String?
+  sessionId         String?
+  shippingAddressId String?
+  couponId          String?
+  promotionId       String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  /// Set the moment this order's revenue was folded into the analytics rollups.
+  /// The rollups are += aggregates with no memory of which orders fed them, so
+  /// this is what makes recording exactly-once: the recorder claims the order by
+  /// flipping this from NULL in the same transaction, and a duplicate webhook or
+  /// a replayed job claims nothing and returns.
+  analyticsRecordedAt DateTime?
+
+  tenant          Tenant                   @relation(fields: [tenantId], references: [id])
+  customer        CommerceCustomer?        @relation(fields: [customerId], references: [id])
+  shippingAddress CommerceShippingAddress? @relation(fields: [shippingAddressId], references: [id])
+  coupon          Coupon?                  @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  promotion       Promotion?               @relation(fields: [promotionId], references: [id], onDelete: SetNull)
+  items           CommerceOrderItem[]
+  supplierOrders  CommerceSupplierOrder[] // 1 order -> N supplier fulfillments
+  payments        CommercePayment[]
+  returns         Return[]
+  refunds         Refund[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, orderNumber])
+  @@index([tenantId])
+  @@index([customerId])
+  @@index([shippingAddressId])
+  @@index([couponId])
+  @@index([promotionId])
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+  @@map("commerce_orders")
+}
+
+model CommerceOrderItem {
+  id               String  @id @default(uuid())
+  tenantId         String
+  orderId          String
+  productVariantId String
+  quantity         Int
+  unitPrice        Decimal @db.Decimal(18, 4)
+  supplierOrderId  String?
+
+  // Immutable historical order snapshot fields
+  productTitle String   @default("Unknown Product")
+  variantTitle String?
+  sku          String?
+  imageUrl     String?
+  attributes   Json?
+  taxRate      Decimal? @db.Decimal(5, 4)
+  supplierCost Decimal? @db.Decimal(18, 4)
+
+  tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  order          CommerceOrder          @relation(fields: [orderId], references: [id])
+  productVariant CatalogProductVariant  @relation(fields: [tenantId, productVariantId], references: [tenantId, id], onDelete: Restrict)
+  supplierOrder  CommerceSupplierOrder? @relation(fields: [supplierOrderId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([orderId])
+  @@index([productVariantId])
+  @@index([supplierOrderId])
+  @@map("commerce_order_items")
+}
+
+model CommerceSupplierOrder {
+  id          String              @id @default(uuid())
+  orderId     String
+  supplierId  String
+  externalId  String? // Supplier's order ID after placement
+  status      SupplierOrderStatus @default(PENDING)
+  rawResponse Json? // Full supplier order response
+  trackingNum String?
+  placedAt    DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  order     CommerceOrder       @relation(fields: [orderId], references: [id])
+  supplier  SupplierPartner     @relation(fields: [supplierId], references: [id])
+  shipments CommerceShipment[]
+  items     CommerceOrderItem[]
+
+  @@index([orderId])
+  @@index([supplierId])
+  @@map("commerce_supplier_orders")
+}
+
+model CommerceShipment {
+  id                String         @id @default(uuid())
+  supplierOrderId   String
+  trackingNumber    String?
+  carrier           String?
+  status            ShipmentStatus @default(PENDING)
+  shippedAt         DateTime?
+  estimatedDelivery DateTime?
+  deliveredAt       DateTime?
+  details           Json?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  supplierOrder CommerceSupplierOrder @relation(fields: [supplierOrderId], references: [id], onDelete: Cascade)
+
+  @@index([supplierOrderId])
+  @@map("commerce_shipments")
+}
+
+model CommercePayment {
+  id                   String             @id @default(uuid())
+  orderId              String
+  gateway              PaymentGateway? // Must be set explicitly by the merchant
+  channel              PaymentChannel? // Must be set explicitly by the merchant
+  instrument           PaymentInstrument?
+  expectedAmount       Decimal            @db.Decimal(18, 4)
+  amount               Decimal            @db.Decimal(18, 4)
+  currency             String             @default("PHP")
+  status               PaymentStatus      @default(CREATED)
+  version              Int                @default(1)
+  idempotencyKey       String?            @unique
+  gatewayTransactionId String?
+  gatewayPaymentId     String?
+  gatewayResponse      Json?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  order    CommerceOrder            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  attempts CommercePaymentAttempt[]
+  events   CommercePaymentEvent[]
+
+  @@index([orderId])
+  @@index([status])
+  @@index([gateway])
+  @@index([createdAt])
+  @@index([gatewayTransactionId])
+  @@map("commerce_payments")
+}
+
+model CommercePaymentAttempt {
+  id           String        @id @default(uuid())
+  paymentId    String
+  amount       Decimal       @db.Decimal(18, 4)
+  status       PaymentStatus @default(PENDING)
+  errorMessage String?
+  rawResponse  Json?
+  createdAt    DateTime      @default(now())
+
+  payment CommercePayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@map("commerce_payment_attempts")
+}
+
+model CommercePaymentEvent {
+  id        String        @id @default(uuid())
+  paymentId String
+  status    PaymentStatus
+  message   String?
+  data      Json?
+  createdAt DateTime      @default(now())
+
+  payment CommercePayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@index([createdAt])
+  @@map("commerce_payment_events")
+}
+
+model CommerceWebhookEvent {
+  id              String     @id @default(uuid())
+  provider        String // e.g. "PAYMONGO", "CJ_DROPSHIPPING"
+  /// The provider's own event ID. Gateways retry on any non-2xx response, so this
+  /// is what stops a retry from being processed twice. When a provider sends no
+  /// event ID, callers pass a SHA-256 of the raw body instead — never a random
+  /// value, or the uniqueness below stops meaning anything.
+  externalEventId String
+  eventType       String
+  payload         Json
+  status          SyncStatus @default(PENDING)
+  errorMessage    String?
+  processedAt     DateTime?
+  createdAt       DateTime   @default(now())
+
+  @@unique([provider, externalEventId])
+  @@index([status, createdAt])
+  @@map("commerce_webhook_events")
+}
+
+model Coupon {
+  id            String       @id @default(uuid())
+  tenantId      String
+  code          String
+  discountType  DiscountType @default(PERCENTAGE)
+  discountValue Decimal      @db.Decimal(18, 4)
+  minOrderValue Decimal?     @db.Decimal(18, 4)
+  maxDiscount   Decimal?     @db.Decimal(18, 4)
+  usageLimit    Int?
+  usageCount    Int          @default(0)
+  expiresAt     DateTime?
+  isActive      Boolean      @default(true)
+  deletedAt     DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  tenant Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orders CommerceOrder[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([tenantId, deletedAt])
+  @@map("coupons")
+}
+
+model Return {
+  id         String       @id @default(uuid())
+  tenantId   String
+  orderId    String
+  customerId String
+  reason     String
+  status     ReturnStatus @default(PENDING)
+  notes      String?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  order    CommerceOrder    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customer CommerceCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  refund   Refund?
+
+  @@index([tenantId])
+  @@index([orderId])
+  @@index([customerId])
+  @@map("returns")
+}
+
+model Refund {
+  id            String       @id @default(uuid())
+  tenantId      String
+  orderId       String
+  returnId      String?      @unique
+  amount        Decimal      @db.Decimal(18, 4)
+  reason        String?
+  status        RefundStatus @default(PENDING)
+  transactionId String?      @unique
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  tenant Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  order  CommerceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  return Return?       @relation(fields: [returnId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([orderId])
+  @@map("refunds")
+}
+
+// --- Tax Engine ---
+
+model TaxClass {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String // e.g. "Standard Goods", "Reduced VAT", "Digital Services"
+  code        String // e.g. "STANDARD", "REDUCED", "ZERO"
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rates    TaxRate[]
+  products CatalogProduct[]
+
+  @@unique([tenantId, code])
+  @@unique([tenantId, id])
+  @@index([tenantId])
+  @@map("tax_classes")
+}
+
+model TaxRate {
+  id         String   @id @default(uuid())
+  tenantId   String
+  taxClassId String?
+  name       String // e.g. "VAT 12%", "California Sales Tax"
+  rate       Decimal  @db.Decimal(5, 4) // e.g. 0.1200 for 12%
+  country    String // ISO 2-letter country code e.g. "PH", "US"
+  state      String? // State / province code e.g. "CA", "NY"
+  postalCode String?
+  isCombined Boolean  @default(false)
+  priority   Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  taxClass TaxClass? @relation(fields: [tenantId, taxClassId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([taxClassId])
+  @@index([tenantId, country, state])
+  @@map("tax_rates")
+}

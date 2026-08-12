@@ -1,6 +1,6 @@
 import { rabbitmq } from '../infrastructure/rabbitmq';
-import { QUEUES, ROUTING_KEYS } from '../services/job-queue.service';
-import { JobService } from '../services/job.service';
+import { QUEUES, ROUTING_KEYS } from '../modules/system/job-queue.service';
+import { JobService } from '../modules/system/job.service';
 import { supplierRegistry } from '../suppliers/supplier.registry';
 import logger from '../utils/logger';
 import { workerMetrics } from '../utils/worker-metrics';
@@ -54,7 +54,6 @@ export const startProductSyncConsumer = async () => {
             if (rawData) {
               const rawObj = rawData as Record<string, unknown>;
               const costPrice = parseFloat(String(rawObj?.sellPrice || rawObj?.price || 0));
-              const stock = parseInt(String(rawObj?.inventory || rawObj?.stock || 0), 10);
 
               // Fetch existing mapping to get the PricingRule
               const existingMapping = await prisma.supplierProduct.findUnique({
@@ -115,7 +114,6 @@ export const startProductSyncConsumer = async () => {
                       where: { id: supplierVariant.productVariantId },
                       data: {
                         price: finalSellingPrice,
-                        stock: isNaN(stock) ? 0 : Math.max(0, stock), // If out of stock, set to 0
                       },
                     });
                   }

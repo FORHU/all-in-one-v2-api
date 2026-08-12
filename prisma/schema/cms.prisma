@@ -1,0 +1,99 @@
+// ==============================================================================
+// CMS: PAGES, BANNERS, ANNOUNCEMENTS & FAQS
+// ==============================================================================
+
+enum PageStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model CmsPage {
+  id          String     @id @default(uuid())
+  tenantId    String
+  slug        String
+  title       String
+  status      PageStatus @default(DRAFT)
+  seoMetadata Json?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sections CmsPageSection[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("cms_pages")
+}
+
+model CmsPageSection {
+  id        String   @id @default(uuid())
+  pageId    String
+  type      String // e.g. "HERO", "FEATURE_GRID", "TESTIMONIALS", "COLLECTION", "LOOKBOOK", "OUTFIT"
+  content   Json
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Optional direct link to a CatalogCollection for dynamic lookbook/bundle sections
+  collectionId String?
+
+  page       CmsPage            @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  collection CatalogCollection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+
+  @@index([pageId])
+  @@index([collectionId])
+  @@map("cms_page_sections")
+}
+
+model CmsBanner {
+  id          String   @id @default(uuid())
+  tenantId    String
+  imageFileId String? // Optional direct link to uploaded AuthFile
+  title       String
+  imageUrl    String
+  linkUrl     String?
+  isActive    Boolean  @default(true)
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  imageFile AuthFile? @relation("BannerImageFile", fields: [imageFileId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([imageFileId])
+  @@map("cms_banners")
+}
+
+model CmsAnnouncement {
+  id        String   @id @default(uuid())
+  tenantId  String
+  content   String
+  linkUrl   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("cms_announcements")
+}
+
+model CmsFAQ {
+  id        String   @id @default(uuid())
+  tenantId  String
+  question  String
+  answer    String
+  category  String?
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("cms_faqs")
+}

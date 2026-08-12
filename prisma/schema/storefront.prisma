@@ -1,0 +1,121 @@
+// ==============================================================================
+// STOREFRONT: MERCHANDISING PAGES & SECTIONS
+// ==============================================================================
+
+/// Which type of page this is.
+enum StorefrontPageType {
+  HOME
+  CATEGORY
+  PRODUCT
+  STORE
+  BRAND
+  SEARCH
+  CAMPAIGN
+  CUSTOM
+}
+
+enum StorefrontContextType {
+  CATEGORY
+  STORE
+  BRAND
+  CAMPAIGN
+}
+
+/// How the section is populated — this drives the strategy selected at runtime.
+enum StorefrontSectionStrategy {
+  MANUAL
+  COLLECTION
+  TRENDING
+  BEST_SELLERS
+  NEW_ARRIVALS
+  FLASH_SALE
+  FEATURED
+  RECOMMENDED
+}
+
+model StorefrontPage {
+  id       String @id @default(uuid())
+  tenantId String
+
+  title    String
+  slug     String
+  pageType StorefrontPageType
+
+  isPublished Boolean @default(true)
+
+  seoTitle       String?
+  seoDescription String?
+  layout         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant              @relation(fields: [tenantId], references: [id])
+  sections StorefrontSection[]
+
+  @@unique([tenantId, slug])
+  @@unique([tenantId, id])
+  @@index([tenantId, pageType])
+  @@index([tenantId, isPublished])
+  @@map("storefront_pages")
+}
+
+model StorefrontSection {
+  id       String @id @default(uuid())
+  tenantId String
+
+  title String
+  slug  String
+
+  pageId   String
+  strategy StorefrontSectionStrategy
+
+  sortOrder    Int  @default(0)
+  maxItems     Int  @default(20)
+  cacheMinutes Int?
+
+  isEnabled Boolean @default(true)
+
+  /// Strategy-specific parameters (e.g. recommendation thresholds, algorithm options).
+  config Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Bridge to a curated CatalogCollection (used when strategy = COLLECTION).
+  collectionId String?
+
+  /// Polymorphic Context Target
+  contextType StorefrontContextType?
+  contextId   String?
+
+  tenant      Tenant                  @relation(fields: [tenantId], references: [id])
+  page        StorefrontPage          @relation(fields: [tenantId, pageId], references: [tenantId, id], onDelete: Cascade)
+  collection  CatalogCollection?      @relation(fields: [tenantId, collectionId], references: [tenantId, id], onDelete: Restrict)
+  pinnedItems StorefrontSectionItem[]
+
+  @@unique([tenantId, slug])
+  @@index([pageId])
+  @@index([tenantId, strategy])
+  @@index([tenantId, isEnabled])
+  @@index([collectionId])
+  @@index([contextType, contextId])
+  @@map("storefront_sections")
+}
+
+model StorefrontSectionItem {
+  id String @id @default(uuid())
+
+  sectionId String
+  productId String
+
+  position Int
+
+  section StorefrontSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  product CatalogProduct    @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([sectionId, productId])
+  @@index([sectionId, position])
+  @@index([productId])
+  @@map("storefront_section_items")
+}

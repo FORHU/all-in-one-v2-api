@@ -755,6 +755,7 @@ export async function seedCommerce(prisma: PrismaClient) {
             totalAmount,
             items: {
               create: resolvedItems.map((i) => ({
+                tenantId,
                 productVariantId: i.productVariantId,
                 quantity: i.quantity,
                 unitPrice: i.unitPrice,
@@ -857,7 +858,7 @@ export async function seedCommerce(prisma: PrismaClient) {
 
       await prisma.analyticsProductSales.upsert({
         where: {
-          tenantId_productVariantId: { tenantId, productVariantId: firstProductVariant.id },
+          tenantId_productId: { tenantId, productId: firstProductVariant.productId },
         },
         update: {
           totalSold: 2,
@@ -867,7 +868,6 @@ export async function seedCommerce(prisma: PrismaClient) {
         create: {
           tenantId,
           productId: firstProductVariant.productId,
-          productVariantId: firstProductVariant.id,
           totalSold: 2,
           totalRevenue: Number(firstProductVariant.price) * 2,
           totalOrders: 1,

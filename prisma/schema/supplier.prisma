@@ -1,0 +1,198 @@
+// ==============================================================================
+// SUPPLIER: PARTNERS, CREDENTIALS, PRODUCTS, VARIANTS, IMAGES & SYNC JOBS
+// ==============================================================================
+
+enum SyncStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+model SupplierPartner {
+  id          String   @id @default(uuid())
+  name        String   @unique // e.g. "cj-dropshipping", "aliexpress", "zendrop"
+  displayName String
+  isActive    Boolean  @default(true)
+  config      Json? // API keys, base URLs, rate limits
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  credentials SupplierCredential[]
+  products    SupplierProduct[]
+  orders      CommerceSupplierOrder[]
+  syncLogs    SupplierSyncLog[]
+  syncJobs    SupplierSyncJob[]
+  statistics  AnalyticsSupplier[]
+
+  @@map("supplier_partners")
+}
+
+model SupplierCredential {
+  id          String    @id @default(uuid())
+  supplierId  String
+  environment String    @default("production") // e.g. "sandbox", "production"
+  apiKey      String?
+  apiSecret   String?
+  accessToken String?
+  expiresAt   DateTime?
+  config      Json?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  supplier SupplierPartner @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@index([supplierId])
+  @@map("supplier_credentials")
+}
+
+model SupplierSyncLog {
+  id               String     @id @default(uuid())
+  supplierId       String
+  action           String // e.g. "SYNC_PRODUCTS", "SYNC_ORDERS"
+  status           SyncStatus @default(PENDING)
+  recordsProcessed Int        @default(0)
+  details          Json?
+  errorMessage     String?
+  startedAt        DateTime   @default(now())
+  completedAt      DateTime?
+
+  supplier SupplierPartner @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@index([supplierId])
+  @@map("supplier_sync_logs")
+}
+
+model SupplierProduct {
+  id          String  @id @default(uuid())
+  supplierId  String
+  productId   String? // null = not yet mapped to catalog
+  externalId  String // Supplier's own product ID
+  externalSku String?
+
+  // Extracted / denormalised from rawData for easy display without JSON parsing
+  title        String? // Product name as given by supplier
+  description  String? // Product description from supplier
+  brand        String? // Brand name
+  thumbnailUrl String? // Primary image URL (convenience — mirrors first isPrimary image)
+
+  rawData          Json // Full supplier response (source of truth)
+  costPrice        Decimal    @db.Decimal(18, 4) // Wholesale supplier cost
+  retailPrice      Decimal?   @db.Decimal(18, 4) // Recommended MSRP / compare-at price from supplier
+  shippingEstimate Decimal?   @db.Decimal(18, 4)
+  syncStatus       SyncStatus @default(PENDING)
+  lastSyncError    String?
+  lastSyncedAt     DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  supplier SupplierPartner        @relation(fields: [supplierId], references: [id])
+  product  CatalogProduct?        @relation(fields: [productId], references: [id])
+  variants SupplierVariant[]
+  images   SupplierProductImage[]
+
+  @@unique([supplierId, externalId])
+  @@index([supplierId])
+  @@index([productId])
+  @@map("supplier_products")
+}
+
+model SupplierVariant {
+  id                String     @id @default(uuid())
+  supplierProductId String
+  productVariantId  String? // null = not yet mapped
+  externalId        String
+  costPrice         Decimal    @db.Decimal(18, 4) // Wholesale supplier cost
+  retailPrice       Decimal?   @db.Decimal(18, 4) // Recommended MSRP / compare-at price for this variant
+  rawData           Json
+  stock             Int?
+  syncStatus        SyncStatus @default(PENDING)
+  lastSyncError     String?
+  lastSyncedAt      DateTime?
+
+  // Extracted / denormalised from rawData for easy display
+  title        String? // Variant name/label (e.g. "Red / XL")
+  thumbnailUrl String? // Primary image (convenience — mirrors first isPrimary image)
+  attributes   Json? // e.g. { color: "Red", size: "XL" }
+
+  supplierProduct SupplierProduct        @relation(fields: [supplierProductId], references: [id])
+  productVariant  CatalogProductVariant? @relation(fields: [productVariantId], references: [id])
+  images          SupplierVariantImage[]
+
+  @@unique([supplierProductId, externalId])
+  @@map("supplier_variants")
+}
+
+/// One image belonging to a supplier product.
+/// Mirrors CatalogProductMedia but lives on the supplier side,
+/// so we can show images before a product is mapped into the catalog.
+model SupplierProductImage {
+  id                String   @id @default(uuid())
+  supplierProductId String
+  fileId            String? // Optional direct link to uploaded AuthFile
+  url               String // Full image URL from supplier
+  thumbnailUrl      String? // Resized/compressed thumbnail if available
+  altText           String? // Accessibility / SEO alt text
+  position          Int      @default(0) // Display order (0 = first)
+  isPrimary         Boolean  @default(false) // True for the hero/cover image
+  type              String   @default("IMAGE") // "IMAGE" | "VIDEO" | "GIF"
+  createdAt         DateTime @default(now())
+
+  supplierProduct SupplierProduct @relation(fields: [supplierProductId], references: [id], onDelete: Cascade)
+  file            AuthFile?       @relation(fields: [fileId], references: [id], onDelete: SetNull)
+
+  @@index([supplierProductId, position])
+  @@index([supplierProductId, isPrimary])
+  @@index([fileId])
+  @@map("supplier_product_images")
+}
+
+/// One image belonging to a supplier variant (e.g. each colour swatch has its own photo).
+/// Mirrors SupplierProductImage but scoped to a specific variant.
+model SupplierVariantImage {
+  id                String   @id @default(uuid())
+  supplierVariantId String
+  fileId            String? // Optional direct link to uploaded AuthFile
+  url               String // Full image URL from supplier
+  thumbnailUrl      String? // Resized/compressed thumbnail if available
+  altText           String? // Accessibility / SEO alt text
+  position          Int      @default(0) // Display order (0 = first)
+  isPrimary         Boolean  @default(false) // True for the hero image of this variant
+  type              String   @default("IMAGE") // "IMAGE" | "VIDEO" | "GIF"
+  createdAt         DateTime @default(now())
+
+  supplierVariant SupplierVariant @relation(fields: [supplierVariantId], references: [id], onDelete: Cascade)
+  file            AuthFile?       @relation(fields: [fileId], references: [id], onDelete: SetNull)
+
+  @@index([supplierVariantId, position])
+  @@index([supplierVariantId, isPrimary])
+  @@index([fileId])
+  @@map("supplier_variant_images")
+}
+
+model SupplierSyncJob {
+  id           String     @id @default(uuid())
+  tenantId     String
+  supplierId   String
+  action       String // "SYNC_PRODUCTS" | "SYNC_INVENTORY" | "SYNC_ORDERS"
+  status       SyncStatus @default(PENDING)
+  priority     Int        @default(0)
+  retries      Int        @default(0)
+  maxRetries   Int        @default(3)
+  scheduledAt  DateTime?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  lockOwner    String?
+  payload      Json?
+  errorMessage String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier SupplierPartner @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@index([supplierId])
+  @@index([scheduledAt])
+  @@map("supplier_sync_jobs")
+}

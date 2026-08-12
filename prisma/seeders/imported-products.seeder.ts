@@ -7693,7 +7693,6 @@ export async function seedImportedProducts(prisma: PrismaClient) {
           baseCost: v.costPrice,
           sellingPrice: v.sellingPrice,
           calculatedPrice: v.sellingPrice,
-          stock: v.stock,
           attributes: { title: v.title },
         },
         create: {
@@ -7705,7 +7704,6 @@ export async function seedImportedProducts(prisma: PrismaClient) {
           baseCost: v.costPrice,
           sellingPrice: v.sellingPrice,
           calculatedPrice: v.sellingPrice,
-          stock: v.stock,
           attributes: { title: v.title },
         },
       });

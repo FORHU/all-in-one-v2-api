@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { UserRole } from '@prisma/client';
-import AuthRepo from '../repositories/auth.repository';
+import AuthRepo from '../modules/auth/auth.repository';
 import { ACCESS_TOKEN_SECRET } from '../config';
 
 type AuthUser = NonNullable<Awaited<ReturnType<typeof AuthRepo.findUserById>>>;
