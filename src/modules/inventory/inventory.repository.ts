@@ -1,14 +1,52 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../utils/prisma';
+import { paginate } from '../../helpers/pagination.helper';
 
 export default class InventoryRepository {
+  private static readonly LOCATION_SORTABLE_FIELDS = new Set([
+    'name',
+    'code',
+    'type',
+    'createdAt',
+    'updatedAt',
+  ]);
+
+  private static readonly TRANSACTION_SORTABLE_FIELDS = new Set(['createdAt', 'quantity', 'type']);
+
   // ─── Locations ─────────────────────────────────────────────────────────────
 
-  /** Find all inventory locations for a tenant */
-  static async findAllLocations(tenantId: string) {
-    return prisma.inventoryLocation.findMany({
-      where: { tenantId },
-      orderBy: { isPrimary: 'desc' },
+  /** Paginated inventory locations for a tenant, optionally searched by name/code. */
+  static async findAllLocations(
+    tenantId: string,
+    page = 1,
+    limit = 20,
+    search?: string,
+    sortBy?: string,
+    sortOrder?: 'asc' | 'desc',
+  ) {
+    const where: Prisma.InventoryLocationWhereInput = {
+      tenantId,
+      ...(search && {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { code: { contains: search, mode: 'insensitive' } },
+        ],
+      }),
+    };
+
+    const orderBy: Prisma.InventoryLocationOrderByWithRelationInput =
+      sortBy && this.LOCATION_SORTABLE_FIELDS.has(sortBy)
+        ? { [sortBy]: sortOrder ?? 'asc' }
+        : { isPrimary: 'desc' };
+
+    return paginate(prisma.inventoryLocation, {
+      where,
+      orderBy,
+      page,
+      limit,
+      search,
+      sortBy,
+      sortOrder,
     });
   }
 
@@ -207,13 +245,32 @@ export default class InventoryRepository {
   }
 
   // New models added for 100% coverage
-  static async getTransactions(tenantId: string, locationId: string, variantId?: string) {
-    return prisma.inventoryTransaction.findMany({
-      where: {
-        tenantId,
-        ...(variantId ? { productVariantId: variantId } : {}),
-      },
-      orderBy: { createdAt: 'desc' },
+  static async getTransactions(
+    tenantId: string,
+    locationId?: string,
+    variantId?: string,
+    page = 1,
+    limit = 20,
+    sortBy?: string,
+    sortOrder?: 'asc' | 'desc',
+  ) {
+    const where: Prisma.InventoryTransactionWhereInput = {
+      tenantId,
+      ...(variantId ? { productVariantId: variantId } : {}),
+    };
+
+    const orderBy: Prisma.InventoryTransactionOrderByWithRelationInput =
+      sortBy && this.TRANSACTION_SORTABLE_FIELDS.has(sortBy)
+        ? { [sortBy]: sortOrder ?? 'asc' }
+        : { createdAt: 'desc' };
+
+    return paginate(prisma.inventoryTransaction, {
+      where,
+      orderBy,
+      page,
+      limit,
+      sortBy,
+      sortOrder,
     });
   }
 }

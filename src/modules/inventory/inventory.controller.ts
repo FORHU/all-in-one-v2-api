@@ -1,11 +1,15 @@
 import { Request, Response, NextFunction } from 'express';
 import InventoryService from './inventory.service';
 import { responseSuccess } from '../../helpers/response.helper';
+import { parsePagination } from '../../helpers/pagination.helper';
 
 export default class InventoryController {
   static async listLocations(req: Request, res: Response, next: NextFunction) {
     try {
-      const locations = await InventoryService.getLocations();
+      const { page, limit, search, sortBy, sortOrder } = parsePagination(
+        req.query as Record<string, unknown>,
+      );
+      const locations = await InventoryService.getLocations(page, limit, search, sortBy, sortOrder);
       return responseSuccess(res, 200, locations);
     } catch (error) {
       next(error);
@@ -60,10 +64,17 @@ export default class InventoryController {
 
   static async getTransactions(req: Request, res: Response, next: NextFunction) {
     try {
+      const { page, limit, sortBy, sortOrder } = parsePagination(
+        req.query as Record<string, unknown>,
+      );
       const { locationId, variantId } = req.query;
       const transactions = await InventoryService.getTransactions(
-        locationId as string,
+        locationId as string | undefined,
         variantId as string | undefined,
+        page,
+        limit,
+        sortBy,
+        sortOrder,
       );
       return responseSuccess(res, 200, transactions);
     } catch (error) {
