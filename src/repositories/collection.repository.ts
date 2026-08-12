@@ -7,6 +7,13 @@ import { prisma } from '../utils/prisma';
  * collection items linked to CatalogProduct.
  */
 
+// `omit: { brand: true }` on every nested `product` include below — the
+// catalog_products.brand column doesn't exist yet (pending migration
+// 20260807071552_add_catalog_product_brand), and Prisma selects all scalar
+// columns by default whenever a relation is `include`d, so any collection
+// query that touches CatalogProduct throws without this. Same fix as
+// product.repository.ts's findAllForAdmin.
+
 // Reusable include shape for a collection with its full tree
 const collectionWithItems = {
   items: {
@@ -17,6 +24,7 @@ const collectionWithItems = {
           media: { where: { isPrimary: true }, take: 1 },
           variants: { take: 1 },
         },
+        omit: { brand: true },
       },
       productVariant: true,
     },
@@ -31,6 +39,7 @@ const collectionWithItems = {
               media: { where: { isPrimary: true }, take: 1 },
               variants: { take: 1 },
             },
+            omit: { brand: true },
           },
           productVariant: true,
         },
@@ -139,7 +148,10 @@ export default class CollectionRepository {
     return prisma.catalogCollectionItem.create({
       data: { collectionId, ...data },
       include: {
-        product: { include: { media: { where: { isPrimary: true }, take: 1 } } },
+        product: {
+          include: { media: { where: { isPrimary: true }, take: 1 } },
+          omit: { brand: true },
+        },
         productVariant: true,
       },
     });
@@ -150,7 +162,10 @@ export default class CollectionRepository {
       where: { id: itemId },
       data,
       include: {
-        product: { include: { media: { where: { isPrimary: true }, take: 1 } } },
+        product: {
+          include: { media: { where: { isPrimary: true }, take: 1 } },
+          omit: { brand: true },
+        },
         productVariant: true,
       },
     });
