@@ -17,7 +17,7 @@ import AnalyticsRollupService from '../system/analytics-rollup.service';
 import NotificationRepository from '../system/notification.repository';
 import Stripe from 'stripe';
 
-const stripe = new Stripe((process.env.STRIPE_SECRET_KEY as string) || '', {
+const stripe = new Stripe((process.env.STRIPE_SECRET_KEY as string) || 'sk_test_123', {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   apiVersion: '2026-07-29.dahlia' as any,
 });

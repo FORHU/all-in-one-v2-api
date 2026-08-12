@@ -87,27 +87,37 @@ export default class AuthSvc {
    * the old one stops working immediately.
    */
   static async refreshToken(refreshToken: string) {
-    let decoded: { userId: string };
+    let decoded: { userId: string; sessionId: string };
 
     try {
-      decoded = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET) as { userId: string };
+      decoded = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET) as { userId: string; sessionId: string };
     } catch {
       throw { status: 401, message: 'Invalid refresh token' };
     }
 
-    // The token must also correspond to a live session, and that session must
-    // belong to the user the token claims to be.
-    const session = await AuthRepo.findValidSession(refreshToken);
-    if (!session || session.userId !== decoded.userId) {
-      throw { status: 401, message: 'Invalid refresh token' };
+    if (!decoded.sessionId) {
+      throw { status: 401, message: 'Invalid refresh token payload' };
+    }
+
+    const session = await AuthRepo.findSessionById(decoded.sessionId);
+    
+    // If the session does not exist, or has expired
+    if (!session || session.userId !== decoded.userId || session.expiresAt < new Date()) {
+      throw { status: 401, message: 'Invalid or expired session' };
+    }
+
+    // Token Reuse Detection
+    if (session.refreshTokenHash !== refreshToken) {
+      logger.warn(`Token Reuse Detected! Revoking session ${decoded.sessionId} for user ${decoded.userId}`);
+      await AuthRepo.deleteSessionById(decoded.sessionId);
+      throw { status: 401, message: 'Token reuse detected. Session revoked.' };
     }
 
     const user = await AuthRepo.findUserById(decoded.userId);
     if (!user || user.isDeleted) throw { status: 401, message: 'Invalid refresh token' };
 
-    await AuthRepo.deleteSession(refreshToken);
-
-    return this.generateAuthResponse(user, session.provider || 'local');
+    // Rotate the token for this session family
+    return this.generateAuthResponse(user, session.provider || 'local', decoded.sessionId);
   }
 
   /**
@@ -115,7 +125,14 @@ export default class AuthSvc {
    */
   static async logout(userId: string, refreshToken?: string) {
     if (refreshToken) {
-      await AuthRepo.deleteSession(refreshToken);
+      try {
+        const decoded = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET, { ignoreExpiration: true }) as { sessionId?: string };
+        if (decoded?.sessionId) {
+          await AuthRepo.deleteSessionById(decoded.sessionId);
+        }
+      } catch (err) {
+        logger.warn(`Failed to decode token during logout for user ${userId}`);
+      }
     }
     await CacheUtil.del(`user:${userId}`);
     return { message: 'Logged out successfully' };
@@ -124,23 +141,32 @@ export default class AuthSvc {
   /**
    * Internal helper to generate tokens and session
    */
-  private static async generateAuthResponse(user: AuthUserPayload, provider: string) {
+  private static async generateAuthResponse(user: AuthUserPayload, provider: string, existingSessionId?: string) {
+    const sessionId = existingSessionId || crypto.randomUUID();
+
     const accessToken = jwt.sign({ userId: user.id }, ACCESS_TOKEN_SECRET, {
       expiresIn: ACCESS_TOKEN_EXPIRY as jwt.SignOptions['expiresIn'],
     });
 
     const refreshToken = jwt.sign(
-      { userId: user.id, jti: crypto.randomBytes(16).toString('hex') },
+      { userId: user.id, sessionId, jti: crypto.randomBytes(16).toString('hex') },
       REFRESH_TOKEN_SECRET,
       { expiresIn: REFRESH_TOKEN_EXPIRY },
     );
 
-    await AuthRepo.createSession({
-      userId: user.id,
-      refreshTokenHash: refreshToken,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-      provider,
-    });
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+    if (existingSessionId) {
+      await AuthRepo.updateSession(sessionId, { refreshTokenHash: refreshToken, expiresAt });
+    } else {
+      await AuthRepo.createSession({
+        id: sessionId,
+        userId: user.id,
+        refreshTokenHash: refreshToken,
+        expiresAt,
+        provider,
+      });
+    }
 
     // Build the public shape once and cache *that*. Callers may hand us a full
     // Prisma User (the refresh path does), which carries the password hash —
