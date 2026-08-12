@@ -23,7 +23,8 @@ export const getPartners = async (req: Request, res: Response, next: NextFunctio
 
 export const getSyncJobs = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const jobs = await SupplierService.getSyncJobs();
+    const { page, limit } = parsePagination(req.query as Record<string, unknown>);
+    const jobs = await SupplierService.getSyncJobs(page, limit);
     return responseSuccess(res, 200, jobs);
   } catch (error) {
     next(error);
