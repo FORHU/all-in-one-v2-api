@@ -4,8 +4,21 @@ import { requireTenantId } from '../../utils/async-context';
 import { Prisma } from '@prisma/client';
 
 export default class InventoryService {
-  static async getLocations() {
-    return InventoryRepository.findAllLocations(requireTenantId());
+  static async getLocations(
+    page?: number,
+    limit?: number,
+    search?: string,
+    sortBy?: string,
+    sortOrder?: 'asc' | 'desc',
+  ) {
+    return InventoryRepository.findAllLocations(
+      requireTenantId(),
+      page,
+      limit,
+      search,
+      sortBy,
+      sortOrder,
+    );
   }
 
   static async getLocationById(id: string) {
@@ -54,8 +67,23 @@ export default class InventoryService {
     return InventoryRepository.reserveStock(variantId, locationId, quantity);
   }
 
-  static async getTransactions(locationId: string, variantId?: string) {
-    return InventoryRepository.getTransactions(requireTenantId(), locationId, variantId);
+  static async getTransactions(
+    locationId?: string,
+    variantId?: string,
+    page?: number,
+    limit?: number,
+    sortBy?: string,
+    sortOrder?: 'asc' | 'desc',
+  ) {
+    return InventoryRepository.getTransactions(
+      requireTenantId(),
+      locationId,
+      variantId,
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+    );
   }
 
   static async releaseReservation(variantId: string, locationId: string, quantity: number) {
