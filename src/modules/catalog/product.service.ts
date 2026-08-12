@@ -3,6 +3,7 @@ import ProductRepository, { ProductListingFilters, ProductListingRow } from './p
 import { requireTenantId } from '../../utils/async-context';
 import {
   mapProductToAdminListingDto,
+  mapProductToDetailDto,
   mapProductToListingDto,
 } from './product/mapper/product.mapper';
 
@@ -92,5 +93,14 @@ export default class ProductService {
       ...result,
       items: result.items.map(mapProductToAdminListingDto),
     };
+  }
+
+  static async getProductBySlug(slug: string) {
+    const tenantId = requireTenantId();
+    const product = await ProductRepository.findBySlugForDetail(tenantId, slug);
+    if (!product) return null;
+
+    const ratings = await ProductRepository.getRatingsForProducts([product.id]);
+    return mapProductToDetailDto(product, ratings.get(product.id));
   }
 }

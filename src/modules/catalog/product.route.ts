@@ -14,4 +14,6 @@ router.get('/', ProductController.list);
 // required. Must be registered before any `/:id`-shaped route is added here.
 router.get('/admin', authenticate, authorize(...ADMIN_ROLES), ProductController.adminList);
 
+router.get('/:slug', ProductController.getBySlug);
+
 export default router;

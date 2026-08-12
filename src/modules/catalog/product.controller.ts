@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import Joi from 'joi';
 import { ProductStatus } from '@prisma/client';
 import ProductService from './product.service';
-import { responseSuccess } from '../../helpers/response.helper';
+import { responseSuccess, responseError } from '../../helpers/response.helper';
 import { parsePagination } from '../../helpers/pagination.helper';
 
 const listQuerySchema = Joi.object({
@@ -68,6 +68,16 @@ export default class ProductController {
         status,
       );
       return responseSuccess(res, 200, result);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async getBySlug(req: Request, res: Response, next: NextFunction) {
+    try {
+      const product = await ProductService.getProductBySlug(req.params.slug);
+      if (!product) return responseError(res, 404, `Product '${req.params.slug}' not found`);
+      return responseSuccess(res, 200, product);
     } catch (err) {
       next(err);
     }
