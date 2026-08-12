@@ -1,3 +1,4 @@
+import { OAuth2Client } from 'google-auth-library';
 import AuthRepo from './auth.repository';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
@@ -5,6 +6,15 @@ import { UserRole } from '@prisma/client';
 import logger from '../../utils/logger';
 import CacheUtil from '../../utils/cache.util';
 import { hashPassword, verifyPassword, isLegacyHash } from '../../utils/password.util';
+import {
+  ACCESS_TOKEN_SECRET,
+  REFRESH_TOKEN_SECRET,
+  ACCESS_TOKEN_EXPIRY,
+  REFRESH_TOKEN_EXPIRY,
+  GOOGLE_CLIENT_ID,
+} from '../../config';
+
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 export interface AuthUserPayload {
   id: string;
@@ -15,13 +25,6 @@ export interface AuthUserPayload {
   onboardingCompleted: boolean;
   avatar?: { fileUrl: string | null } | null;
 }
-import {
-  ACCESS_TOKEN_SECRET,
-  REFRESH_TOKEN_SECRET,
-  ACCESS_TOKEN_EXPIRY,
-  REFRESH_TOKEN_EXPIRY,
-} from '../../config';
-
 export default class AuthSvc {
   /**
    * Register a new user
@@ -195,6 +198,77 @@ export default class AuthSvc {
     await CacheUtil.set(`user:${user.id}`, publicUser);
 
     return { accessToken, refreshToken, user: publicUser };
+  }
+
+  static async loginWithGoogle(idToken: string) {
+    if (!idToken) throw { status: 400, message: 'idToken is required' };
+
+    let payload;
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken,
+        audience: GOOGLE_CLIENT_ID || undefined,
+      });
+      payload = ticket.getPayload();
+    } catch {
+      throw { status: 401, message: 'Invalid Google ID token' };
+    }
+
+    if (!payload || !payload.email) {
+      throw { status: 401, message: 'Invalid Google token payload' };
+    }
+
+    if (!payload.email_verified) {
+      throw { status: 401, message: 'Google email is not verified' };
+    }
+
+    const { email, sub: googleUserId, name, picture } = payload;
+
+    // 1. Check if social account already exists for Google
+    const socialAccount = await AuthRepo.findSocialAccount('google', googleUserId);
+    let user;
+
+    if (socialAccount) {
+      user = socialAccount.user;
+    } else {
+      // 2. Check if AuthUser exists with this email (Unified Identity Model)
+      user = await AuthRepo.findUserByEmail(email);
+
+      if (!user) {
+        // Create brand new user
+        const baseUsername = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '');
+        const username = `${baseUsername}_${Math.floor(1000 + Math.random() * 9000)}`;
+
+        user = await AuthRepo.createUser({
+          email,
+          username,
+          name: name || baseUsername,
+          password: undefined, // Passwordless social user
+        });
+      } else {
+        // Ensure user is marked verified if Google verified it
+        if (!user.isEmailVerified) {
+          await AuthRepo.updateUser(user.id, { isEmailVerified: true });
+        }
+      }
+
+      // 3. Link Google social account to the user
+      await AuthRepo.createSocialAccount({
+        userId: user.id,
+        platform: 'google',
+        providerUserId: googleUserId,
+        accessToken: idToken,
+        avatarUrl: picture,
+      });
+    }
+
+    if (!user.isActive || user.isDeleted) {
+      throw { status: 401, message: 'Account is inactive or deleted' };
+    }
+
+    await AuthRepo.updateUser(user.id, { lastLoginAt: new Date() });
+
+    return this.generateAuthResponse(user, 'google');
   }
 
   static async getSocialAccounts(userId: string) {

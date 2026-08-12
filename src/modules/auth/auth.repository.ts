@@ -31,6 +31,8 @@ export default class AuthRepo {
         username: true,
         name: true,
         role: true,
+        isActive: true,
+        isDeleted: true,
         isEmailVerified: true,
         onboardingCompleted: true,
         createdAt: true,
@@ -148,10 +150,33 @@ export default class AuthRepo {
     });
   }
 
-  // New models added for 100% coverage
   static async getSocialAccounts(userId: string) {
     return prisma.authSocialAccount.findMany({
       where: { userId },
+    });
+  }
+
+  static async findSocialAccount(platform: string, providerUserId: string) {
+    return prisma.authSocialAccount.findUnique({
+      where: {
+        platform_providerUserId: {
+          platform,
+          providerUserId,
+        },
+      },
+      include: { user: true },
+    });
+  }
+
+  static async createSocialAccount(data: {
+    userId: string;
+    platform: string;
+    providerUserId: string;
+    accessToken: string;
+    avatarUrl?: string;
+  }) {
+    return prisma.authSocialAccount.create({
+      data,
     });
   }
 

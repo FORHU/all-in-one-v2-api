@@ -73,3 +73,5 @@ export const PRINTFUL_BASE_URL = process.env.PRINTFUL_BASE_URL || 'https://api.p
 export const PRINTFUL_API_KEY = process.env.PRINTFUL_API_KEY || '';
 export const PRINTFUL_STORE_ID = process.env.PRINTFUL_STORE_ID || '';
 export const PRINTFUL_RATE_LIMIT_MS = parseInt(process.env.PRINTFUL_RATE_LIMIT_MS || '500');
+
+export const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';

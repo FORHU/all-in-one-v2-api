@@ -47,6 +47,25 @@ export default class AuthController {
   }
 
   /**
+   * Login / Register with Google OAuth ID token
+   */
+  static async googleLogin(req: Request, res: Response, next: NextFunction) {
+    const schema = Joi.object({
+      idToken: Joi.string().required(),
+    });
+
+    const { error, value } = schema.validate(req.body);
+    if (error) return res.status(400).json({ message: error.message });
+
+    try {
+      const data = await AuthService.loginWithGoogle(value.idToken);
+      return res.json({ message: 'Google login successful', data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Refresh access token
    */
   static async refreshToken(req: Request, res: Response, next: NextFunction) {
