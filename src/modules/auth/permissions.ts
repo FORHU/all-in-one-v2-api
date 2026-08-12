@@ -49,11 +49,6 @@ export const PLATFORM_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'tenant_settings:read',
     'tenant_settings:write',
   ],
-  // @deprecated — ADMIN and SELLER are being removed from UserRole in the next
-  // migration. These stubs keep the Record<UserRole, Permission[]> constraint
-  // satisfied until `prisma migrate dev` regenerates the Prisma client.
-  [UserRole.ADMIN]: [],
-  [UserRole.SELLER]: [],
   [UserRole.USER]: [],
 };
 
