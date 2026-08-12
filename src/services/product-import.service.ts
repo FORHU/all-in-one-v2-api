@@ -2,6 +2,28 @@ import { ProductStatus, Prisma } from '@prisma/client';
 import { prisma } from '../utils/prisma';
 import logger from '../utils/logger';
 
+/**
+ * CJ Dropshipping's `/product/query` returns `productImage` as a
+ * JSON-encoded array string (e.g. '["https://...jpg","https://...jpg"]'),
+ * not a plain URL — confirmed the same disagreement with the declared
+ * CJProduct/CJProductDetail types that product-sourcing.contract.ts (frontend)
+ * already ground-truthed for the search/detail endpoints. Storing that
+ * string verbatim as `thumbnailUrl` produced an unusable value (`<img src>`
+ * on a JSON array), so unwrap it to the first URL when it looks like one.
+ */
+function extractThumbnailUrl(raw: unknown): string | undefined {
+  if (typeof raw !== 'string' || !raw) return undefined;
+  if (raw.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) && typeof parsed[0] === 'string' ? parsed[0] : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+  return raw;
+}
+
 export class ProductImportService {
   /**
    * Import or sync a product from a supplier payload into the catalog.
@@ -39,12 +61,9 @@ export class ProductImportService {
     );
 
     const thumbnailUrl =
-      String(
-        externalData.productImage || // CJ
-          externalData.thumbnail_url || // Printful
-          externalData.thumbnailUrl ||
-          '',
-      ) || undefined;
+      extractThumbnailUrl(externalData.productImage) || // CJ
+      extractThumbnailUrl(externalData.thumbnail_url) || // Printful
+      extractThumbnailUrl(externalData.thumbnailUrl);
 
     const costPrice = Number(
       externalData.sellPrice || // CJ
