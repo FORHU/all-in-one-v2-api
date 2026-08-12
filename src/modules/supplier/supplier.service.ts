@@ -12,8 +12,8 @@ export default class SupplierService {
     return SupplierRepository.findPartners();
   }
 
-  static async getSyncJobs() {
-    return SupplierRepository.getSyncJobs(requireTenantId());
+  static async getSyncJobs(page: number, limit: number) {
+    return SupplierRepository.getSyncJobs(requireTenantId(), page, limit);
   }
 
   static async updateCredentials(partnerId: string, apiKey: string, apiSecret?: string) {

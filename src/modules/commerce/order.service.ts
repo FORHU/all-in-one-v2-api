@@ -64,6 +64,26 @@ export default class OrderService {
     return OrderRepository.findByCustomerId(requireTenantId(), customerId, page, limit);
   }
 
+  /** Paginated admin order list, scoped to the current tenant. */
+  static async listOrders(
+    page?: number,
+    limit?: number,
+    search?: string,
+    sortBy?: string,
+    sortOrder?: 'asc' | 'desc',
+    status?: OrderStatus,
+  ) {
+    return OrderRepository.findAll(
+      requireTenantId(),
+      page,
+      limit,
+      search,
+      sortBy,
+      sortOrder,
+      status,
+    );
+  }
+
   static async checkoutFromCart(params: {
     customerId?: string;
     sessionId?: string;

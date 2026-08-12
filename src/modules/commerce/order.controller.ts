@@ -1,10 +1,32 @@
 import { Request, Response, NextFunction } from 'express';
+import { OrderStatus } from '@prisma/client';
 import OrderService from './order.service';
 import { responseSuccess, responseError } from '../../helpers/response.helper';
 import { parsePagination, pageFromRepo } from '../../helpers/pagination.helper';
 import { resolveCustomerId, resolveOrderViewer } from '../../helpers/requester.helper';
 
 export default class OrderController {
+  /**
+   * GET /api/v2/orders
+   */
+  static async index(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { page, limit, search, sortBy, sortOrder } = parsePagination(
+        req.query as Record<string, unknown>,
+      );
+      const rawStatus = req.query.status as string | undefined;
+      const status =
+        rawStatus && (Object.values(OrderStatus) as string[]).includes(rawStatus)
+          ? (rawStatus as OrderStatus)
+          : undefined;
+
+      const result = await OrderService.listOrders(page, limit, search, sortBy, sortOrder, status);
+      return responseSuccess(res, 200, result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async checkout(req: Request, res: Response, next: NextFunction) {
     try {
       const customerId = await resolveCustomerId(req);

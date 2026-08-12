@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../utils/prisma';
+import { paginate, type PageResult } from '../../helpers/pagination.helper';
 
 export default class SupplierRepository {
   static async createPartner(data: Prisma.SupplierPartnerCreateInput) {
@@ -12,11 +13,16 @@ export default class SupplierRepository {
     });
   }
 
-  static async getSyncJobs(tenantId: string) {
-    return prisma.supplierSyncJob.findMany({
+  static async getSyncJobs(tenantId: string, page: number, limit: number): Promise<PageResult<unknown>> {
+    return paginate(prisma.supplierSyncJob, {
       where: { tenantId },
       orderBy: { startedAt: 'desc' },
-      include: { supplier: true },
+      // Only the fields the UI needs to label a job's supplier — the
+      // partner's `config` JSON can hold API keys/base URLs and must never
+      // reach the frontend via a nested include.
+      include: { supplier: { select: { id: true, name: true, displayName: true } } },
+      page,
+      limit,
     });
   }
 
@@ -27,9 +33,18 @@ export default class SupplierRepository {
     });
   }
 
-  static async getSyncLogs(supplierId: string) {
+  static async getSyncLogs(jobId: string) {
+    // SupplierSyncLog has no jobId column — it's only ever scoped to a
+    // supplier — so "logs for this job" means "logs for this job's supplier."
+    const job = await prisma.supplierSyncJob.findUnique({
+      where: { id: jobId },
+      select: { supplierId: true },
+    });
+    if (!job) return [];
+
     return prisma.supplierSyncLog.findMany({
-      where: { supplierId },
+      where: { supplierId: job.supplierId },
+      orderBy: { startedAt: 'desc' },
     });
   }
 
