@@ -1,6 +1,6 @@
 import express from 'express';
 import ProductController from './product.controller';
-import { authenticate, authorize, ADMIN_ROLES } from '../../middleware/auth.middleware';
+import { authenticate, requirePermission } from '../../middleware/auth.middleware';
 
 const router = express.Router();
 
@@ -12,7 +12,7 @@ router.get('/', ProductController.list);
 
 // Admin product management listing — every status (including drafts), auth
 // required. Must be registered before any `/:id`-shaped route is added here.
-router.get('/admin', authenticate, authorize(...ADMIN_ROLES), ProductController.adminList);
+router.get('/admin', authenticate, requirePermission('catalog:read'), ProductController.adminList);
 
 router.get('/:slug', ProductController.getBySlug);
 

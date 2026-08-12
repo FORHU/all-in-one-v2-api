@@ -32,4 +32,10 @@ export default class TenantRepository {
   static async update(id: string, data: Prisma.TenantUpdateInput) {
     return prisma.tenant.update({ where: { id }, data });
   }
+
+  static async getMembership(tenantId: string, userId: string) {
+    return prisma.tenantMembership.findUnique({
+      where: { tenantId_userId: { tenantId, userId } },
+    });
+  }
 }

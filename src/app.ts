@@ -24,6 +24,9 @@ app.use(
   }),
 );
 
+// Webhooks must receive the raw body for signature verification — register BEFORE express.json()
+app.use('/api/v2/payments/webhooks*', express.raw({ type: 'application/json' }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

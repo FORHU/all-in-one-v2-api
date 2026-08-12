@@ -1,9 +1,12 @@
 import OrderRepository from './order.repository';
 import CartRepository from './cart.repository';
 import CustomerRepository from './customer.repository';
-import { OrderStatus, Prisma } from '@prisma/client';
+import CouponRepository from './coupon.repository';
+import InventoryRepository from '../inventory/inventory.repository';
+import { OrderStatus, Prisma, Coupon } from '@prisma/client';
 import { throwResponse } from '../../utils/throw-response';
 import { requireTenantId } from '../../utils/async-context';
+import { prisma } from '../../utils/prisma';
 
 /**
  * Who is asking to see an order: a signed-in customer, a guest holding the
@@ -68,9 +71,10 @@ export default class OrderService {
     customerId?: string;
     sessionId?: string;
     shippingAddressId?: string;
+    couponCode?: string;
     currency?: string;
   }) {
-    const { customerId, sessionId, shippingAddressId, currency = 'USD' } = params;
+    const { customerId, sessionId, shippingAddressId, couponCode, currency = 'USD' } = params;
 
     if (!customerId && !sessionId) {
       return throwResponse(400, 'A signed-in customer or an x-session-id header is required');
@@ -104,50 +108,113 @@ export default class OrderService {
       new Prisma.Decimal(0),
     );
 
-    // Tax and shipping are stored per order but not yet calculated — the tax
-    // engine (TaxClass/TaxRate) has no resolver wired to checkout. They are held
-    // at zero rather than folded into the subtotal, so switching them on later
-    // is a change to this block alone and historical orders stay reproducible.
-    const discountAmount = new Prisma.Decimal(0);
+    let coupon: Coupon | null = null;
+    if (couponCode) {
+      coupon = await CouponRepository.findByCode(tenantId, couponCode);
+      if (!coupon || !coupon.isActive) {
+        return throwResponse(400, 'Invalid or expired coupon');
+      }
+    }
+
+    let discountAmount = new Prisma.Decimal(0);
+    if (coupon) {
+      if (coupon.discountType === 'PERCENTAGE') {
+        discountAmount = subtotal
+          .times(new Prisma.Decimal(coupon.discountValue as Prisma.Decimal.Value))
+          .dividedBy(100);
+        if (
+          coupon.maxDiscount &&
+          discountAmount.greaterThan(new Prisma.Decimal(coupon.maxDiscount as Prisma.Decimal.Value))
+        ) {
+          discountAmount = new Prisma.Decimal(coupon.maxDiscount as Prisma.Decimal.Value);
+        }
+      } else if (coupon.discountType === 'FIXED_AMOUNT') {
+        discountAmount = new Prisma.Decimal(coupon.discountValue as Prisma.Decimal.Value);
+      }
+      if (discountAmount.greaterThan(subtotal)) {
+        discountAmount = subtotal;
+      }
+    }
+
+    // Tax and shipping are stored per order but not yet calculated
     const taxAmount = new Prisma.Decimal(0);
     const shippingAmount = new Prisma.Decimal(0);
     const totalAmount = subtotal.minus(discountAmount).plus(taxAmount).plus(shippingAmount);
 
-    const order = await OrderRepository.createOrder({
-      tenant: { connect: { id: tenantId } },
-      subtotal,
-      discountAmount,
-      taxAmount,
-      shippingAmount,
-      totalAmount,
-      currency,
-      status: OrderStatus.PENDING,
-      // Guests are identified by their session so they can pay for and track
-      // the order afterwards.
-      ...(customerId ? { customer: { connect: { id: customerId } } } : { sessionId }),
-      ...(shippingAddressId ? { shippingAddress: { connect: { id: shippingAddressId } } } : {}),
-      items: {
-        create: cart.items.map((item: CartItemLike) => {
-          const variant = item.productVariant;
-          const imageUrl = variant?.media?.[0]?.url || null;
-          return {
-            tenantId: tenantId,
-            productVariantId: item.productVariantId,
-            quantity: item.quantity,
-            unitPrice: new Prisma.Decimal(item.unitPrice as Prisma.Decimal.Value),
-            productTitle: variant?.product?.title || 'Unknown Product',
-            variantTitle: variant?.title,
-            sku: variant?.sku,
-            imageUrl: imageUrl,
-          };
-        }),
-      },
-    });
+    // Reserve stock
+    for (const item of cart.items) {
+      const stockSummary = await InventoryRepository.getStockSummaryByVariant(
+        item.productVariantId,
+      );
+      if (stockSummary.totalAvailable < item.quantity) {
+        return throwResponse(
+          400,
+          `Insufficient stock for ${item.productVariant?.title || item.productVariantId}`,
+        );
+      }
+      const locationWithStock = stockSummary.locations.find(
+        (loc: { available: number; locationId: string }) => loc.available >= item.quantity,
+      );
+      if (!locationWithStock) {
+        return throwResponse(
+          400,
+          `No single location has enough stock for ${item.productVariant?.title || item.productVariantId}`,
+        );
+      }
+      await InventoryRepository.reserveStock(
+        item.productVariantId,
+        locationWithStock.locationId,
+        item.quantity,
+      );
+    }
 
-    // Clear the cart we actually read from.
-    // TODO: order creation and cart clearing should share one transaction, and
-    // stock still isn't checked or decremented here. (Optimistic locking is available in InventoryRepository).
-    await CartRepository.clearCart(cart.id);
+    const order = await prisma.$transaction(async (tx) => {
+      const createdOrder = await tx.commerceOrder.create({
+        data: {
+          tenant: { connect: { id: tenantId } },
+          subtotal,
+          discountAmount,
+          taxAmount,
+          shippingAmount,
+          totalAmount,
+          currency,
+          status: OrderStatus.PENDING,
+          // Guests are identified by their session so they can pay for and track
+          // the order afterwards.
+          ...(customerId ? { customer: { connect: { id: customerId } } } : { sessionId }),
+          ...(shippingAddressId ? { shippingAddress: { connect: { id: shippingAddressId } } } : {}),
+          ...(coupon ? { coupon: { connect: { id: coupon.id } } } : {}),
+          items: {
+            create: cart.items.map((item: CartItemLike) => {
+              const variant = item.productVariant;
+              const imageUrl = variant?.media?.[0]?.url || null;
+              return {
+                tenantId: tenantId,
+                productVariantId: item.productVariantId,
+                quantity: item.quantity,
+                unitPrice: new Prisma.Decimal(item.unitPrice as Prisma.Decimal.Value),
+                productTitle: variant?.product?.title || 'Unknown Product',
+                variantTitle: variant?.title,
+                sku: variant?.sku,
+                imageUrl: imageUrl,
+              };
+            }),
+          },
+        },
+        include: {
+          items: true,
+          payments: { include: { events: true, attempts: true } },
+        },
+      });
+
+      // Clear the cart we actually read from inside the transaction.
+      // Stock has been reserved above (Optimistic locking is available in InventoryRepository).
+      await tx.commerceCartItem.deleteMany({
+        where: { cartId: cart.id },
+      });
+
+      return createdOrder;
+    });
 
     return order;
   }

@@ -1,10 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
-import { Tenant, TenantStatus } from '@prisma/client';
+import { Tenant, TenantStatus, TenantRole } from '@prisma/client';
 import TenantRepository from '../modules/tenant/tenant.repository';
 import CacheUtil from '../utils/cache.util';
 import { asyncLocalStorage, getContext } from '../utils/async-context';
 import { ROOT_DOMAIN, DEFAULT_TENANT_SLUG } from '../config';
 import logger from '../utils/logger';
+import { ADMIN_ROLES } from './auth.middleware';
 
 const CACHE_TTL_SECONDS = 300;
 
@@ -78,3 +79,38 @@ export const resolveTenant = async (req: Request, res: Response, next: NextFunct
     next();
   }
 };
+
+/**
+ * Restricts a route to users with specific roles within the current tenant.
+ * Global platform admins bypass this restriction.
+ * Requires both `authenticate` and `resolveTenant` to run first.
+ */
+export const requireTenantRole =
+  (...roles: TenantRole[]) =>
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
+
+      // Global platform admins can manage any tenant
+      if (ADMIN_ROLES.includes(req.user.role)) {
+        return next();
+      }
+
+      const ctx = getContext();
+      if (!ctx || !ctx.tenantId) {
+        return res.status(400).json({ message: 'Tenant context required' });
+      }
+
+      const membership = await TenantRepository.getMembership(ctx.tenantId, req.user.id);
+
+      if (!membership || !roles.includes(membership.role)) {
+        return res.status(403).json({ message: 'Insufficient tenant permissions' });
+      }
+
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
