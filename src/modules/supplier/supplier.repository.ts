@@ -13,7 +13,11 @@ export default class SupplierRepository {
     });
   }
 
-  static async getSyncJobs(tenantId: string, page: number, limit: number): Promise<PageResult<unknown>> {
+  static async getSyncJobs(
+    tenantId: string,
+    page: number,
+    limit: number,
+  ): Promise<PageResult<unknown>> {
     return paginate(prisma.supplierSyncJob, {
       where: { tenantId },
       orderBy: { startedAt: 'desc' },
