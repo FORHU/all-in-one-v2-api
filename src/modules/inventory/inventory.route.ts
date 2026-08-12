@@ -1,6 +1,6 @@
 import express from 'express';
 import InventoryController from './inventory.controller';
-import { authenticate, authorize, ADMIN_ROLES } from '../../middleware/auth.middleware';
+import { authenticate, requirePermission } from '../../middleware/auth.middleware';
 
 const router = express.Router();
 
@@ -8,25 +8,25 @@ const router = express.Router();
 router.get(
   '/locations',
   authenticate,
-  authorize(...ADMIN_ROLES),
+  requirePermission('catalog:read'),
   InventoryController.listLocations,
 );
 router.get(
   '/locations/:id',
   authenticate,
-  authorize(...ADMIN_ROLES),
+  requirePermission('catalog:read'),
   InventoryController.getLocationById,
 );
 router.post(
   '/locations',
   authenticate,
-  authorize(...ADMIN_ROLES),
+  requirePermission('catalog:write'),
   InventoryController.createLocation,
 );
 router.put(
   '/locations/:id',
   authenticate,
-  authorize(...ADMIN_ROLES),
+  requirePermission('catalog:write'),
   InventoryController.updateLocation,
 );
 
@@ -34,14 +34,19 @@ router.put(
 router.get(
   '/variant/:variantId',
   authenticate,
-  authorize(...ADMIN_ROLES),
+  requirePermission('catalog:read'),
   InventoryController.getVariantStock,
 );
-router.post('/stock', authenticate, authorize(...ADMIN_ROLES), InventoryController.setStock);
+router.post(
+  '/stock',
+  authenticate,
+  requirePermission('catalog:write'),
+  InventoryController.setStock,
+);
 router.get(
   '/transactions',
   authenticate,
-  authorize(...ADMIN_ROLES),
+  requirePermission('catalog:read'),
   InventoryController.getTransactions,
 );
 

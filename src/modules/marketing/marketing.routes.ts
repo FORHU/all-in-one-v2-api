@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import MarketingController from './marketing.controller';
-import { authenticate, authorize, ADMIN_ROLES } from '../../middleware/auth.middleware';
+import { authenticate, requirePermission } from '../../middleware/auth.middleware';
 
 const router = Router();
 
@@ -9,12 +9,27 @@ router.get('/links/:code', MarketingController.resolveLink);
 router.post('/ads/:adId/click', MarketingController.trackAdClick);
 
 // --- Store Admin Endpoints ---
-router.post('/feeds', authenticate, authorize(...ADMIN_ROLES), MarketingController.createFeed);
-router.get('/feeds', authenticate, authorize(...ADMIN_ROLES), MarketingController.listFeeds);
+router.post(
+  '/feeds',
+  authenticate,
+  requirePermission('catalog:write'),
+  MarketingController.createFeed,
+);
+router.get(
+  '/feeds',
+  authenticate,
+  requirePermission('catalog:read'),
+  MarketingController.listFeeds,
+);
 
-router.post('/ads', authenticate, authorize(...ADMIN_ROLES), MarketingController.createAd);
-router.get('/ads', authenticate, authorize(...ADMIN_ROLES), MarketingController.listAds);
+router.post('/ads', authenticate, requirePermission('catalog:write'), MarketingController.createAd);
+router.get('/ads', authenticate, requirePermission('catalog:read'), MarketingController.listAds);
 
-router.post('/links', authenticate, authorize(...ADMIN_ROLES), MarketingController.createLink);
+router.post(
+  '/links',
+  authenticate,
+  requirePermission('catalog:write'),
+  MarketingController.createLink,
+);
 
 export default router;

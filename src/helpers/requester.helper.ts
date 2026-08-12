@@ -1,21 +1,22 @@
 import { Request } from 'express';
+import { UserRole } from '@prisma/client';
 import CustomerRepository from '../modules/commerce/customer.repository';
-import { ADMIN_ROLES } from '../middleware/auth.middleware';
+import { getTenantId } from '../utils/async-context';
 import type { CartOwner } from '../modules/commerce/cart.service';
 import type { OrderViewer } from '../modules/commerce/order.service';
 
 /**
- * Resolves the signed-in user to their Customer id, creating the Customer
- * record on first use. Returns undefined for guests.
- *
- * Commerce tables (Cart, Order) are keyed by Customer, while auth deals in
- * User — passing `req.user.id` straight into a `customerId` field is always a
- * bug, so route handlers go through here instead.
+ * Resolves the signed-in user to their Customer id within the active tenant,
+ * creating the Customer record on first use. Returns undefined for guests or
+ * unscoped requests.
  */
 export const resolveCustomerId = async (req: Request): Promise<string | undefined> => {
   if (!req.user) return undefined;
 
-  const customer = await CustomerRepository.findOrCreateForUser(req.user);
+  const tenantId = getTenantId();
+  if (!tenantId) return undefined;
+
+  const customer = await CustomerRepository.findOrCreateForUser(req.user, tenantId);
   return customer.id;
 };
 
@@ -32,4 +33,5 @@ export const resolveOrderViewer = async (req: Request): Promise<OrderViewer> => 
   isAdmin: isAdmin(req),
 });
 
-export const isAdmin = (req: Request): boolean => !!req.user && ADMIN_ROLES.includes(req.user.role);
+export const isAdmin = (req: Request): boolean =>
+  !!req.user && (req.user.role === UserRole.SUPER_ADMIN || req.user.role === UserRole.DEVELOPER);

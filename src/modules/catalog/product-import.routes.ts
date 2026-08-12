@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { importProduct } from './product-import.controller';
-import { authenticate, authorize, ADMIN_ROLES } from '../../middleware/auth.middleware';
+import { authenticate, requirePermission } from '../../middleware/auth.middleware';
 
 const router = Router();
 
 // POST /api/v2/products/import
-router.post('/import', authenticate, authorize(...ADMIN_ROLES), importProduct);
+router.post('/import', authenticate, requirePermission('catalog:write'), importProduct);
 
 export default router;

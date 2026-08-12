@@ -688,7 +688,7 @@ export async function seedCommerce(prisma: PrismaClient) {
     { id: string; email: string; firstName: string | null; lastName: string | null }
   >();
   for (const email of CUSTOMER_EMAILS) {
-    const customer = await prisma.commerceCustomer.findUnique({ where: { email } });
+    const customer = await prisma.commerceCustomer.findFirst({ where: { email } });
     if (!customer) {
       process.stderr.write(`⚠️ Customer ${email} not found. Ensure seedUsers runs first.\n`);
       continue;

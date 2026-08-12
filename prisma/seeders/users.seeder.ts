@@ -5,6 +5,7 @@ export async function seedUsers(prisma: PrismaClient) {
   process.stdout.write('🌱 Seeding Role Users...\n');
 
   const passwordHash = await bcrypt.hash('Password123!', 10);
+  const defaultTenant = await prisma.tenant.findFirst();
 
   const usersToSeed = [
     // Super Admin & Developer
@@ -27,12 +28,12 @@ export async function seedUsers(prisma: PrismaClient) {
       isEmailVerified: true,
     },
 
-    // 3 Admins
+    // Merchant Staff (UserRole.USER with TenantMembership)
     {
       email: 'admin@marketplace.com',
       username: 'admin1',
       name: 'Enterprise Admin',
-      role: UserRole.ADMIN,
+      role: UserRole.USER,
       password: passwordHash,
       onboardingCompleted: true,
       isEmailVerified: true,
@@ -41,7 +42,7 @@ export async function seedUsers(prisma: PrismaClient) {
       email: 'admin2@marketplace.com',
       username: 'admin2',
       name: 'Sarah Jenkins',
-      role: UserRole.ADMIN,
+      role: UserRole.USER,
       password: passwordHash,
       onboardingCompleted: true,
       isEmailVerified: true,
@@ -50,18 +51,16 @@ export async function seedUsers(prisma: PrismaClient) {
       email: 'admin3@marketplace.com',
       username: 'admin3',
       name: 'Marcus Vance',
-      role: UserRole.ADMIN,
+      role: UserRole.USER,
       password: passwordHash,
       onboardingCompleted: true,
       isEmailVerified: true,
     },
-
-    // Seller
     {
       email: 'seller@marketplace.com',
       username: 'seller1',
       name: 'Verified Seller',
-      role: UserRole.SELLER,
+      role: UserRole.USER,
       password: passwordHash,
       onboardingCompleted: true,
       isEmailVerified: true,
@@ -135,14 +134,15 @@ export async function seedUsers(prisma: PrismaClient) {
     });
     process.stdout.write(`✅ Seeded user [${upsertedUser.role}]: ${upsertedUser.email}\n`);
 
-    // If this is a regular customer user, ensure CommerceCustomer profile exists
-    if (userData.role === UserRole.USER) {
+    // If this is a customer user and a tenant exists, ensure CommerceCustomer profile exists
+    if (userData.role === UserRole.USER && defaultTenant) {
       const existingCustomer = await prisma.commerceCustomer.findUnique({
-        where: { userId: upsertedUser.id },
+        where: { tenantId_userId: { tenantId: defaultTenant.id, userId: upsertedUser.id } },
       });
       if (!existingCustomer) {
         await prisma.commerceCustomer.create({
           data: {
+            tenantId: defaultTenant.id,
             userId: upsertedUser.id,
             email: upsertedUser.email,
             firstName: firstName || 'Store',
@@ -156,3 +156,4 @@ export async function seedUsers(prisma: PrismaClient) {
 }
 
 export default seedUsers;
+

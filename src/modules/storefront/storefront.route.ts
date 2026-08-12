@@ -1,6 +1,6 @@
 import express from 'express';
 import StorefrontController from './storefront.controller';
-import { authenticate, authorize, ADMIN_ROLES } from '../../middleware/auth.middleware';
+import { authenticate, requirePermission } from '../../middleware/auth.middleware';
 
 const router = express.Router();
 
@@ -11,32 +11,62 @@ const router = express.Router();
 router.get('/', StorefrontController.getPage);
 
 // ─── Admin Page Management ──────────────────────────────────────────────────
-router.post('/pages', authenticate, authorize(...ADMIN_ROLES), StorefrontController.createPage);
-router.put('/pages/:id', authenticate, authorize(...ADMIN_ROLES), StorefrontController.updatePage);
+router.post(
+  '/pages',
+  authenticate,
+  requirePermission('catalog:write'),
+  StorefrontController.createPage,
+);
+router.put(
+  '/pages/:id',
+  authenticate,
+  requirePermission('catalog:write'),
+  StorefrontController.updatePage,
+);
 router.delete(
   '/pages/:id',
   authenticate,
-  authorize(...ADMIN_ROLES),
+  requirePermission('catalog:delete'),
   StorefrontController.deletePage,
 );
 
 // ─── Admin Section Management ────────────────────────────────────────────────
-router.post('/', authenticate, authorize(...ADMIN_ROLES), StorefrontController.createSection);
-router.get('/:id', authenticate, authorize(...ADMIN_ROLES), StorefrontController.getSectionById);
-router.put('/:id', authenticate, authorize(...ADMIN_ROLES), StorefrontController.updateSection);
-router.delete('/:id', authenticate, authorize(...ADMIN_ROLES), StorefrontController.deleteSection);
+router.post(
+  '/',
+  authenticate,
+  requirePermission('catalog:write'),
+  StorefrontController.createSection,
+);
+router.get(
+  '/:id',
+  authenticate,
+  requirePermission('catalog:read'),
+  StorefrontController.getSectionById,
+);
+router.put(
+  '/:id',
+  authenticate,
+  requirePermission('catalog:write'),
+  StorefrontController.updateSection,
+);
+router.delete(
+  '/:id',
+  authenticate,
+  requirePermission('catalog:delete'),
+  StorefrontController.deleteSection,
+);
 
 // ─── Admin Pinned Items Management ──────────────────────────────────────────
 router.post(
   '/:sectionId/items',
   authenticate,
-  authorize(...ADMIN_ROLES),
+  requirePermission('catalog:write'),
   StorefrontController.addPinnedItem,
 );
 router.delete(
   '/:sectionId/items/:itemId',
   authenticate,
-  authorize(...ADMIN_ROLES),
+  requirePermission('catalog:write'),
   StorefrontController.removePinnedItem,
 );
 

@@ -1,11 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
-import { Tenant, TenantStatus, TenantRole } from '@prisma/client';
+import { Tenant, TenantStatus, TenantRole, UserRole } from '@prisma/client';
 import TenantRepository from '../modules/tenant/tenant.repository';
 import CacheUtil from '../utils/cache.util';
 import { asyncLocalStorage, getContext } from '../utils/async-context';
 import { ROOT_DOMAIN, DEFAULT_TENANT_SLUG } from '../config';
 import logger from '../utils/logger';
-import { ADMIN_ROLES } from './auth.middleware';
+
+const PLATFORM_ADMIN_ROLES: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.DEVELOPER];
 
 const CACHE_TTL_SECONDS = 300;
 
@@ -94,7 +95,7 @@ export const requireTenantRole =
       }
 
       // Global platform admins can manage any tenant
-      if (ADMIN_ROLES.includes(req.user.role)) {
+      if (PLATFORM_ADMIN_ROLES.includes(req.user.role)) {
         return next();
       }
 

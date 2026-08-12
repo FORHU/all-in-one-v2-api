@@ -52,6 +52,7 @@ model Tenant {
   products              CatalogProduct[]
   variants              CatalogProductVariant[]
   pricingRules          CatalogPricingRule[]
+  customers             CommerceCustomer[]
   carts                 CommerceCart[]
   orders                CommerceOrder[]
   pages                 CmsPage[]
