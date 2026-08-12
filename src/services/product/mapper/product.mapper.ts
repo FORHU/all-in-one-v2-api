@@ -1,6 +1,11 @@
 import { Prisma } from '@prisma/client';
-import { ProductListingRow } from '../../../repositories/product.repository';
-import { ProductAttributeOptionDto, ProductListingItemDto } from '../dto/product-listing.dto';
+import { ProductDetailRow, ProductListingRow } from '../../../repositories/product.repository';
+import {
+  ProductAttributeOptionDto,
+  ProductDetailDto,
+  ProductListingItemDto,
+  ProductVariantStockDto,
+} from '../dto/product-listing.dto';
 
 function toNumber(value: Prisma.Decimal | number | null | undefined): number | null {
   if (value == null) return null;
@@ -11,9 +16,14 @@ function toNumber(value: Prisma.Decimal | number | null | undefined): number | n
   return isNaN(num) ? null : num;
 }
 
-/** De-duplicates a product's variant-attribute options by attribute code. */
+/**
+ * De-duplicates a product's variant-attribute options by attribute code.
+ * Typed structurally on just `variants` (not the full ProductListingRow) so
+ * it also accepts ProductDetailRow — both LISTING_INCLUDE and DETAIL_INCLUDE
+ * define `variants` identically.
+ */
 function collectAttributeOptions(
-  product: ProductListingRow,
+  product: { variants: ProductListingRow['variants'] },
   attributeCode: 'color' | 'size',
 ): ProductAttributeOptionDto[] {
   const seen = new Map<string, ProductAttributeOptionDto>();
@@ -32,6 +42,21 @@ function collectAttributeOptions(
   }
 
   return Array.from(seen.values());
+}
+
+/** Per-variant stock, tagged with its color/size values so the PDP can look up the count for whatever the shopper currently has selected. */
+function collectVariantStock(product: ProductDetailRow): ProductVariantStockDto[] {
+  return product.variants.map((variant) => {
+    let color: string | null = null;
+    let size: string | null = null;
+
+    for (const va of variant.variantAttributes) {
+      if (va.value.attribute.code === 'color') color = va.value.value;
+      if (va.value.attribute.code === 'size') size = va.value.value;
+    }
+
+    return { color, size, stock: variant.stock };
+  });
 }
 
 export function mapProductToListingDto(
@@ -55,6 +80,42 @@ export function mapProductToListingDto(
     sizes: collectAttributeOptions(product, 'size'),
     inStock: product.variants.some((v) => v.stock > 0),
     categoryId: product.categoryId,
+    createdAt: product.createdAt,
+  };
+}
+
+export function mapProductToDetailDto(
+  product: ProductDetailRow,
+  rating?: { rating: number; reviewCount: number },
+): ProductDetailDto {
+  // Real gallery images (CatalogProductMedia) win when present; today's
+  // seed data doesn't populate that table, so this falls back to the single
+  // thumbnailUrl — the frontend gallery adapts to however many images it
+  // actually gets rather than assuming a fixed count.
+  const galleryUrls = product.media.map((m) => m.url);
+  const images =
+    galleryUrls.length > 0 ? galleryUrls : product.thumbnailUrl ? [product.thumbnailUrl] : [];
+
+  return {
+    id: product.id,
+    slug: product.slug,
+    title: product.title,
+    brand: product.brand,
+    thumbnailUrl: product.thumbnailUrl ?? images[0] ?? null,
+    description: product.description,
+    images,
+    price: toNumber(product.price),
+    salePrice: toNumber(product.salePrice),
+    compareAtPrice: toNumber(product.compareAtPrice),
+    rating: rating?.rating ?? 0,
+    reviewCount: rating?.reviewCount ?? 0,
+    colors: collectAttributeOptions(product, 'color'),
+    sizes: collectAttributeOptions(product, 'size'),
+    inStock: product.variants.some((v) => v.stock > 0),
+    variants: collectVariantStock(product),
+    categoryId: product.categoryId,
+    categorySlug: product.category?.slug ?? null,
+    categoryName: product.category?.name ?? null,
     createdAt: product.createdAt,
   };
 }

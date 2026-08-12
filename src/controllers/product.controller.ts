@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import Joi from 'joi';
 import ProductService from '../services/product.service';
 import { responseSuccess } from '../helpers/response.helper';
+import { throwResponse } from '../utils/throw-response';
 
 const listQuerySchema = Joi.object({
   categorySlug: Joi.string().optional(),
@@ -39,6 +40,16 @@ export default class ProductController {
         limit: value.limit,
       });
       return responseSuccess(res, 200, result);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async getBySlug(req: Request, res: Response, next: NextFunction) {
+    try {
+      const product = await ProductService.getProductBySlug(req.params.slug);
+      if (!product) return throwResponse(404, `Product '${req.params.slug}' not found`);
+      return responseSuccess(res, 200, product);
     } catch (err) {
       next(err);
     }

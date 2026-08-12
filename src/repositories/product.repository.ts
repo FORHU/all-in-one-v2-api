@@ -30,6 +30,23 @@ export type ProductListingRow = Prisma.CatalogProductGetPayload<{
   include: typeof LISTING_INCLUDE;
 }>;
 
+const DETAIL_INCLUDE = {
+  media: { orderBy: { position: 'asc' } },
+  variants: {
+    where: { deletedAt: null },
+    include: {
+      variantAttributes: {
+        include: { value: { include: { attribute: true } } },
+      },
+    },
+  },
+  category: { select: { name: true, slug: true } },
+} satisfies Prisma.CatalogProductInclude;
+
+export type ProductDetailRow = Prisma.CatalogProductGetPayload<{
+  include: typeof DETAIL_INCLUDE;
+}>;
+
 /**
  * Every method takes `tenantId` explicitly — see CategoryRepository for the
  * same convention. Products live one level below Tenant in the isolation
@@ -142,6 +159,17 @@ export default class ProductRepository {
     ]);
 
     return buildPage(items, total, { page, limit });
+  }
+
+  /** Product detail page — unlike listing, pulls the FULL media gallery (not just the primary image). */
+  static async findBySlugForDetail(
+    tenantId: string,
+    slug: string,
+  ): Promise<ProductDetailRow | null> {
+    return prisma.catalogProduct.findFirst({
+      where: { tenantId, slug, status: ProductStatus.PUBLISHED, deletedAt: null },
+      include: DETAIL_INCLUDE,
+    });
   }
 
   /**

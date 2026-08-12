@@ -22,6 +22,20 @@ export interface ProductListingItemDto {
   createdAt: Date;
 }
 
+export interface ProductVariantStockDto {
+  color: string | null;
+  size: string | null;
+  stock: number;
+}
+
+export interface ProductDetailDto extends ProductListingItemDto {
+  description: string | null;
+  images: string[];
+  categorySlug: string | null;
+  categoryName: string | null;
+  variants: ProductVariantStockDto[];
+}
+
 export interface ProductFacetsDto {
   priceMin: number | null;
   priceMax: number | null;

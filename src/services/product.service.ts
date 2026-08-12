@@ -1,6 +1,6 @@
 import ProductRepository, { ProductListingFilters } from '../repositories/product.repository';
 import { requireTenantId } from '../utils/async-context';
-import { mapProductToListingDto } from './product/mapper/product.mapper';
+import { mapProductToDetailDto, mapProductToListingDto } from './product/mapper/product.mapper';
 
 export interface ListProductsQuery {
   categorySlug?: string;
@@ -59,5 +59,14 @@ export default class ProductService {
       totalPages: pageResult.totalPages,
       facets,
     };
+  }
+
+  static async getProductBySlug(slug: string) {
+    const tenantId = requireTenantId();
+    const product = await ProductRepository.findBySlugForDetail(tenantId, slug);
+    if (!product) return null;
+
+    const ratings = await ProductRepository.getRatingsForProducts([product.id]);
+    return mapProductToDetailDto(product, ratings.get(product.id));
   }
 }
