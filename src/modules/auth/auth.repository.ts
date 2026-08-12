@@ -132,7 +132,10 @@ export default class AuthRepo {
     });
   }
 
-  static async updateSession(sessionId: string, data: { refreshTokenHash: string; expiresAt: Date }) {
+  static async updateSession(
+    sessionId: string,
+    data: { refreshTokenHash: string; expiresAt: Date },
+  ) {
     return prisma.authSession.update({
       where: { id: sessionId },
       data,
