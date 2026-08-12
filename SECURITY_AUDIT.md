@@ -1,41 +1,44 @@
 # Security & Architecture Audit Report
 
-This document outlines the remaining security and architectural vulnerabilities detected in the current codebase, mapped directly to the P1/P2 hardening priorities we discussed.
-
-## 🔴 P1 — Critical & Strongly Recommended
-
-### 1. Missing Webhook & Order State Machines
-
-- **Issue**: In `src/modules/commerce/payment.service.ts`, the `handleWebhook` method blindly accepts payment status updates (e.g., transitions to `PAID` or `FAILED`) without checking the _current_ state of the payment. An out-of-order or delayed webhook could transition a `PAID` order back to `PENDING`.
-- **Issue**: In `OrderRepository.updateStatus`, there is no validation to ensure order statuses move strictly forward (e.g., `PENDING -> PROCESSING -> FULFILLED`).
-- **Proposed Fix**: Implement strict state machine validation in both Payment and Order repositories to reject invalid transitions.
-
-### 2. Lack of Transactionality & Stock Deduction during Checkout
-
-- **Issue**: In `src/modules/commerce/order.service.ts` (`checkoutFromCart`), order creation and cart clearing are executed sequentially, not within a database transaction. If cart clearing fails, the user is left with a duplicated cart.
-- **Issue**: Inventory stock is completely ignored during checkout. Products can be bought even if they are out of stock.
-- **Proposed Fix**: Wrap checkout logic in a Prisma `$transaction` and integrate `InventoryRepository.decrementStock` with optimistic locking to prevent overselling.
-
-### 3. Incomplete Order Historical Snapshots
-
-- **Issue**: While the `CommerceOrderItem` schema correctly includes snapshot fields (`supplierCost`, `taxRate`, `attributes`), the checkout logic in `order.service.ts` completely skips copying these values from the product catalog. If a supplier changes their cost or a tax rate changes tomorrow, historical analytics will be broken.
-- **Proposed Fix**: Update `checkoutFromCart` to map all financial and supplier metadata fields into the order item snapshot.
-
-### 4. Session Hardening & Revocation
-
-- **Issue**: Users currently have no way to invalidate old sessions or log out of all devices. There is no session denylist or rotation mechanism in `auth.service.ts`.
-- **Proposed Fix**: Implement a Redis-based JWT denylist to allow remote logout and session revocation if an account is compromised.
+This document outlines the security and architectural hardening items for the codebase, tracking completed fixes and remaining tasks.
 
 ---
 
-## 🟡 P2 — Production Hardening
+## ✅ Completed Fixes
 
-### 5. Email Verification is Skipped
+### 1. Refresh Token Rotation & Session Security
+- **Status**: Completed
+- **Implementation**: Single-use refresh tokens with automatic family rotation and reuse detection. If a compromised refresh token is replayed, the entire session family is revoked instantly.
 
-- **Issue**: `AuthRepo.createUser` hardcodes `isEmailVerified: true` for all new signups, bypassing the need for email verification.
-- **Proposed Fix**: Set `isEmailVerified: false` by default and implement a secure token-based email verification flow.
+### 2. Tenant-Scoped Customers & Schema Isolation
+- **Status**: Completed
+- **Implementation**: Added `tenantId` to `CommerceCustomer` with `@@unique([tenantId, userId])` and `@@unique([tenantId, email])`. Customer profiles, carts, and order histories are completely isolated per storefront vertical.
 
-### 6. Social Identity Conflicts
+### 3. GDPR & Historical Order Integrity
+- **Status**: Completed
+- **Implementation**: Changed `CommerceOrder.customer` relation to `onDelete: SetNull`. Account modifications/deletions no longer wipe historical revenue and tax records.
 
-- **Issue**: The authentication system does not enforce strict identity linking. If a user signs in via Google, and later signs up via email/password using the same address, it could lead to duplicated or conflicting identities.
-- **Proposed Fix**: Check for existing emails before allowing OAuth linking and enforce a unified identity model.
+### 4. Role Model Consolidation & RBAC Migration
+- **Status**: Completed
+- **Implementation**: Removed `ADMIN` and `SELLER` from global `UserRole` enum. Merchant roles flow exclusively through `TenantMembership`. Migrated 100% of route middleware to granular `requirePermission(...)` permission checks.
+
+### 5. Google Sign-In & Unified Social Identity Linking
+- **Status**: Completed
+- **Implementation**: Exposed `POST /api/v2/auth/google` with ID token verification (`google-auth-library`). Automatically links Google accounts to existing users by verified email address to prevent duplicate or conflicting identities.
+
+---
+
+## 🟢 Open Items (Next Steps)
+
+### 1. Checkout Transactionality & Stock Deduction
+- **Issue**: In `src/modules/commerce/order.service.ts` (`checkoutFromCart`), order creation and cart clearing execute sequentially without a single Prisma `$transaction`. Inventory stock levels are not decremented or verified during checkout.
+- **Proposed Fix**: Wrap checkout logic in `prisma.$transaction` and integrate `InventoryRepository.decrementStock` to prevent overselling.
+
+### 2. Order Item Financial Snapshots
+- **Issue**: `CommerceOrderItem` has snapshot fields (`supplierCost`, `taxRate`), but checkout currently omits copying supplier costs and tax rate metadata from the catalog.
+- **Proposed Fix**: Update `checkoutFromCart` to map all supplier cost and tax rate metadata into `CommerceOrderItem`.
+
+### 3. Webhook & Order State Machine Validation
+- **Issue**: Payment webhooks (`payment.service.ts`) and order status updates (`order.repository.ts`) accept status transitions without verifying current state, allowing out-of-order webhooks to regress status.
+- **Proposed Fix**: Implement strict state machine transition validation in Payment and Order repositories.
+
