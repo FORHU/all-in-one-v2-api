@@ -11,4 +11,3 @@ router.get('/order/:orderId', authenticate, requirePermission('orders:read'), ge
 router.post('/:returnId/refund', authenticate, requirePermission('orders:refund'), issueRefund);
 
 export default router;
-

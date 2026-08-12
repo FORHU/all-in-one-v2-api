@@ -156,4 +156,3 @@ export async function seedUsers(prisma: PrismaClient) {
 }
 
 export default seedUsers;
-
