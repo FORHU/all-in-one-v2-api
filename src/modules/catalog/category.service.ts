@@ -25,7 +25,8 @@ export default class CategoryService {
     if (!category) {
       return throwResponse(404, `Category '${slug}' not found`);
     }
-    return category;
+    const { _count, ...rest } = category;
+    return { ...rest, productCount: _count.products };
   }
 
   static async createCategory(data: {

@@ -25,12 +25,13 @@ export default class CategoryRepository {
       include: {
         parent: true,
         children: true,
-        products: {
-          take: 20,
-          include: {
-            media: true,
-            variants: true,
-          },
+        // A true count, not a capped preview list — nothing renders the
+        // products themselves on the category detail page (it links out to
+        // the admin products table, filtered by this category, instead), so
+        // fetching up to 20 full rows with media/variants just to read
+        // `.length` was both wasteful and wrong for any category over 20.
+        _count: {
+          select: { products: { where: { deletedAt: null } } },
         },
       },
     });

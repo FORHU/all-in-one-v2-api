@@ -32,11 +32,17 @@ export default class TenantService {
   }
 
   static async listPublicTenants() {
-    return TenantRepository.listActive();
+    return this.attachProductCounts(await TenantRepository.listActive());
   }
 
   static async listAllTenants() {
-    return TenantRepository.listAll();
+    return this.attachProductCounts(await TenantRepository.listAll());
+  }
+
+  /** Decorates a tenant list with a `productCount` field for the admin Tenants table. */
+  private static async attachProductCounts<T extends { id: string }>(tenants: T[]) {
+    const counts = await TenantRepository.getProductCounts();
+    return tenants.map((t) => ({ ...t, productCount: counts[t.id] ?? 0 }));
   }
 
   static async createTenant(data: {
