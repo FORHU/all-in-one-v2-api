@@ -21,6 +21,10 @@ export default class NotificationRepository {
     });
   }
 
+  static async findById(id: string) {
+    return prisma.notification.findUnique({ where: { id } });
+  }
+
   static async markAsRead(id: string) {
     return prisma.notification.update({
       where: { id },

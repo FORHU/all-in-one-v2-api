@@ -17,7 +17,10 @@ export default class PaymentRepository {
     return prisma.commercePayment.findFirst({
       where: { gatewayTransactionId },
       include: {
-        order: true,
+        // `customer` is needed to notify the real AuthUser — order.customerId
+        // is a CommerceCustomer id, not the AuthUser id Notification.userId
+        // actually points at (see payment.service.ts's handleWebhook).
+        order: { include: { customer: true } },
         events: true,
         attempts: true,
       },

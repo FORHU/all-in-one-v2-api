@@ -14,6 +14,9 @@ router.get('/', authenticate, requirePermission('orders:read'), OrderController.
 // Guests may check out with an x-session-id cart, so auth is optional here.
 router.post('/checkout', optionalAuthenticate, OrderController.checkout);
 
+// Signed-in-only — see OrderService.checkoutDirect's doc comment.
+router.post('/checkout-direct', authenticate, OrderController.checkoutDirect);
+
 router.get('/my-orders', authenticate, OrderController.getMyOrders);
 
 // Guests can view an order they placed by presenting the same x-session-id.
