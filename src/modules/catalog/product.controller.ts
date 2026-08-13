@@ -58,6 +58,9 @@ export default class ProductController {
       const status = Object.values(ProductStatus).includes(req.query.status as ProductStatus)
         ? (req.query.status as ProductStatus)
         : undefined;
+      const categoryId =
+        typeof req.query.categoryId === 'string' ? req.query.categoryId : undefined;
+      const brand = typeof req.query.brand === 'string' ? req.query.brand : undefined;
 
       const result = await ProductService.listProductsForAdmin(
         page,
@@ -66,8 +69,37 @@ export default class ProductController {
         sortBy,
         sortOrder,
         status,
+        categoryId,
+        brand,
       );
       return responseSuccess(res, 200, result);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * GET /api/v2/products/brands — distinct brand values in use, with
+   * per-brand product counts. Backs the admin Brands page.
+   */
+  static async getBrands(req: Request, res: Response, next: NextFunction) {
+    try {
+      const brands = await ProductService.getBrandCounts();
+      return responseSuccess(res, 200, { items: brands });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * PATCH /api/v2/products/brands/:brand — bulk rename (`newBrand: "X"`) or
+   * clear (`newBrand: null`) a brand across every product carrying it.
+   */
+  static async renameBrand(req: Request, res: Response, next: NextFunction) {
+    try {
+      const newBrand = typeof req.body.newBrand === 'string' ? req.body.newBrand : null;
+      const result = await ProductService.renameBrand(req.params.brand, newBrand);
+      return responseSuccess(res, 200, result, 'Brand updated successfully');
     } catch (err) {
       next(err);
     }

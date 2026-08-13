@@ -112,10 +112,22 @@ export default class ProductService {
     sortBy?: string,
     sortOrder?: 'asc' | 'desc',
     status?: ProductStatus,
+    categoryId?: string,
+    brand?: string,
   ) {
     const tenantId = requireTenantId();
     const [result, statusCounts] = await Promise.all([
-      ProductRepository.findAllForAdmin(tenantId, page, limit, search, sortBy, sortOrder, status),
+      ProductRepository.findAllForAdmin(
+        tenantId,
+        page,
+        limit,
+        search,
+        sortBy,
+        sortOrder,
+        status,
+        categoryId,
+        brand,
+      ),
       ProductRepository.getStatusCounts(tenantId),
     ]);
     return {
@@ -123,6 +135,34 @@ export default class ProductService {
       items: result.items.map(mapProductToAdminListingDto),
       statusCounts,
     };
+  }
+
+  static async getBrandCounts() {
+    const tenantId = requireTenantId();
+    return ProductRepository.getBrandCounts(tenantId);
+  }
+
+  /**
+   * Bulk-renames (or, with `newBrand: null`, clears) a brand across every
+   * product that carries it. `brand` has no table of its own to look up, so
+   * unlike updateCategory/updateCollection there's no existence check —
+   * an unmatched brand just updates 0 rows.
+   */
+  static async renameBrand(brand: string, newBrand: string | null) {
+    const tenantId = requireTenantId();
+
+    const trimmedBrand = brand.trim();
+    if (!trimmedBrand) {
+      return throwResponse(400, 'Brand is required');
+    }
+
+    const trimmedNewBrand = newBrand?.trim() || null;
+    const updatedCount = await ProductRepository.renameBrand(
+      tenantId,
+      trimmedBrand,
+      trimmedNewBrand,
+    );
+    return { updatedCount };
   }
 
   static async getProductBySlug(slug: string) {

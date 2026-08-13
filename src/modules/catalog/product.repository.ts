@@ -96,11 +96,18 @@ export default class ProductRepository {
     sortBy?: string,
     sortOrder?: 'asc' | 'desc',
     status?: ProductStatus,
+    categoryId?: string,
+    brand?: string,
   ): Promise<PageResult<AdminProductListingRow>> {
     const where: Prisma.CatalogProductWhereInput = {
       tenantId,
       deletedAt: null,
       ...(status && { status }),
+      ...(categoryId && { categoryId }),
+      // Exact match, deliberately distinct from `search`'s substring OR —
+      // this is "show only this brand" (from a Brand tile click), not a
+      // free-text guess.
+      ...(brand && { brand }),
       ...(search && {
         OR: [
           { title: { contains: search, mode: 'insensitive' } },
@@ -441,5 +448,45 @@ export default class ProductRepository {
     });
 
     return counts;
+  }
+
+  /**
+   * Distinct brand values in use across this tenant's products, with a
+   * per-brand product count. Brand has no table of its own — it's a plain
+   * `brand: string | null` column on catalog_products — so this is a
+   * groupBy over that column rather than a join, and null/blank brands are
+   * excluded (nothing meaningful to manage there).
+   */
+  static async getBrandCounts(tenantId: string): Promise<{ brand: string; count: number }[]> {
+    const grouped = await prisma.catalogProduct.groupBy({
+      by: ['brand'],
+      where: { tenantId, deletedAt: null, brand: { not: null } },
+      _count: { brand: true },
+      orderBy: { brand: 'asc' },
+    });
+
+    return grouped.map((g: { brand: string | null; _count: { brand: number } }) => ({
+      brand: g.brand as string,
+      count: g._count.brand,
+    }));
+  }
+
+  /**
+   * Bulk-rewrites every product's `brand` field from one value to another
+   * (or to null, to clear it) — the closest thing to "rename"/"delete" for
+   * a value that has no row of its own to rename/delete. Uses `updateMany`
+   * with an exact-match `brand` filter, same tenant-scoping convention as
+   * every other write in this repository.
+   */
+  static async renameBrand(
+    tenantId: string,
+    brand: string,
+    newBrand: string | null,
+  ): Promise<number> {
+    const result = await prisma.catalogProduct.updateMany({
+      where: { tenantId, deletedAt: null, brand },
+      data: { brand: newBrand },
+    });
+    return result.count;
   }
 }

@@ -14,6 +14,20 @@ router.get('/', ProductController.list);
 // required. Must be registered before any `/:id`-shaped route is added here.
 router.get('/admin', authenticate, requirePermission('catalog:read'), ProductController.adminList);
 
+// Admin Brands page — distinct brand values + product counts. Also static,
+// also must come before `/:slug`.
+router.get('/brands', authenticate, requirePermission('catalog:read'), ProductController.getBrands);
+
+// Bulk rename/clear a brand across every product carrying it — the
+// closest thing to edit/delete for a value with no row of its own. Also
+// static, also must come before `/:slug`.
+router.patch(
+  '/brands/:brand',
+  authenticate,
+  requirePermission('catalog:write'),
+  ProductController.renameBrand,
+);
+
 router.get('/:slug', ProductController.getBySlug);
 
 router.post('/', authenticate, requirePermission('catalog:write'), ProductController.create);
