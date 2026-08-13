@@ -14,17 +14,36 @@ export default class CollectionService {
    * silently falling back to "show everything" — same convention as
    * ProductService.listProducts.
    */
-  static async listCollections(type?: CollectionType, categorySlug?: string) {
+  static async listCollections(
+    page?: number,
+    limit?: number,
+    search?: string,
+    sortBy?: string,
+    sortOrder?: 'asc' | 'desc',
+    type?: CollectionType,
+    categorySlug?: string,
+  ) {
     const tenantId = requireTenantId();
 
     let categoryId: string | undefined;
     if (categorySlug) {
       const resolved = await CollectionRepository.findCategoryIdBySlug(tenantId, categorySlug);
-      if (!resolved) return [];
+      if (!resolved) {
+        return { items: [], total: 0, page: page ?? 1, limit: limit ?? 20, totalPages: 0 };
+      }
       categoryId = resolved;
     }
 
-    return CollectionRepository.findAllRoot(tenantId, type, categoryId);
+    return CollectionRepository.findAllRoot(
+      tenantId,
+      page,
+      limit,
+      search,
+      sortBy,
+      sortOrder,
+      type,
+      categoryId,
+    );
   }
 
   static async getCollectionById(id: string) {

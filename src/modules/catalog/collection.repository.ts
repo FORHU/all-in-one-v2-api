@@ -1,5 +1,6 @@
 import { Prisma, CollectionType } from '@prisma/client';
 import { prisma } from '../../utils/prisma';
+import { buildPage, PageResult } from '../../helpers/pagination.helper';
 
 /**
  * CatalogCollection repository — scoped to tenantId on every query.
@@ -42,19 +43,48 @@ const collectionWithItems = {
 export default class CollectionRepository {
   // ─── Collections ────────────────────────────────────────────────────────────
 
-  /** All top-level collections for a tenant (parentId = null). */
-  static async findAllRoot(tenantId: string, type?: CollectionType, categoryId?: string) {
-    return prisma.catalogCollection.findMany({
-      where: {
-        tenantId,
-        parentId: null,
-        isDeleted: false,
-        ...(type ? { type } : {}),
-        ...(categoryId ? { categoryId } : {}),
-      },
-      include: collectionWithItems,
-      orderBy: { createdAt: 'desc' },
-    });
+  private static readonly SORTABLE_FIELDS = new Set(['title', 'createdAt', 'updatedAt']);
+
+  /** Paginated top-level collections for a tenant (parentId = null). */
+  static async findAllRoot(
+    tenantId: string,
+    page = 1,
+    limit = 20,
+    search?: string,
+    sortBy?: string,
+    sortOrder?: 'asc' | 'desc',
+    type?: CollectionType,
+    categoryId?: string,
+  ): Promise<
+    PageResult<Prisma.CatalogCollectionGetPayload<{ include: typeof collectionWithItems }>>
+  > {
+    const where: Prisma.CatalogCollectionWhereInput = {
+      tenantId,
+      parentId: null,
+      isDeleted: false,
+      ...(type ? { type } : {}),
+      ...(categoryId ? { categoryId } : {}),
+      ...(search && { title: { contains: search, mode: 'insensitive' } }),
+    };
+
+    const orderBy: Prisma.CatalogCollectionOrderByWithRelationInput =
+      sortBy && this.SORTABLE_FIELDS.has(sortBy)
+        ? { [sortBy]: sortOrder ?? 'asc' }
+        : { createdAt: 'desc' };
+
+    const skip = (page - 1) * limit;
+    const [items, total] = await Promise.all([
+      prisma.catalogCollection.findMany({
+        where,
+        orderBy,
+        skip,
+        take: limit,
+        include: collectionWithItems,
+      }),
+      prisma.catalogCollection.count({ where }),
+    ]);
+
+    return buildPage(items, total, { page, limit, sortBy, sortOrder, search });
   }
 
   static async findCategoryIdBySlug(tenantId: string, slug: string): Promise<string | null> {

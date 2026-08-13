@@ -1,11 +1,44 @@
-import { ProductStatus } from '@prisma/client';
+import { ProductStatus, ProductVisibility } from '@prisma/client';
 import ProductRepository, { ProductListingFilters, ProductListingRow } from './product.repository';
 import { requireTenantId } from '../../utils/async-context';
+import { throwResponse } from '../../utils/throw-response';
 import {
   mapProductToAdminListingDto,
   mapProductToDetailDto,
   mapProductToListingDto,
 } from './product/mapper/product.mapper';
+
+export interface ProductWriteInput {
+  title: string;
+  slug?: string;
+  description?: string;
+  // Nullable (not just optional): the admin form needs to be able to send an
+  // explicit `null` to CLEAR one of these on an existing product, which an
+  // omitted/`undefined` key can't express — `undefined` fields are dropped
+  // by JSON.stringify before the request body is even sent, so the backend
+  // would never see the field was touched at all.
+  brand?: string | null;
+  status?: ProductStatus;
+  visibility?: ProductVisibility;
+  featured?: boolean;
+  price?: number | null;
+  salePrice?: number | null;
+  compareAtPrice?: number | null;
+  thumbnailUrl?: string | null;
+  categoryId?: string | null;
+  tags?: string[];
+  seoTitle?: string;
+  seoDescription?: string;
+}
+
+/** "Classic Denim Jacket" -> "classic-denim-jacket" */
+function slugify(title: string): string {
+  return title
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
 
 export interface ListProductsQuery {
   categorySlug?: string;
@@ -80,18 +113,15 @@ export default class ProductService {
     sortOrder?: 'asc' | 'desc',
     status?: ProductStatus,
   ) {
-    const result = await ProductRepository.findAllForAdmin(
-      requireTenantId(),
-      page,
-      limit,
-      search,
-      sortBy,
-      sortOrder,
-      status,
-    );
+    const tenantId = requireTenantId();
+    const [result, statusCounts] = await Promise.all([
+      ProductRepository.findAllForAdmin(tenantId, page, limit, search, sortBy, sortOrder, status),
+      ProductRepository.getStatusCounts(tenantId),
+    ]);
     return {
       ...result,
       items: result.items.map(mapProductToAdminListingDto),
+      statusCounts,
     };
   }
 
@@ -102,5 +132,51 @@ export default class ProductService {
 
     const ratings = await ProductRepository.getRatingsForProducts([product.id]);
     return mapProductToDetailDto(product, ratings.get(product.id));
+  }
+
+  static async createProduct(data: ProductWriteInput) {
+    const tenantId = requireTenantId();
+
+    const slug = data.slug ? slugify(data.slug) : slugify(data.title);
+    const existing = await ProductRepository.findBySlug(tenantId, slug);
+    if (existing) {
+      return throwResponse(400, `Product slug '${slug}' already exists`);
+    }
+
+    const created = await ProductRepository.create(tenantId, { ...data, slug });
+    const withAdminShape = await ProductRepository.findByIdForAdmin(tenantId, created.id);
+    return mapProductToAdminListingDto(withAdminShape!);
+  }
+
+  static async updateProduct(id: string, data: Partial<ProductWriteInput>) {
+    const tenantId = requireTenantId();
+
+    const product = await ProductRepository.findById(tenantId, id);
+    if (!product) {
+      return throwResponse(404, 'Product not found');
+    }
+
+    if (data.slug && data.slug !== product.slug) {
+      const slug = slugify(data.slug);
+      const existing = await ProductRepository.findBySlug(tenantId, slug);
+      if (existing) {
+        return throwResponse(400, `Product slug '${slug}' already exists`);
+      }
+      data = { ...data, slug };
+    }
+
+    await ProductRepository.update(tenantId, id, data);
+    const withAdminShape = await ProductRepository.findByIdForAdmin(tenantId, id);
+    return mapProductToAdminListingDto(withAdminShape!);
+  }
+
+  static async deleteProduct(id: string) {
+    const tenantId = requireTenantId();
+
+    const product = await ProductRepository.findById(tenantId, id);
+    if (!product) {
+      return throwResponse(404, 'Product not found');
+    }
+    return ProductRepository.softDelete(tenantId, id);
   }
 }
