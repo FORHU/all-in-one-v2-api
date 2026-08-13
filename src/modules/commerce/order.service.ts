@@ -3,10 +3,12 @@ import CartRepository from './cart.repository';
 import CustomerRepository from './customer.repository';
 import CouponRepository from './coupon.repository';
 import InventoryRepository from '../inventory/inventory.repository';
+import NotificationRepository from '../system/notification.repository';
 import { OrderStatus, Prisma, Coupon } from '@prisma/client';
 import { throwResponse } from '../../utils/throw-response';
 import { requireTenantId } from '../../utils/async-context';
 import { prisma } from '../../utils/prisma';
+import logger from '../../utils/logger';
 
 /**
  * Who is asking to see an order: a signed-in customer, a guest holding the
@@ -113,6 +115,173 @@ export default class OrderService {
       return throwResponse(400, 'Cart is empty');
     }
 
+    return this.createOrderFromItems(cart.items, {
+      tenantId,
+      customerId,
+      sessionId,
+      shippingAddressId,
+      couponCode,
+      currency,
+      afterCreate: async (tx) => {
+        // Clear the cart we actually read from inside the transaction.
+        // Stock has been reserved above (Optimistic locking is available in InventoryRepository).
+        await tx.commerceCartItem.deleteMany({ where: { cartId: cart.id } });
+      },
+    });
+  }
+
+  /**
+   * Checkout without a persisted backend cart — resolves each requested
+   * product+size+color straight to a CatalogProductVariant and creates the
+   * order directly. Exists because the storefront's cart is currently
+   * client-only (localStorage), so there's nothing in CommerceCart for
+   * checkoutFromCart to read; this lets checkout still produce a real
+   * CommerceOrder without first migrating the whole cart UI to the real
+   * /v2/cart endpoints. Signed-in customers only — unlike checkoutFromCart,
+   * there's no guest/session concept here.
+   */
+  static async checkoutDirect(params: {
+    customerId: string;
+    userId: string;
+    items: { productId: string; size?: string; color?: string; quantity: number }[];
+    shippingAddressId?: string;
+    currency?: string;
+  }) {
+    const { customerId, userId, items, shippingAddressId, currency = 'USD' } = params;
+
+    if (!items || items.length === 0) {
+      return throwResponse(400, 'No items provided');
+    }
+
+    const tenantId = requireTenantId();
+    const resolvedItems = await this.resolveDirectCheckoutItems(tenantId, items);
+
+    const order = await this.createOrderFromItems(resolvedItems, {
+      tenantId,
+      customerId,
+      shippingAddressId,
+      currency,
+    });
+
+    // Best-effort: the order is already committed at this point, so a
+    // notification hiccup shouldn't turn a successful checkout into a
+    // failed request.
+    try {
+      await NotificationRepository.createNotification(tenantId, {
+        user: { connect: { id: userId } },
+        type: 'ORDER_STATUS',
+        channel: 'IN_APP',
+        title: 'Order Placed',
+        message: `Your order ${order.orderNumber} has been placed.`,
+        data: { orderId: order.id, orderNumber: order.orderNumber },
+      });
+    } catch (err) {
+      logger.warn(`Failed to create order-placed notification for order ${order.id}: ${err}`);
+    }
+
+    return order;
+  }
+
+  /**
+   * Matches each {productId, size, color} to a real CatalogProductVariant —
+   * same loose "some variant has this color value AND some/the-same variant
+   * has this size value" matching the storefront listing already applies at
+   * the product level (see catalog/product.repository.ts's buildWhere), just
+   * narrowed down to one specific variant here.
+   */
+  private static async resolveDirectCheckoutItems(
+    tenantId: string,
+    items: { productId: string; size?: string; color?: string; quantity: number }[],
+  ): Promise<CartItemLike[]> {
+    const resolved: CartItemLike[] = [];
+
+    for (const item of items) {
+      const variant = await prisma.catalogProductVariant.findFirst({
+        where: {
+          tenantId,
+          productId: item.productId,
+          deletedAt: null,
+          ...(item.color
+            ? {
+                variantAttributes: {
+                  some: { value: { value: item.color, attribute: { code: 'color' } } },
+                },
+              }
+            : {}),
+          ...(item.size
+            ? {
+                variantAttributes: {
+                  some: { value: { value: item.size, attribute: { code: 'size' } } },
+                },
+              }
+            : {}),
+        },
+        include: {
+          product: { select: { title: true, thumbnailUrl: true } },
+          media: { where: { isPrimary: true }, take: 1 },
+        },
+      });
+
+      if (!variant) {
+        return throwResponse(
+          404,
+          `No matching product variant found for product ${item.productId}` +
+            (item.color || item.size
+              ? ` (${[item.color, item.size].filter(Boolean).join(', ')})`
+              : ''),
+        );
+      }
+
+      // Seed/import data attaches the primary image to the product, not each
+      // variant (CatalogProductMedia.productVariantId is null for it) — fall
+      // back to the product's thumbnailUrl when the variant has no image of
+      // its own, or every order item ends up with no picture.
+      const imageUrl = variant.media[0]?.url ?? variant.product.thumbnailUrl ?? null;
+
+      resolved.push({
+        productVariantId: variant.id,
+        quantity: item.quantity,
+        unitPrice: variant.price,
+        productVariant: {
+          sku: variant.sku,
+          title: variant.title,
+          product: { title: variant.product.title },
+          media: imageUrl ? [{ url: imageUrl }] : [],
+        },
+      });
+    }
+
+    return resolved;
+  }
+
+  /**
+   * Shared by checkoutFromCart and checkoutDirect: subtotal/coupon/discount
+   * math, stock reservation, and the CommerceOrder-creation transaction.
+   * `afterCreate` runs inside the same transaction as order creation (used
+   * by checkoutFromCart to clear the cart it read from — checkoutDirect has
+   * no cart to clear, so it's optional).
+   */
+  private static async createOrderFromItems(
+    items: CartItemLike[],
+    params: {
+      tenantId: string;
+      customerId?: string;
+      sessionId?: string;
+      shippingAddressId?: string;
+      couponCode?: string;
+      currency?: string;
+      afterCreate?: (tx: Prisma.TransactionClient) => Promise<void>;
+    },
+  ) {
+    const {
+      tenantId,
+      customerId,
+      sessionId,
+      shippingAddressId,
+      couponCode,
+      currency = 'USD',
+    } = params;
+
     if (shippingAddressId) {
       const address = await CustomerRepository.findAddressById(shippingAddressId);
       if (!address || (customerId && address.customerId !== customerId)) {
@@ -122,7 +291,7 @@ export default class OrderService {
 
     // Decimal, not float: `0.1 + 0.2` is not `0.3`, and a cart of enough cheap
     // line items drifts far enough to disagree with what the gateway charges.
-    const subtotal = cart.items.reduce(
+    const subtotal = items.reduce(
       (acc: Prisma.Decimal, item: CartItemLike) =>
         acc.plus(new Prisma.Decimal(item.unitPrice as Prisma.Decimal.Value).times(item.quantity)),
       new Prisma.Decimal(0),
@@ -162,7 +331,7 @@ export default class OrderService {
     const totalAmount = subtotal.minus(discountAmount).plus(taxAmount).plus(shippingAmount);
 
     // Reserve stock
-    for (const item of cart.items) {
+    for (const item of items) {
       const stockSummary = await InventoryRepository.getStockSummaryByVariant(
         item.productVariantId,
       );
@@ -188,7 +357,7 @@ export default class OrderService {
       );
     }
 
-    const order = await prisma.$transaction(async (tx) => {
+    return prisma.$transaction(async (tx) => {
       const createdOrder = await tx.commerceOrder.create({
         data: {
           tenant: { connect: { id: tenantId } },
@@ -205,7 +374,7 @@ export default class OrderService {
           ...(shippingAddressId ? { shippingAddress: { connect: { id: shippingAddressId } } } : {}),
           ...(coupon ? { coupon: { connect: { id: coupon.id } } } : {}),
           items: {
-            create: cart.items.map((item: CartItemLike) => {
+            create: items.map((item: CartItemLike) => {
               const variant = item.productVariant;
               const imageUrl = variant?.media?.[0]?.url || null;
               return {
@@ -227,16 +396,10 @@ export default class OrderService {
         },
       });
 
-      // Clear the cart we actually read from inside the transaction.
-      // Stock has been reserved above (Optimistic locking is available in InventoryRepository).
-      await tx.commerceCartItem.deleteMany({
-        where: { cartId: cart.id },
-      });
+      if (params.afterCreate) await params.afterCreate(tx);
 
       return createdOrder;
     });
-
-    return order;
   }
 
   static async updateOrderStatus(orderId: string, status: OrderStatus) {

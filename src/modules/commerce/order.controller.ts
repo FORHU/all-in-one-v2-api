@@ -1,9 +1,26 @@
 import { Request, Response, NextFunction } from 'express';
+import Joi from 'joi';
 import { OrderStatus } from '@prisma/client';
 import OrderService from './order.service';
 import { responseSuccess, responseError } from '../../helpers/response.helper';
 import { parsePagination, pageFromRepo } from '../../helpers/pagination.helper';
 import { resolveCustomerId, resolveOrderViewer } from '../../helpers/requester.helper';
+
+const checkoutDirectSchema = Joi.object({
+  items: Joi.array()
+    .items(
+      Joi.object({
+        productId: Joi.string().required(),
+        size: Joi.string().optional(),
+        color: Joi.string().optional(),
+        quantity: Joi.number().integer().min(1).required(),
+      }),
+    )
+    .min(1)
+    .required(),
+  shippingAddressId: Joi.string().optional(),
+  currency: Joi.string().optional(),
+});
 
 export default class OrderController {
   /**
@@ -43,6 +60,34 @@ export default class OrderController {
       return responseSuccess(res, 201, order, 'Order placed successfully');
     } catch (error) {
       next(error);
+    }
+  }
+
+  /**
+   * POST /api/v2/orders/checkout-direct
+   * Signed-in-only checkout that takes items directly (product+size+color+
+   * quantity) instead of reading a persisted backend cart — see
+   * OrderService.checkoutDirect's doc comment for why this exists.
+   */
+  static async checkoutDirect(req: Request, res: Response, next: NextFunction) {
+    const { error, value } = checkoutDirectSchema.validate(req.body);
+    if (error) return responseError(res, 400, error.message);
+
+    try {
+      const customerId = await resolveCustomerId(req);
+      if (!customerId || !req.user) return responseError(res, 401, 'Unauthorized');
+
+      const order = await OrderService.checkoutDirect({
+        customerId,
+        userId: req.user.id,
+        items: value.items,
+        shippingAddressId: value.shippingAddressId,
+        currency: value.currency,
+      });
+
+      return responseSuccess(res, 201, order, 'Order placed successfully');
+    } catch (err) {
+      next(err);
     }
   }
 

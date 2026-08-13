@@ -250,9 +250,12 @@ export default class PaymentService {
               // dedupe above is bypassed or this webhook is replayed.
               await AnalyticsRollupService.recordOrderSale(payment.order.tenantId, payment.orderId);
 
-              if (payment.order.customerId) {
+              // Notification.userId is a foreign key to AuthUser, not
+              // CommerceCustomer — order.customerId is the latter, so the
+              // real AuthUser id comes from the customer relation instead.
+              if (payment.order.customer?.userId) {
                 await NotificationRepository.createNotification(payment.order.tenantId, {
-                  user: { connect: { id: payment.order.customerId } },
+                  user: { connect: { id: payment.order.customer.userId } },
                   type: 'PAYMENT_CONFIRMED',
                   channel: 'IN_APP',
                   title: 'Payment Confirmed',
@@ -287,9 +290,12 @@ export default class PaymentService {
               );
               await AnalyticsRollupService.recordOrderSale(payment.order.tenantId, payment.orderId);
 
-              if (payment.order.customerId) {
+              // Notification.userId is a foreign key to AuthUser, not
+              // CommerceCustomer — order.customerId is the latter, so the
+              // real AuthUser id comes from the customer relation instead.
+              if (payment.order.customer?.userId) {
                 await NotificationRepository.createNotification(payment.order.tenantId, {
-                  user: { connect: { id: payment.order.customerId } },
+                  user: { connect: { id: payment.order.customer.userId } },
                   type: 'PAYMENT_CONFIRMED',
                   channel: 'IN_APP',
                   title: 'Payment Confirmed',

@@ -4,7 +4,7 @@ import { responseSuccess, responseError } from '../../helpers/response.helper';
 
 export const getMyNotifications = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as unknown as { user: { id: string } }).user?.id;
+    const userId = req.user?.id;
     if (!userId) return responseError(res, 401, 'Unauthorized');
     const notifications = await NotificationService.getMyNotifications(userId);
     return responseSuccess(res, 200, notifications);
@@ -15,8 +15,10 @@ export const getMyNotifications = async (req: Request, res: Response, next: Next
 
 export const markAsRead = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const userId = req.user?.id;
+    if (!userId) return responseError(res, 401, 'Unauthorized');
     const { id } = req.params;
-    const notification = await NotificationService.markAsRead(id);
+    const notification = await NotificationService.markAsRead(id, userId);
     return responseSuccess(res, 200, notification);
   } catch (error) {
     next(error);
