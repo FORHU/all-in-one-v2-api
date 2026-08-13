@@ -22,6 +22,9 @@ const LISTING_INCLUDE = {
       variantAttributes: {
         include: { value: { include: { attribute: true } } },
       },
+      // Stock now lives on InventoryStock (multi-location), not directly on
+      // the variant — see prisma/schema/inventory.prisma.
+      inventoryStocks: { select: { available: true } },
     },
   },
 } satisfies Prisma.CatalogProductInclude;
@@ -38,6 +41,7 @@ const DETAIL_INCLUDE = {
       variantAttributes: {
         include: { value: { include: { attribute: true } } },
       },
+      inventoryStocks: { select: { available: true } },
     },
   },
   category: { select: { name: true, slug: true } },
@@ -50,7 +54,10 @@ export type ProductDetailRow = Prisma.CatalogProductGetPayload<{
 const ADMIN_LISTING_INCLUDE = {
   category: { select: { id: true, name: true } },
   media: { where: { isPrimary: true }, take: 1 },
-  variants: { where: { deletedAt: null }, select: { id: true } },
+  variants: {
+    where: { deletedAt: null },
+    select: { id: true, inventoryStocks: { select: { available: true } } },
+  },
   _count: { select: { variants: { where: { deletedAt: null } } } },
 } satisfies Prisma.CatalogProductInclude;
 
