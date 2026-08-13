@@ -49,6 +49,15 @@ function collectAttributeOptions(
   return Array.from(seen.values());
 }
 
+/**
+ * Total sellable stock for a variant — summed across every InventoryStock
+ * location row (warehouse, regional, flagship, pop-up, etc.). `available`
+ * is already onHand minus reserved, so no further adjustment needed.
+ */
+function sumAvailableStock(variant: { inventoryStocks: { available: number }[] }): number {
+  return variant.inventoryStocks.reduce((sum, s) => sum + s.available, 0);
+}
+
 /** Per-variant stock, tagged with its color/size values so the PDP can look up the count for whatever the shopper currently has selected. */
 function collectVariantStock(product: ProductDetailRow): ProductVariantStockDto[] {
   return product.variants.map((variant) => {
@@ -60,7 +69,7 @@ function collectVariantStock(product: ProductDetailRow): ProductVariantStockDto[
       if (va.value.attribute.code === 'size') size = va.value.value;
     }
 
-    return { color, size, stock: 0 /* TODO: fetch from inventory */ };
+    return { color, size, stock: sumAvailableStock(variant) };
   });
 }
 
@@ -83,7 +92,7 @@ export function mapProductToListingDto(
     reviewCount: rating?.reviewCount ?? 0,
     colors: collectAttributeOptions(product, 'color'),
     sizes: collectAttributeOptions(product, 'size'),
-    inStock: true /* TODO: fetch from inventory */,
+    inStock: product.variants.some((v) => sumAvailableStock(v) > 0),
     categoryId: product.categoryId,
     createdAt: product.createdAt,
   };
@@ -110,7 +119,7 @@ export function mapProductToAdminListingDto(
     compareAtPrice: toNumber(product.compareAtPrice),
     category: product.category,
     variantCount: product._count.variants,
-    inStock: true /* TODO: fetch from inventory */,
+    inStock: product.variants.some((v) => sumAvailableStock(v) > 0),
     createdBy: product.createdBy,
     updatedBy: product.updatedBy,
     createdAt: product.createdAt,
@@ -145,7 +154,7 @@ export function mapProductToDetailDto(
     reviewCount: rating?.reviewCount ?? 0,
     colors: collectAttributeOptions(product, 'color'),
     sizes: collectAttributeOptions(product, 'size'),
-    inStock: true /* TODO: fetch from inventory */,
+    inStock: product.variants.some((v) => sumAvailableStock(v) > 0),
     variants: collectVariantStock(product),
     categoryId: product.categoryId,
     categorySlug: product.category?.slug ?? null,
