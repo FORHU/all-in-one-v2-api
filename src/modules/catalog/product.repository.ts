@@ -54,13 +54,8 @@ const ADMIN_LISTING_INCLUDE = {
   _count: { select: { variants: { where: { deletedAt: null } } } },
 } satisfies Prisma.CatalogProductInclude;
 
-// `omit` mirrors the `findAllForAdmin` query below ΓÇö brand is excluded
-// there (pending migration 20260807071552_add_catalog_product_brand), so
-// the row type must exclude it too or TS considers it a required field
-// that's actually missing from every row returned at runtime.
 export type AdminProductListingRow = Prisma.CatalogProductGetPayload<{
   include: typeof ADMIN_LISTING_INCLUDE;
-  omit: { brand: true };
 }>;
 
 /**
@@ -100,21 +95,16 @@ export default class ProductRepository {
       deletedAt: null,
       ...(status && { status }),
       ...(search && {
-        // `brand` intentionally excluded from this OR ΓÇö the migration that
-        // adds `catalog_products.brand` (20260807071552_add_catalog_product_brand)
-        // hasn't been applied yet, so referencing the column here throws.
-        // Re-add once the column exists.
         OR: [
           { title: { contains: search, mode: 'insensitive' } },
           { slug: { contains: search, mode: 'insensitive' } },
+          { brand: { contains: search, mode: 'insensitive' } },
         ],
       }),
     };
 
-    // 'brand' is excluded from the sort whitelist for the same reason ΓÇö
-    // `orderBy: { brand }` would reference the not-yet-existing column.
     const orderBy: Prisma.CatalogProductOrderByWithRelationInput =
-      sortBy && sortBy !== 'brand' && this.ADMIN_SORTABLE_FIELDS.has(sortBy)
+      sortBy && this.ADMIN_SORTABLE_FIELDS.has(sortBy)
         ? { [sortBy]: sortOrder ?? 'asc' }
         : { createdAt: 'desc' };
 
@@ -126,10 +116,6 @@ export default class ProductRepository {
         skip,
         take: limit,
         include: ADMIN_LISTING_INCLUDE,
-        // Prisma selects all scalar columns by default; `brand` is declared
-        // in schema.prisma but the column doesn't exist in the database yet
-        // (see OR comment above) ΓÇö omit it here or every query throws.
-        omit: { brand: true },
       }),
       prisma.catalogProduct.count({ where }),
     ]);
@@ -213,6 +199,58 @@ export default class ProductRepository {
       default:
         return { createdAt: 'desc' };
     }
+  }
+
+  /** Tenant-scoped lookup by id, unfiltered by status — for admin create/update/delete existence checks. */
+  static async findById(tenantId: string, id: string) {
+    return prisma.catalogProduct.findFirst({ where: { id, tenantId } });
+  }
+
+  /** Same shape as findAllForAdmin's rows — used to return a freshly created/updated product decorated the same way the admin table expects. */
+  static async findByIdForAdmin(
+    tenantId: string,
+    id: string,
+  ): Promise<AdminProductListingRow | null> {
+    return prisma.catalogProduct.findFirst({
+      where: { id, tenantId },
+      include: ADMIN_LISTING_INCLUDE,
+    });
+  }
+
+  /** Tenant-scoped lookup by slug, unfiltered by status — for slug-uniqueness checks on create. */
+  static async findBySlug(tenantId: string, slug: string) {
+    return prisma.catalogProduct.findUnique({ where: { tenantId_slug: { tenantId, slug } } });
+  }
+
+  // Unchecked variants used deliberately (not CatalogProductCreateInput/
+  // UpdateInput) — the "checked" input types only accept relation-connect
+  // syntax for categoryId/pricingRuleId/taxClassId (e.g. `category: {
+  // connect: { ... } }`), not the plain scalar FK fields callers pass here.
+  static async create(
+    tenantId: string,
+    data: Omit<Prisma.CatalogProductUncheckedCreateInput, 'tenantId'>,
+  ) {
+    return prisma.catalogProduct.create({
+      data: { ...data, tenantId },
+    });
+  }
+
+  static async update(
+    tenantId: string,
+    id: string,
+    data: Prisma.CatalogProductUncheckedUpdateManyInput,
+  ) {
+    // updateMany rather than update: it accepts a non-unique where clause, so
+    // the tenant filter is enforced by the database rather than assumed.
+    await prisma.catalogProduct.updateMany({ where: { id, tenantId }, data });
+    return this.findById(tenantId, id);
+  }
+
+  static async softDelete(tenantId: string, id: string) {
+    return prisma.catalogProduct.updateMany({
+      where: { id, tenantId },
+      data: { deletedAt: new Date() },
+    });
   }
 
   /** Product detail page — unlike listing, pulls the FULL media gallery (not just the primary image). */
@@ -372,5 +410,29 @@ export default class ProductRepository {
         ],
       ),
     );
+  }
+
+  /**
+   * Catalog-wide status breakdown for the admin stats bar — deliberately
+   * unfiltered by the current search/status query params (unlike
+   * findAllForAdmin's `total`), so the overview cards stay stable while the
+   * admin filters the table below them.
+   */
+  static async getStatusCounts(tenantId: string): Promise<Record<ProductStatus, number>> {
+    const grouped = await prisma.catalogProduct.groupBy({
+      by: ['status'],
+      where: { tenantId, deletedAt: null },
+      _count: { status: true },
+    });
+
+    const counts = Object.fromEntries(
+      Object.values(ProductStatus).map((status) => [status, 0]),
+    ) as Record<ProductStatus, number>;
+
+    grouped.forEach((g: { status: ProductStatus; _count: { status: number } }) => {
+      counts[g.status] = g._count.status;
+    });
+
+    return counts;
   }
 }

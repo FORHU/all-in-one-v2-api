@@ -16,4 +16,8 @@ router.get('/admin', authenticate, requirePermission('catalog:read'), ProductCon
 
 router.get('/:slug', ProductController.getBySlug);
 
+router.post('/', authenticate, requirePermission('catalog:write'), ProductController.create);
+router.put('/:id', authenticate, requirePermission('catalog:write'), ProductController.update);
+router.delete('/:id', authenticate, requirePermission('catalog:delete'), ProductController.delete);
+
 export default router;

@@ -1,11 +1,14 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../utils/prisma';
+import { buildPage, PageResult } from '../../helpers/pagination.helper';
 
 /**
  * Categories belong to a single vertical. Every method takes `tenantId`
  * explicitly so the compiler flags any caller that forgets to scope.
  */
 export default class CategoryRepository {
+  private static readonly SORTABLE_FIELDS = new Set(['name', 'createdAt', 'updatedAt']);
+
   static async findById(tenantId: string, id: string) {
     return prisma.catalogCategory.findFirst({
       where: { id, tenantId },
@@ -33,14 +36,38 @@ export default class CategoryRepository {
     });
   }
 
-  static async findAllRoot(tenantId: string) {
-    return prisma.catalogCategory.findMany({
-      where: { tenantId, parentId: null },
-      include: {
-        children: true,
-      },
-      orderBy: { name: 'asc' },
-    });
+  static async findAllRoot(
+    tenantId: string,
+    page = 1,
+    limit = 20,
+    search?: string,
+    sortBy?: string,
+    sortOrder?: 'asc' | 'desc',
+  ): Promise<PageResult<Prisma.CatalogCategoryGetPayload<{ include: { children: true } }>>> {
+    const where: Prisma.CatalogCategoryWhereInput = {
+      tenantId,
+      parentId: null,
+      ...(search && { name: { contains: search, mode: 'insensitive' } }),
+    };
+
+    const orderBy: Prisma.CatalogCategoryOrderByWithRelationInput =
+      sortBy && this.SORTABLE_FIELDS.has(sortBy)
+        ? { [sortBy]: sortOrder ?? 'asc' }
+        : { name: 'asc' };
+
+    const skip = (page - 1) * limit;
+    const [items, total] = await Promise.all([
+      prisma.catalogCategory.findMany({
+        where,
+        orderBy,
+        skip,
+        take: limit,
+        include: { children: true },
+      }),
+      prisma.catalogCategory.count({ where }),
+    ]);
+
+    return buildPage(items, total, { page, limit, sortBy, sortOrder, search });
   }
 
   static async create(tenantId: string, data: Omit<Prisma.CatalogCategoryCreateInput, 'tenant'>) {
