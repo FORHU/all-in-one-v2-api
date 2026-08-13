@@ -1,11 +1,21 @@
 import { Request, Response, NextFunction } from 'express';
 import CategoryService from './category.service';
 import { responseSuccess } from '../../helpers/response.helper';
+import { parsePagination } from '../../helpers/pagination.helper';
 
 export default class CategoryController {
-  static async getRootCategories(_req: Request, res: Response, next: NextFunction) {
+  static async getRootCategories(req: Request, res: Response, next: NextFunction) {
     try {
-      const categories = await CategoryService.getRootCategories();
+      const { page, limit, search, sortBy, sortOrder } = parsePagination(
+        req.query as Record<string, unknown>,
+      );
+      const categories = await CategoryService.getRootCategories(
+        page,
+        limit,
+        search,
+        sortBy,
+        sortOrder,
+      );
       return responseSuccess(res, 200, categories);
     } catch (error) {
       next(error);

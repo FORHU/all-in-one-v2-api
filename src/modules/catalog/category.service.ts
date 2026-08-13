@@ -3,8 +3,21 @@ import { throwResponse } from '../../utils/throw-response';
 import { requireTenantId } from '../../utils/async-context';
 
 export default class CategoryService {
-  static async getRootCategories() {
-    return CategoryRepository.findAllRoot(requireTenantId());
+  static async getRootCategories(
+    page?: number,
+    limit?: number,
+    search?: string,
+    sortBy?: string,
+    sortOrder?: 'asc' | 'desc',
+  ) {
+    return CategoryRepository.findAllRoot(
+      requireTenantId(),
+      page,
+      limit,
+      search,
+      sortBy,
+      sortOrder,
+    );
   }
 
   static async getCategoryBySlug(slug: string) {

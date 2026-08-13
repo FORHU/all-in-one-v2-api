@@ -107,10 +107,7 @@ export function mapProductToAdminListingDto(
     id: product.id,
     slug: product.slug,
     title: product.title,
-    // Not selected by findAllForAdmin (see AdminProductListingRow) — the
-    // catalog_products.brand column doesn't exist until migration
-    // 20260807071552_add_catalog_product_brand is applied.
-    brand: null,
+    brand: product.brand,
     status: product.status,
     visibility: product.visibility,
     thumbnailUrl: product.thumbnailUrl ?? primaryMedia?.url ?? null,

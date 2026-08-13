@@ -2,15 +2,27 @@ import { Request, Response, NextFunction } from 'express';
 import { CollectionType } from '@prisma/client';
 import CollectionService from './collection.service';
 import { responseSuccess } from '../../helpers/response.helper';
+import { parsePagination } from '../../helpers/pagination.helper';
 
 export default class CollectionController {
   // ─── Collections ────────────────────────────────────────────────────────────
 
   static async list(req: Request, res: Response, next: NextFunction) {
     try {
+      const { page, limit, search, sortBy, sortOrder } = parsePagination(
+        req.query as Record<string, unknown>,
+      );
       const type = req.query.type as CollectionType | undefined;
       const categorySlug = req.query.categorySlug as string | undefined;
-      const collections = await CollectionService.listCollections(type, categorySlug);
+      const collections = await CollectionService.listCollections(
+        page,
+        limit,
+        search,
+        sortBy,
+        sortOrder,
+        type,
+        categorySlug,
+      );
       return responseSuccess(res, 200, collections);
     } catch (error) {
       next(error);

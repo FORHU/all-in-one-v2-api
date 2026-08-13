@@ -82,4 +82,31 @@ export default class ProductController {
       next(err);
     }
   }
+
+  static async create(req: Request, res: Response, next: NextFunction) {
+    try {
+      const product = await ProductService.createProduct(req.body);
+      return responseSuccess(res, 201, product, 'Product created successfully');
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async update(req: Request, res: Response, next: NextFunction) {
+    try {
+      const product = await ProductService.updateProduct(req.params.id, req.body);
+      return responseSuccess(res, 200, product, 'Product updated successfully');
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async delete(req: Request, res: Response, next: NextFunction) {
+    try {
+      await ProductService.deleteProduct(req.params.id);
+      return responseSuccess(res, 200, null, 'Product deleted successfully');
+    } catch (err) {
+      next(err);
+    }
+  }
 }
