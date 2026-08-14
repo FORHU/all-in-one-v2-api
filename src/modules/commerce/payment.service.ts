@@ -370,7 +370,10 @@ export default class PaymentService {
                 // Payment confirmed is where revenue is recognised. This is
                 // exactly-once on its own claim, so it stays correct even if the
                 // dedupe above is bypassed or this webhook is replayed.
-                await AnalyticsRollupService.recordOrderSale(payment.order.tenantId, payment.orderId);
+                await AnalyticsRollupService.recordOrderSale(
+                  payment.order.tenantId,
+                  payment.orderId,
+                );
 
                 // Notification.userId is a foreign key to AuthUser, not
                 // CommerceCustomer — order.customerId is the latter, so the
@@ -419,7 +422,10 @@ export default class PaymentService {
                   payment.orderId,
                   OrderStatus.PROCESSING,
                 );
-                await AnalyticsRollupService.recordOrderSale(payment.order.tenantId, payment.orderId);
+                await AnalyticsRollupService.recordOrderSale(
+                  payment.order.tenantId,
+                  payment.orderId,
+                );
 
                 // Notification.userId is a foreign key to AuthUser, not
                 // CommerceCustomer — order.customerId is the latter, so the
