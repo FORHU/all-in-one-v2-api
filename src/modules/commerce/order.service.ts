@@ -333,6 +333,7 @@ export default class OrderService {
     // Reserve stock
     for (const item of items) {
       const stockSummary = await InventoryRepository.getStockSummaryByVariant(
+        tenantId,
         item.productVariantId,
       );
       if (stockSummary.totalAvailable < item.quantity) {
@@ -351,6 +352,7 @@ export default class OrderService {
         );
       }
       await InventoryRepository.reserveStock(
+        tenantId,
         item.productVariantId,
         locationWithStock.locationId,
         item.quantity,

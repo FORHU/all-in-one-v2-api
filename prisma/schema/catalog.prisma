@@ -269,6 +269,19 @@ model CatalogPricingRule {
   markupValue   Decimal    @db.Decimal(18, 4)
   minimumProfit Decimal?   @db.Decimal(18, 4)
   isActive      Boolean    @default(true)
+  // The tenant's "apply to all products" rule — at most one per tenant,
+  // enforced in PricingRuleService rather than a DB constraint (a partial
+  // unique index would need raw SQL). New imports and products with no
+  // explicit override fall back to whichever rule has this set.
+  isDefault     Boolean    @default(false)
+  // Optional time-boxed sale layered on top of the already marked-up price —
+  // all four fields are set/cleared together as one unit (see
+  // PricingRuleService.validateSaleWindow / toDto); `saleType` is the
+  // presence flag, the other three are meaningless without it.
+  saleType      MarkupType?
+  saleValue     Decimal?    @db.Decimal(18, 4)
+  saleStartsAt  DateTime?
+  saleEndsAt    DateTime?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 

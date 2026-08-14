@@ -2,6 +2,8 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../utils/prisma';
 import { paginate } from '../../helpers/pagination.helper';
 
+type PrismaClientOrTx = typeof prisma | Prisma.TransactionClient;
+
 export default class InventoryRepository {
   private static readonly LOCATION_SORTABLE_FIELDS = new Set([
     'name',
@@ -89,12 +91,24 @@ export default class InventoryRepository {
     });
   }
 
+  /** The tenant's primary inventory location, falling back to its oldest active one. Never auto-creates one. */
+  static async findPrimaryLocation(tenantId: string, client: PrismaClientOrTx = prisma) {
+    const primary = await client.inventoryLocation.findFirst({
+      where: { tenantId, isPrimary: true, isActive: true },
+    });
+    if (primary) return primary;
+    return client.inventoryLocation.findFirst({
+      where: { tenantId, isActive: true },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
   // ─── Stocks ────────────────────────────────────────────────────────────────
 
   /** Get total onHand and available stock across all locations for a variant */
-  static async getStockSummaryByVariant(variantId: string) {
+  static async getStockSummaryByVariant(tenantId: string, variantId: string) {
     const stocks = await prisma.inventoryStock.findMany({
-      where: { variantId },
+      where: { tenantId, variantId },
       include: { location: true },
     });
 
@@ -112,9 +126,9 @@ export default class InventoryRepository {
   }
 
   /** Get total onHand and available stock across all locations for multiple variants */
-  static async getStockSummariesForVariants(variantIds: string[]) {
+  static async getStockSummariesForVariants(tenantId: string, variantIds: string[]) {
     const stocks = await prisma.inventoryStock.findMany({
-      where: { variantId: { in: variantIds } },
+      where: { tenantId, variantId: { in: variantIds } },
     });
 
     const summaryMap = new Map<
@@ -138,44 +152,60 @@ export default class InventoryRepository {
     return summaryMap;
   }
 
-  /** Upsert stock for a variant at a specific location */
+  /**
+   * Upsert stock for a variant at a specific location. Uses an explicit
+   * find-then-create-or-updateMany instead of `upsert` because the
+   * `variantId_locationId` unique key isn't tenant-qualified — `updateMany`
+   * lets the tenant filter be enforced by the query rather than assumed,
+   * same idiom as ProductRepository.update(). Accepts an injectable Prisma
+   * client so it can run inside a caller's own transaction (e.g. import).
+   */
   static async setStock(
     tenantId: string,
     variantId: string,
     locationId: string,
     onHand: number,
     reorderPoint = 5,
+    client: PrismaClientOrTx = prisma,
   ) {
-    const existing = await prisma.inventoryStock.findUnique({
-      where: { variantId_locationId: { variantId, locationId } },
+    const existing = await client.inventoryStock.findFirst({
+      where: { tenantId, variantId, locationId },
     });
 
     const reserved = existing ? existing.reserved : 0;
     const available = Math.max(0, onHand - reserved);
 
-    return prisma.inventoryStock.upsert({
-      where: { variantId_locationId: { variantId, locationId } },
-      update: {
-        onHand,
-        available,
-        reorderPoint,
-      },
-      create: {
-        tenantId,
-        variantId,
-        locationId,
-        onHand,
-        reserved: 0,
-        available: onHand,
-        reorderPoint,
-      },
-    });
+    if (existing) {
+      await client.inventoryStock.updateMany({
+        where: { tenantId, variantId, locationId },
+        data: { onHand, available, reorderPoint },
+      });
+    } else {
+      await client.inventoryStock.create({
+        data: {
+          tenantId,
+          variantId,
+          locationId,
+          onHand,
+          reserved: 0,
+          available: onHand,
+          reorderPoint,
+        },
+      });
+    }
+
+    return client.inventoryStock.findFirst({ where: { tenantId, variantId, locationId } });
   }
 
   /** Reserve stock during checkout */
-  static async reserveStock(variantId: string, locationId: string, quantity: number) {
-    const stock = await prisma.inventoryStock.findUnique({
-      where: { variantId_locationId: { variantId, locationId } },
+  static async reserveStock(
+    tenantId: string,
+    variantId: string,
+    locationId: string,
+    quantity: number,
+  ) {
+    const stock = await prisma.inventoryStock.findFirst({
+      where: { tenantId, variantId, locationId },
     });
 
     if (!stock || stock.available < quantity) {
@@ -187,6 +217,7 @@ export default class InventoryRepository {
 
     const result = await prisma.inventoryStock.updateMany({
       where: {
+        tenantId,
         variantId,
         locationId,
         version: stock.version,
@@ -204,15 +235,18 @@ export default class InventoryRepository {
       );
     }
 
-    return prisma.inventoryStock.findUnique({
-      where: { variantId_locationId: { variantId, locationId } },
-    });
+    return prisma.inventoryStock.findFirst({ where: { tenantId, variantId, locationId } });
   }
 
   /** Release reserved stock */
-  static async releaseReservation(variantId: string, locationId: string, quantity: number) {
-    const stock = await prisma.inventoryStock.findUnique({
-      where: { variantId_locationId: { variantId, locationId } },
+  static async releaseReservation(
+    tenantId: string,
+    variantId: string,
+    locationId: string,
+    quantity: number,
+  ) {
+    const stock = await prisma.inventoryStock.findFirst({
+      where: { tenantId, variantId, locationId },
     });
 
     if (!stock) return;
@@ -222,6 +256,7 @@ export default class InventoryRepository {
 
     const result = await prisma.inventoryStock.updateMany({
       where: {
+        tenantId,
         variantId,
         locationId,
         version: stock.version,
@@ -239,9 +274,7 @@ export default class InventoryRepository {
       );
     }
 
-    return prisma.inventoryStock.findUnique({
-      where: { variantId_locationId: { variantId, locationId } },
-    });
+    return prisma.inventoryStock.findFirst({ where: { tenantId, variantId, locationId } });
   }
 
   // New models added for 100% coverage

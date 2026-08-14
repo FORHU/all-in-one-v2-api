@@ -5,7 +5,7 @@ import { supplierRegistry } from '../suppliers/supplier.registry';
 import logger from '../utils/logger';
 import { workerMetrics } from '../utils/worker-metrics';
 import { prisma } from '../utils/prisma';
-import { calculateVariantPrice } from '../utils/pricing.util';
+import { ProductImportService } from '../modules/catalog/product-import.service';
 
 interface SyncPayload {
   jobId: string;
@@ -55,7 +55,9 @@ export const startProductSyncConsumer = async () => {
               const rawObj = rawData as Record<string, unknown>;
               const costPrice = parseFloat(String(rawObj?.sellPrice || rawObj?.price || 0));
 
-              // Fetch existing mapping to get the PricingRule
+              // Resync only re-syncs products already imported once — we
+              // need the tenant that owns this mapping (product-sync jobs
+              // carry no tenantId of their own).
               const existingMapping = await prisma.supplierProduct.findUnique({
                 where: {
                   supplierId_externalId: {
@@ -63,62 +65,42 @@ export const startProductSyncConsumer = async () => {
                     externalId: externalId,
                   },
                 },
-                include: { product: { include: { pricingRule: true } } },
+                include: { product: { select: { tenantId: true } } },
               });
 
-              const rule = existingMapping?.product?.pricingRule;
-              const priceResult = calculateVariantPrice(costPrice, rule);
-              const finalSellingPrice = priceResult.calculatedPrice;
+              if (!existingMapping?.product) {
+                throw new Error(
+                  `No existing product mapping for externalId ${externalId} — resync only re-syncs already-imported products, not first-time imports.`,
+                );
+              }
 
-              // Update everything in a transaction to ensure integrity
-              await prisma.$transaction(async (tx) => {
-                // 1. Upsert SupplierProduct
-                const supplierProduct = await tx.supplierProduct.upsert({
-                  where: {
-                    supplierId_externalId: {
-                      supplierId: supplierModel.id,
-                      externalId: externalId,
-                    },
-                  },
-                  update: {
-                    rawData,
-                    costPrice,
-                    syncStatus: 'SUCCESS',
-                    lastSyncError: null,
-                    lastSyncedAt: new Date(),
-                  },
-                  create: {
+              // Bookkeeping on SupplierProduct itself (syncStatus/rawData) —
+              // the actual catalog write (all variants: price, attributes,
+              // stock) goes through the same importProduct() path the
+              // initial import uses, so resync can't drift into only
+              // updating one arbitrary variant.
+              await prisma.supplierProduct.update({
+                where: {
+                  supplierId_externalId: {
                     supplierId: supplierModel.id,
                     externalId: externalId,
-                    rawData,
-                    costPrice,
-                    syncStatus: 'SUCCESS',
-                    lastSyncedAt: new Date(),
                   },
-                });
-
-                // 2. Fetch the associated ProductVariant to update its price and stock
-                const supplierVariant = await tx.supplierVariant.findFirst({
-                  where: { supplierProductId: supplierProduct.id },
-                });
-
-                if (supplierVariant) {
-                  await tx.supplierVariant.update({
-                    where: { id: supplierVariant.id },
-                    data: { costPrice, rawData, syncStatus: 'SUCCESS', lastSyncError: null },
-                  });
-
-                  // Update actual selling price and stock!
-                  if (supplierVariant.productVariantId) {
-                    await tx.catalogProductVariant.update({
-                      where: { id: supplierVariant.productVariantId },
-                      data: {
-                        price: finalSellingPrice,
-                      },
-                    });
-                  }
-                }
+                },
+                data: {
+                  rawData,
+                  costPrice,
+                  syncStatus: 'SUCCESS',
+                  lastSyncError: null,
+                  lastSyncedAt: new Date(),
+                },
               });
+
+              await ProductImportService.importProduct(
+                existingMapping.product.tenantId,
+                supplierId,
+                rawObj,
+              );
+
               successCount++;
             } else {
               failCount++;

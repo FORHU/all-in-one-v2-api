@@ -23,6 +23,17 @@ const splitCsv = (raw?: string): string[] | undefined =>
     .map((v) => v.trim())
     .filter(Boolean);
 
+const variantBodySchema = Joi.object({
+  title: Joi.string().required(),
+  price: Joi.number().min(0).required(),
+  compareAtPrice: Joi.number().min(0).allow(null).optional(),
+  sku: Joi.string().allow(null, '').optional(),
+  color: Joi.string().allow(null, '').optional(),
+  size: Joi.string().allow(null, '').optional(),
+});
+
+const variantUpdateBodySchema = variantBodySchema.fork(['title', 'price'], (s) => s.optional());
+
 export default class ProductController {
   static async list(req: Request, res: Response, next: NextFunction) {
     const { error, value } = listQuerySchema.validate(req.query);
@@ -137,6 +148,52 @@ export default class ProductController {
     try {
       await ProductService.deleteProduct(req.params.id);
       return responseSuccess(res, 200, null, 'Product deleted successfully');
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async listVariants(req: Request, res: Response, next: NextFunction) {
+    try {
+      const variants = await ProductService.listVariants(req.params.productId);
+      return responseSuccess(res, 200, { items: variants });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async createVariant(req: Request, res: Response, next: NextFunction) {
+    const { error, value } = variantBodySchema.validate(req.body);
+    if (error) return res.status(400).json({ message: error.message });
+
+    try {
+      const variant = await ProductService.createVariant(req.params.productId, value);
+      return responseSuccess(res, 201, variant, 'Variant created successfully');
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async updateVariant(req: Request, res: Response, next: NextFunction) {
+    const { error, value } = variantUpdateBodySchema.validate(req.body);
+    if (error) return res.status(400).json({ message: error.message });
+
+    try {
+      const variant = await ProductService.updateVariant(
+        req.params.productId,
+        req.params.variantId,
+        value,
+      );
+      return responseSuccess(res, 200, variant, 'Variant updated successfully');
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async deleteVariant(req: Request, res: Response, next: NextFunction) {
+    try {
+      await ProductService.deleteVariant(req.params.productId, req.params.variantId);
+      return responseSuccess(res, 200, null, 'Variant deleted successfully');
     } catch (err) {
       next(err);
     }
