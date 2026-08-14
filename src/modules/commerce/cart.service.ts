@@ -1,8 +1,8 @@
 import { prisma } from '../../utils/prisma';
 import InventoryRepository from '../inventory/inventory.repository';
+import { requireTenantId } from '../../utils/async-context';
 
 export interface AddItemInput {
-  tenantId?: string;
   customerId?: string;
   sessionId?: string;
   productVariantId: string;
@@ -15,10 +15,12 @@ export interface CartOwner {
 }
 
 export class CartService {
-  static async getOrCreateCart(customerId?: string, sessionId?: string, tenantId = 'fashion') {
+  static async getOrCreateCart(customerId?: string, sessionId?: string) {
+    const tenantId = requireTenantId();
+
     if (customerId) {
       let cart = await prisma.commerceCart.findFirst({
-        where: { customerId },
+        where: { tenantId, customerId },
         include: { items: { include: { productVariant: true } } },
       });
       if (!cart) {
@@ -31,7 +33,7 @@ export class CartService {
     }
 
     let cart = await prisma.commerceCart.findFirst({
-      where: { sessionId: sessionId! },
+      where: { tenantId, sessionId: sessionId! },
       include: { items: { include: { productVariant: true } } },
     });
     if (!cart) {
@@ -43,28 +45,32 @@ export class CartService {
     return cart;
   }
 
-  static async getCart(tenantId: string, customerId?: string, sessionId?: string) {
-    return this.getOrCreateCart(customerId, sessionId, tenantId);
+  static async getCart(customerId?: string, sessionId?: string) {
+    return this.getOrCreateCart(customerId, sessionId);
   }
 
   static async addItemToCart(input: AddItemInput) {
-    const { tenantId = 'fashion', customerId, sessionId, productVariantId, quantity } = input;
+    const { customerId, sessionId, productVariantId, quantity } = input;
+    const tenantId = requireTenantId();
 
     if (quantity <= 0) {
       throw new Error('Quantity must be greater than 0');
     }
 
-    const cart = await this.getOrCreateCart(customerId, sessionId, tenantId);
+    const cart = await this.getOrCreateCart(customerId, sessionId);
 
     const variant = await prisma.catalogProductVariant.findFirst({
-      where: { id: productVariantId },
+      where: { id: productVariantId, tenantId },
     });
 
     if (!variant) {
       throw new Error('Product variant not found');
     }
 
-    const stockSummary = await InventoryRepository.getStockSummaryByVariant(productVariantId);
+    const stockSummary = await InventoryRepository.getStockSummaryByVariant(
+      tenantId,
+      productVariantId,
+    );
 
     const existingItem = await prisma.commerceCartItem.findUnique({
       where: {
@@ -100,7 +106,7 @@ export class CartService {
       });
     }
 
-    return this.getOrCreateCart(customerId, sessionId, tenantId);
+    return this.getOrCreateCart(customerId, sessionId);
   }
 
   static async addItem(input: AddItemInput) {

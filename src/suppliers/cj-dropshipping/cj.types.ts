@@ -12,7 +12,10 @@ export interface CJProduct {
   productNameCn?: string;
   productSku: string;
   productImage: string;
-  productWeight: number;
+  /** Full image gallery for the product — `productImage`/`bigImage` is just the first entry. */
+  productImageSet?: string[];
+  /** e.g. "260.00-300.00" (grams) — a range across variants, not a plain number. */
+  productWeight: string;
   productType: string;
   productUnit: string;
   sellPrice: number;
@@ -139,10 +142,17 @@ export interface CJOrder {
   logisticName?: string;
 }
 
-export interface CJInventory {
+/**
+ * Row shape of GET /product/stock/queryByVid — one entry per warehouse that
+ * stocks the variant. `storageNum` is CJ's documented field name for
+ * available quantity at that warehouse; kept loose (`[key: string]:
+ * unknown`) since this hasn't been confirmed against a live CJ account —
+ * see CJDropshippingAdapter.getInventory.
+ */
+export interface CJVariantStock {
   vid: string;
-  variantSku: string;
-  quantity: number;
-  warehouseId: string;
-  warehouseName: string;
+  storageNum?: number;
+  countryCode?: string;
+  areaEn?: string;
+  [key: string]: unknown;
 }

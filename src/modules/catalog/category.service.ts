@@ -33,7 +33,7 @@ export default class CategoryService {
     name: string;
     slug: string;
     description?: string;
-    parentId?: string;
+    parentId?: string | null;
   }) {
     const tenantId = requireTenantId();
 
@@ -41,18 +41,33 @@ export default class CategoryService {
     if (existing) {
       return throwResponse(400, `Category slug '${data.slug}' already exists`);
     }
+    if (data.parentId) {
+      const parent = await CategoryRepository.findById(tenantId, data.parentId);
+      if (!parent) {
+        return throwResponse(400, 'Parent category not found');
+      }
+    }
     return CategoryRepository.create(tenantId, data);
   }
 
   static async updateCategory(
     id: string,
-    data: { name?: string; slug?: string; description?: string; parentId?: string },
+    data: { name?: string; slug?: string; description?: string; parentId?: string | null },
   ) {
     const tenantId = requireTenantId();
 
     const category = await CategoryRepository.findById(tenantId, id);
     if (!category) {
       return throwResponse(404, 'Category not found');
+    }
+    if (data.parentId) {
+      if (data.parentId === id) {
+        return throwResponse(400, 'A category cannot be its own parent');
+      }
+      const parent = await CategoryRepository.findById(tenantId, data.parentId);
+      if (!parent) {
+        return throwResponse(400, 'Parent category not found');
+      }
     }
     return CategoryRepository.update(tenantId, id, data);
   }

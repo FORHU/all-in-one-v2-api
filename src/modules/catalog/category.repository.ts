@@ -2,12 +2,43 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../utils/prisma';
 import { buildPage, PageResult } from '../../helpers/pagination.helper';
 
+type PrismaClientOrTx = typeof prisma | Prisma.TransactionClient;
+
 /**
  * Categories belong to a single vertical. Every method takes `tenantId`
  * explicitly so the compiler flags any caller that forgets to scope.
  */
 export default class CategoryRepository {
   private static readonly SORTABLE_FIELDS = new Set(['name', 'createdAt', 'updatedAt']);
+
+  private static slugify(name: string): string {
+    return name
+      .toLowerCase()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/[\s_-]+/g, '-')
+      .slice(0, 200);
+  }
+
+  /**
+   * Maps a supplier-provided category name (CJ's `categoryName`, Printful's
+   * `type_name`) onto a tenant's own CatalogCategory row — matching an
+   * existing one by slug when the name lines up, auto-creating a new one
+   * otherwise. `upsert` (not a separate find-then-create) so two products
+   * importing the same category concurrently can't race into a duplicate
+   * slug conflict.
+   */
+  static async findOrCreateByName(
+    tenantId: string,
+    name: string,
+    client: PrismaClientOrTx = prisma,
+  ) {
+    const slug = this.slugify(name);
+    return client.catalogCategory.upsert({
+      where: { tenantId_slug: { tenantId, slug } },
+      update: {},
+      create: { tenantId, name, slug },
+    });
+  }
 
   static async findById(tenantId: string, id: string) {
     return prisma.catalogCategory.findFirst({
@@ -71,13 +102,24 @@ export default class CategoryRepository {
     return buildPage(items, total, { page, limit, sortBy, sortOrder, search });
   }
 
-  static async create(tenantId: string, data: Omit<Prisma.CatalogCategoryCreateInput, 'tenant'>) {
+  static async create(
+    tenantId: string,
+    data: Omit<Prisma.CatalogCategoryUncheckedCreateInput, 'tenantId'>,
+  ) {
+    // The "Unchecked" input variant (not the relation-based CreateInput) is
+    // required here: `parent` is a composite FK sharing `tenantId` with the
+    // `tenant` relation, so Prisma's checked CreateInput has no plain
+    // `parentId` scalar at all — passing one would throw at runtime.
     return prisma.catalogCategory.create({
-      data: { ...data, tenant: { connect: { id: tenantId } } },
+      data: { ...data, tenantId },
     });
   }
 
-  static async update(tenantId: string, id: string, data: Prisma.CatalogCategoryUpdateInput) {
+  static async update(
+    tenantId: string,
+    id: string,
+    data: Prisma.CatalogCategoryUncheckedUpdateInput,
+  ) {
     // updateMany rather than update: it accepts a non-unique where clause, so
     // the tenant filter is enforced by the database rather than assumed.
     await prisma.catalogCategory.updateMany({ where: { id, tenantId }, data });

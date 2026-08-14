@@ -679,24 +679,47 @@ async function getOrCreateAddress(prisma: PrismaClient, customerId: string, full
   });
 }
 
+// CommerceCustomer is now scoped to a single tenant ([tenantId, userId] / [tenantId, email]
+// are unique), so the same shopper needs a separate row per tenant they order from — unlike
+// the old shared-identity model where one customer row covered every vertical.
+async function getOrCreateCustomerForTenant(prisma: PrismaClient, tenantId: string, email: string) {
+  const existing = await prisma.commerceCustomer.findUnique({
+    where: { tenantId_email: { tenantId, email } },
+  });
+  if (existing) return existing;
+
+  const user = await prisma.authUser.findUnique({ where: { email } });
+  if (!user) {
+    process.stderr.write(`Customer ${email} not found. Ensure seedUsers runs first.\n`);
+    return null;
+  }
+
+  const [firstName, ...rest] = (user.name ?? 'Store Customer').split(' ');
+  return prisma.commerceCustomer.create({
+    data: {
+      tenantId,
+      userId: user.id,
+      email,
+      firstName: firstName || 'Store',
+      lastName: rest.join(' ') || 'Customer',
+    },
+  });
+}
+
 export async function seedCommerce(prisma: PrismaClient) {
   process.stdout.write('🌱 Seeding Orders, Reviews, Wishlists & Coupons across all 5 Tenants...\n');
 
-  // Resolve the 5 shared customers up front
-  const customersByEmail = new Map<
-    string,
-    { id: string; email: string; firstName: string | null; lastName: string | null }
-  >();
-  for (const email of CUSTOMER_EMAILS) {
-    const customer = await prisma.commerceCustomer.findFirst({ where: { email } });
-    if (!customer) {
-      process.stderr.write(`⚠️ Customer ${email} not found. Ensure seedUsers runs first.\n`);
-      continue;
-    }
-    customersByEmail.set(email, customer);
-  }
-
   for (const [tenantId, tenantData] of Object.entries(COMMERCE_BY_TENANT)) {
+    // Resolve (or create) this tenant's copy of each of the 5 shared shopper identities
+    const customersByEmail = new Map<
+      string,
+      { id: string; email: string; firstName: string | null; lastName: string | null }
+    >();
+    for (const email of CUSTOMER_EMAILS) {
+      const customer = await getOrCreateCustomerForTenant(prisma, tenantId, email);
+      if (customer) customersByEmail.set(email, customer);
+    }
+
     // --- Orders ---
     const existingOrderCount = await prisma.commerceOrder.count({ where: { tenantId } });
     if (existingOrderCount === 0) {

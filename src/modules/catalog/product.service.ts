@@ -2,11 +2,25 @@ import { ProductStatus, ProductVisibility } from '@prisma/client';
 import ProductRepository, { ProductListingFilters, ProductListingRow } from './product.repository';
 import { requireTenantId } from '../../utils/async-context';
 import { throwResponse } from '../../utils/throw-response';
+import { prisma } from '../../utils/prisma';
+import AttributeRepository from './attribute.repository';
+import PricingRuleRepository from './pricing-rule.repository';
+import PricingRuleService from './pricing-rule.service';
 import {
   mapProductToAdminListingDto,
   mapProductToDetailDto,
   mapProductToListingDto,
+  mapVariantToAdminDto,
 } from './product/mapper/product.mapper';
+
+export interface VariantWriteInput {
+  title: string;
+  price: number;
+  compareAtPrice?: number | null;
+  sku?: string | null;
+  color?: string | null;
+  size?: string | null;
+}
 
 export interface ProductWriteInput {
   title: string;
@@ -29,6 +43,11 @@ export interface ProductWriteInput {
   tags?: string[];
   seoTitle?: string;
   seoDescription?: string;
+  // Nullable: an explicit `null` clears any pricing rule (variants keep
+  // their last-calculated price, no further markup applied). `undefined`
+  // on create means "use the tenant's default rule, if any" — see
+  // ProductService.createProduct.
+  pricingRuleId?: string | null;
 }
 
 /** "Classic Denim Jacket" -> "classic-denim-jacket" */
@@ -183,7 +202,16 @@ export default class ProductService {
       return throwResponse(400, `Product slug '${slug}' already exists`);
     }
 
-    const created = await ProductRepository.create(tenantId, { ...data, slug });
+    // `pricingRuleId === undefined` means the form never touched it — fall
+    // back to the tenant's default rule (if one exists) rather than leaving
+    // the product unpriced-by-rule. An explicit `null` still means "no rule".
+    let pricingRuleId = data.pricingRuleId;
+    if (pricingRuleId === undefined) {
+      const defaultRule = await PricingRuleRepository.findDefault(tenantId);
+      pricingRuleId = defaultRule?.id ?? null;
+    }
+
+    const created = await ProductRepository.create(tenantId, { ...data, slug, pricingRuleId });
     const withAdminShape = await ProductRepository.findByIdForAdmin(tenantId, created.id);
     return mapProductToAdminListingDto(withAdminShape!);
   }
@@ -206,6 +234,14 @@ export default class ProductService {
     }
 
     await ProductRepository.update(tenantId, id, data);
+
+    // A different pricing rule (or none at all) was explicitly chosen —
+    // recompute this product's prices right away rather than waiting for
+    // the next import/resync to notice.
+    if (data.pricingRuleId !== undefined && data.pricingRuleId !== product.pricingRuleId) {
+      await PricingRuleService.recalculateProductPricing(tenantId, id);
+    }
+
     const withAdminShape = await ProductRepository.findByIdForAdmin(tenantId, id);
     return mapProductToAdminListingDto(withAdminShape!);
   }
@@ -218,5 +254,81 @@ export default class ProductService {
       return throwResponse(404, 'Product not found');
     }
     return ProductRepository.softDelete(tenantId, id);
+  }
+
+  // ─── Variants ──────────────────────────────────────────────────────────────
+
+  static async listVariants(productId: string) {
+    const tenantId = requireTenantId();
+    const product = await ProductRepository.findById(tenantId, productId);
+    if (!product) return throwResponse(404, 'Product not found');
+
+    const variants = await ProductRepository.listVariants(tenantId, productId);
+    return variants.map(mapVariantToAdminDto);
+  }
+
+  static async createVariant(productId: string, data: VariantWriteInput) {
+    const tenantId = requireTenantId();
+    const product = await ProductRepository.findById(tenantId, productId);
+    if (!product) return throwResponse(404, 'Product not found');
+
+    const variant = await ProductRepository.createVariant(tenantId, productId, {
+      title: data.title,
+      price: data.price,
+      compareAtPrice: data.compareAtPrice ?? null,
+      sku: data.sku ?? null,
+    });
+
+    await this.syncVariantAttributes(tenantId, variant.id, data);
+    const withAttributes = await ProductRepository.findVariantById(tenantId, productId, variant.id);
+    return mapVariantToAdminDto(withAttributes!);
+  }
+
+  static async updateVariant(
+    productId: string,
+    variantId: string,
+    data: Partial<VariantWriteInput>,
+  ) {
+    const tenantId = requireTenantId();
+    const product = await ProductRepository.findById(tenantId, productId);
+    if (!product) return throwResponse(404, 'Product not found');
+
+    const existing = await ProductRepository.findVariantById(tenantId, productId, variantId);
+    if (!existing) return throwResponse(404, 'Variant not found');
+
+    const { color, size, ...rest } = data;
+    if (Object.keys(rest).length > 0) {
+      await ProductRepository.updateVariant(tenantId, productId, variantId, rest);
+    }
+
+    if (color !== undefined || size !== undefined) {
+      await this.syncVariantAttributes(tenantId, variantId, { color, size });
+    }
+
+    const updated = await ProductRepository.findVariantById(tenantId, productId, variantId);
+    return mapVariantToAdminDto(updated!);
+  }
+
+  static async deleteVariant(productId: string, variantId: string) {
+    const tenantId = requireTenantId();
+    const product = await ProductRepository.findById(tenantId, productId);
+    if (!product) return throwResponse(404, 'Product not found');
+
+    const existing = await ProductRepository.findVariantById(tenantId, productId, variantId);
+    if (!existing) return throwResponse(404, 'Variant not found');
+
+    return ProductRepository.softDeleteVariant(tenantId, productId, variantId);
+  }
+
+  /** Wires the variant editor's plain color/size fields into the real EAV tables. */
+  private static async syncVariantAttributes(
+    tenantId: string,
+    variantId: string,
+    data: { color?: string | null; size?: string | null },
+  ) {
+    const attrs: Record<string, string> = {};
+    if (data.color) attrs.color = data.color;
+    if (data.size) attrs.size = data.size;
+    await AttributeRepository.upsertVariantAttributesFromLabels(prisma, tenantId, variantId, attrs);
   }
 }

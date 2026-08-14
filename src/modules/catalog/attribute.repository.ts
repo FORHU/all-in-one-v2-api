@@ -1,6 +1,12 @@
 import { Prisma, AttributeType } from '@prisma/client';
 import { prisma } from '../../utils/prisma';
 
+type PrismaClientOrTx = typeof prisma | Prisma.TransactionClient;
+
+function capitalize(value: string): string {
+  return value.length ? value[0].toUpperCase() + value.slice(1) : value;
+}
+
 export default class AttributeRepository {
   /** Find all attributes for a tenant, including value options */
   static async findAll(tenantId: string) {
@@ -104,8 +110,9 @@ export default class AttributeRepository {
     });
   }
 
-  /** Assign attribute values to a product variant */
-  static async assignToVariant(variantId: string, valueIds: string[]) {
+  /** Assign attribute values to a product variant — verifies the variant belongs to `tenantId` first. */
+  static async assignToVariant(tenantId: string, variantId: string, valueIds: string[]) {
+    await this.assertVariantOwnership(tenantId, variantId);
     const data = valueIds.map((valueId) => ({ variantId, valueId }));
     return prisma.catalogVariantAttribute.createMany({
       data,
@@ -113,8 +120,9 @@ export default class AttributeRepository {
     });
   }
 
-  /** Clear and re-assign attribute values for a product variant */
-  static async setVariantAttributes(variantId: string, valueIds: string[]) {
+  /** Clear and re-assign attribute values for a product variant — verifies tenant ownership first. */
+  static async setVariantAttributes(tenantId: string, variantId: string, valueIds: string[]) {
+    await this.assertVariantOwnership(tenantId, variantId);
     return prisma.$transaction([
       prisma.catalogVariantAttribute.deleteMany({ where: { variantId } }),
       prisma.catalogVariantAttribute.createMany({
@@ -123,8 +131,9 @@ export default class AttributeRepository {
     ]);
   }
 
-  /** Get all attributes assigned to a variant */
-  static async getVariantAttributes(variantId: string) {
+  /** Get all attributes assigned to a variant — verifies tenant ownership first. */
+  static async getVariantAttributes(tenantId: string, variantId: string) {
+    await this.assertVariantOwnership(tenantId, variantId);
     return prisma.catalogVariantAttribute.findMany({
       where: { variantId },
       include: {
@@ -135,5 +144,65 @@ export default class AttributeRepository {
         },
       },
     });
+  }
+
+  private static async assertVariantOwnership(tenantId: string, variantId: string) {
+    const variant = await prisma.catalogProductVariant.findFirst({
+      where: { id: variantId, tenantId },
+      select: { id: true },
+    });
+    if (!variant) throw new Error(`Variant ${variantId} not found for this tenant`);
+  }
+
+  /**
+   * Upserts a CatalogAttribute + CatalogAttributeValue for each `{code, value}`
+   * pair in `attrs` (e.g. `{ color: "red", size: "XL" }`) and replaces the
+   * variant's CatalogVariantAttribute links with the result. This is what
+   * every storefront facet/filter query actually reads from — unlike the raw
+   * JSON `attributes` column callers may also write as an audit trail.
+   * Accepts an injectable Prisma client so it can run inside a caller's own
+   * transaction (e.g. product import).
+   */
+  static async upsertVariantAttributesFromLabels(
+    client: PrismaClientOrTx,
+    tenantId: string,
+    variantId: string,
+    attrs: Record<string, string>,
+  ) {
+    const valueIds: string[] = [];
+
+    for (const [rawCode, rawValue] of Object.entries(attrs)) {
+      const code = rawCode.trim().toLowerCase();
+      const value = rawValue.trim();
+      if (!code || !value) continue;
+
+      const attribute = await client.catalogAttribute.upsert({
+        where: { tenantId_code: { tenantId, code } },
+        update: {},
+        create: {
+          tenantId,
+          code,
+          name: capitalize(code),
+          type: AttributeType.SELECT,
+          isFilterable: true,
+        },
+      });
+
+      const attributeValue = await client.catalogAttributeValue.upsert({
+        where: { attributeId_value: { attributeId: attribute.id, value } },
+        update: {},
+        create: { attributeId: attribute.id, value, label: capitalize(value) },
+      });
+
+      valueIds.push(attributeValue.id);
+    }
+
+    await client.catalogVariantAttribute.deleteMany({ where: { variantId } });
+    if (valueIds.length > 0) {
+      await client.catalogVariantAttribute.createMany({
+        data: valueIds.map((valueId) => ({ variantId, valueId })),
+        skipDuplicates: true,
+      });
+    }
   }
 }

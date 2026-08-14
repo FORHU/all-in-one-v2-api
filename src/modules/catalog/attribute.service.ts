@@ -57,6 +57,6 @@ export default class AttributeService {
   }
 
   static async setVariantAttributes(variantId: string, valueIds: string[]) {
-    return AttributeRepository.setVariantAttributes(variantId, valueIds);
+    return AttributeRepository.setVariantAttributes(requireTenantId(), variantId, valueIds);
   }
 }
