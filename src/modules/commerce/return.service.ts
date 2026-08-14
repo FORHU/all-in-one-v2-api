@@ -1,4 +1,5 @@
 import ReturnRepository from './return.repository';
+import PaymentService from './payment.service';
 import { requireTenantId } from '../../utils/async-context';
 import { Prisma, ReturnStatus } from '@prisma/client';
 
@@ -31,7 +32,24 @@ export default class ReturnService {
     );
   }
 
+  /**
+   * Issues a real Stripe refund (PaymentService.refundPayment) and records
+   * it as a Refund row. The Refund/Payment don't get marked COMPLETED/
+   * REFUNDED here — that only happens once Stripe's `charge.refunded`
+   * webhook confirms the money actually moved (see
+   * PaymentService.handleWebhook and ReturnRepository.markMostRecentPendingRefundCompleted).
+   */
   static async issueRefund(orderId: string, returnId: string, amount: number) {
-    return ReturnRepository.createRefund(requireTenantId(), orderId, returnId, amount);
+    const tenantId = requireTenantId();
+    const { transactionId } = await PaymentService.refundPayment(orderId, amount);
+    const refund = await ReturnRepository.createRefund(
+      tenantId,
+      orderId,
+      returnId,
+      amount,
+      transactionId,
+    );
+    await ReturnRepository.updateReturnStatus(tenantId, returnId, ReturnStatus.COMPLETED);
+    return refund;
   }
 }
