@@ -7,9 +7,9 @@ import {
   CJApiResponse,
   CJTokenData,
   CJProductDetail,
-  CJVariant,
   CJProductListV2Data,
   CJProductListV2Item,
+  CJVariantStock,
 } from './cj.types';
 
 const CACHE_VERSION = 'v1';
@@ -238,7 +238,20 @@ export class CJDropshippingAdapter implements SupplierAdapter {
     // array of products, or a single wrapper object holding `productList`.
     const items = (res.data.content ?? []).flatMap((c) => c.productList ?? c);
 
-    return { items, total: res.data.totalRecords ?? 0 };
+    // CJ's `keyWord` match is fuzzy against tags/SKUs, not just the product
+    // name, so unrelated categories can slip through (searching "dress"
+    // surfacing watches, for example). Narrow to items whose name actually
+    // contains one of the query's words, preserving CJ's own relevance order
+    // among what's left.
+    const queryWords = query.toLowerCase().split(/\s+/).filter(Boolean);
+    const filteredItems = queryWords.length
+      ? items.filter((item) => {
+          const name = String(item.nameEn ?? '').toLowerCase();
+          return queryWords.some((word) => name.includes(word));
+        })
+      : items;
+
+    return { items: filteredItems, total: res.data.totalRecords ?? 0 };
   }
 
   async getProduct(externalId: string): Promise<CJProductDetail | null> {
@@ -248,23 +261,52 @@ export class CJDropshippingAdapter implements SupplierAdapter {
     return res?.data || null;
   }
 
+  /**
+   * Real per-warehouse stock for a batch of CJ variant ids, via
+   * GET /product/stock/queryByVid — no bulk form, so this is one request per
+   * vid (same as CJ's other per-variant endpoints). Summed across every
+   * warehouse row CJ returns for that vid.
+   *
+   * NOTE: `storageNum` as the quantity field name is CJ's documented v2
+   * field for this endpoint but hasn't been confirmed against a live CJ
+   * account from this environment — if CJ's response uses a different key,
+   * `total` below will silently come out as 0 for every variant rather than
+   * throwing, so cross-check a real response if imported stock looks wrong.
+   */
   async getInventory(externalVariantIds: string[]): Promise<SupplierStock[]> {
-    // Note: CJ doesn't have a bulk inventory endpoint by default, we have to fetch per variant or via product
-    // For this prototype, we'll fetch them individually, but in prod we'd optimize.
     const stocks: SupplierStock[] = [];
     for (const vid of externalVariantIds) {
       try {
-        const res = await this.request<CJVariant>('/product/variant/query', 'GET', undefined, {
-          vid,
-        });
-        if (res?.data) {
-          stocks.push({
-            externalId: res.data.vid,
-            stock: 999, // CJ often relies on a dedicated inventory call or we use 999 if available
-          });
+        const res = await this.request<CJVariantStock[]>(
+          '/product/stock/queryByVid',
+          'GET',
+          undefined,
+          { vid },
+        );
+
+        if (!res?.result || res.code !== 200) {
+          logger.warn(
+            `[CJDropshippingAdapter] getInventory: non-success response for vid ${vid} (code=${res?.code}, message=${res?.message}) — this variant falls back to the import placeholder stock.`,
+          );
+          continue;
         }
+
+        const rows = Array.isArray(res.data) ? res.data : [];
+        const total = rows.reduce((sum, row) => sum + (Number(row.storageNum) || 0), 0);
+
+        if (rows.length > 0 && total === 0) {
+          // Call succeeded and returned rows, but none had a numeric
+          // `storageNum` — the real field name is probably different. Log
+          // the raw row once so it's easy to spot-check against CJ's actual
+          // response and fix the mapping in CJVariantStock/here.
+          logger.warn(
+            `[CJDropshippingAdapter] getInventory: vid ${vid} returned ${rows.length} row(s) with no usable storageNum — raw row: ${JSON.stringify(rows[0])}`,
+          );
+        }
+
+        stocks.push({ externalId: vid, stock: total });
       } catch (e) {
-        logger.error(`[CJDropshippingAdapter] getInventory error for vid ${vid}`);
+        logger.error(`[CJDropshippingAdapter] getInventory error for vid ${vid}`, e);
       }
     }
     return stocks;

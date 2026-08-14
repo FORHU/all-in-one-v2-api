@@ -61,4 +61,54 @@ export default class SupplierRepository {
       },
     });
   }
+
+  /**
+   * Is `externalId` already imported into THIS tenant's catalog? SupplierProduct
+   * rows are global (no tenantId column, shared across every tenant), and
+   * `productId` gets overwritten on every import regardless of who's
+   * importing — so a row existing at all does NOT mean it belongs to the
+   * current tenant. Must join through to CatalogProduct.tenantId to answer
+   * "does *this* store already have it" correctly.
+   */
+  static async findImportedProductForTenant(
+    supplierPartnerName: string,
+    externalId: string,
+    tenantId: string,
+  ) {
+    return prisma.supplierProduct.findFirst({
+      where: {
+        externalId,
+        supplier: { name: supplierPartnerName },
+        product: { tenantId },
+      },
+      select: {
+        productId: true,
+        product: { select: { id: true, slug: true, title: true } },
+      },
+    });
+  }
+
+  /** Batch form of findImportedProductForTenant, for decorating a page of search results in one query. */
+  static async findImportedExternalIdsForTenant(
+    supplierPartnerName: string,
+    externalIds: string[],
+    tenantId: string,
+  ): Promise<Map<string, string>> {
+    if (externalIds.length === 0) return new Map();
+
+    const rows = await prisma.supplierProduct.findMany({
+      where: {
+        externalId: { in: externalIds },
+        supplier: { name: supplierPartnerName },
+        product: { tenantId },
+      },
+      select: { externalId: true, productId: true },
+    });
+
+    return new Map(
+      rows
+        .filter((r): r is { externalId: string; productId: string } => r.productId !== null)
+        .map((r) => [r.externalId, r.productId]),
+    );
+  }
 }

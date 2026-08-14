@@ -45,7 +45,7 @@ export default class InventoryService {
   }
 
   static async getVariantStockSummary(variantId: string) {
-    return InventoryRepository.getStockSummaryByVariant(variantId);
+    return InventoryRepository.getStockSummaryByVariant(requireTenantId(), variantId);
   }
 
   static async setStock(
@@ -64,7 +64,7 @@ export default class InventoryService {
   }
 
   static async reserveStock(variantId: string, locationId: string, quantity: number) {
-    return InventoryRepository.reserveStock(variantId, locationId, quantity);
+    return InventoryRepository.reserveStock(requireTenantId(), variantId, locationId, quantity);
   }
 
   static async getTransactions(
@@ -87,6 +87,6 @@ export default class InventoryService {
   }
 
   static async releaseReservation(variantId: string, locationId: string, quantity: number) {
-    return InventoryRepository.releaseReservation(variantId, locationId, quantity);
+    return InventoryRepository.releaseReservation(requireTenantId(), variantId, locationId, quantity);
   }
 }

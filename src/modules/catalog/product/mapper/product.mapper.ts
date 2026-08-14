@@ -3,9 +3,11 @@ import {
   AdminProductListingRow,
   ProductDetailRow,
   ProductListingRow,
+  ProductVariantRow,
 } from '../../product.repository';
 import {
   AdminProductListingItemDto,
+  AdminProductVariantDto,
   ProductAttributeOptionDto,
   ProductDetailDto,
   ProductListingItemDto,
@@ -98,10 +100,20 @@ export function mapProductToListingDto(
   };
 }
 
+/** Lowest supplier cost across a product's variants, or null if none have one (never imported). */
+function lowestBaseCost(product: {
+  variants: { baseCost: Prisma.Decimal | null }[];
+}): number | null {
+  const costs = product.variants
+    .map((v) => toNumber(v.baseCost))
+    .filter((c): c is number => c !== null);
+  return costs.length > 0 ? Math.min(...costs) : null;
+}
+
 export function mapProductToAdminListingDto(
   product: AdminProductListingRow,
 ): AdminProductListingItemDto {
-  const primaryMedia = product.media[0];
+  const primaryMedia = product.media.find((m) => m.isPrimary) ?? product.media[0];
 
   return {
     id: product.id,
@@ -114,13 +126,38 @@ export function mapProductToAdminListingDto(
     price: toNumber(product.price),
     salePrice: toNumber(product.salePrice),
     compareAtPrice: toNumber(product.compareAtPrice),
+    originalPrice: lowestBaseCost(product),
     category: product.category,
+    pricingRule: product.pricingRule,
     variantCount: product._count.variants,
     inStock: product.variants.some((v) => sumAvailableStock(v) > 0),
+    images: product.media.map((m) => m.url),
     createdBy: product.createdBy,
     updatedBy: product.updatedBy,
     createdAt: product.createdAt,
     updatedAt: product.updatedAt,
+  };
+}
+
+export function mapVariantToAdminDto(variant: ProductVariantRow): AdminProductVariantDto {
+  let color: string | null = null;
+  let size: string | null = null;
+
+  for (const va of variant.variantAttributes) {
+    if (va.value.attribute.code === 'color') color = va.value.value;
+    if (va.value.attribute.code === 'size') size = va.value.value;
+  }
+
+  return {
+    id: variant.id,
+    sku: variant.sku,
+    title: variant.title,
+    price: toNumber(variant.price) ?? 0,
+    compareAtPrice: toNumber(variant.compareAtPrice),
+    color,
+    size,
+    stockAvailable: sumAvailableStock(variant),
+    thumbnailUrl: variant.media[0]?.url ?? null,
   };
 }
 

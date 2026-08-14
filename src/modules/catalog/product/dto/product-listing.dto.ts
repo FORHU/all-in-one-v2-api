@@ -44,6 +44,18 @@ export interface ProductFacetsDto {
   sizes: ProductAttributeOptionDto[];
 }
 
+export interface AdminProductVariantDto {
+  id: string;
+  sku: string | null;
+  title: string;
+  price: number;
+  compareAtPrice: number | null;
+  color: string | null;
+  size: string | null;
+  stockAvailable: number;
+  thumbnailUrl: string | null;
+}
+
 export interface AdminProductListingItemDto {
   id: string;
   slug: string;
@@ -55,9 +67,19 @@ export interface AdminProductListingItemDto {
   price: number | null;
   salePrice: number | null;
   compareAtPrice: number | null;
+  // Lowest supplier cost (CatalogProductVariant.baseCost) across this
+  // product's variants — null when nothing was ever imported from a
+  // supplier (no cost basis to show). Distinct from `price`/`calculatedPrice`,
+  // which already have any pricing-rule markup applied on top of this.
+  originalPrice: number | null;
   category: { id: string; name: string } | null;
+  pricingRule: { id: string; name: string } | null;
   variantCount: number;
   inStock: boolean;
+  // Full product-level photo gallery — `thumbnailUrl` above is just the
+  // first entry, kept separately since older callers only expect a single
+  // image and admin listing UIs want the whole strip.
+  images: string[];
   createdBy: string | null;
   updatedBy: string | null;
   createdAt: Date;

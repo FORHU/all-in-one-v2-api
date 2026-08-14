@@ -28,6 +28,35 @@ router.patch(
   ProductController.renameBrand,
 );
 
+// Admin variant management — nested under a product. `/:productId/variants`
+// has more path segments than `/:slug`/`/:id` so it can't collide with them,
+// but registered together with the rest of the admin product routes for
+// readability.
+router.get(
+  '/:productId/variants',
+  authenticate,
+  requirePermission('catalog:read'),
+  ProductController.listVariants,
+);
+router.post(
+  '/:productId/variants',
+  authenticate,
+  requirePermission('catalog:write'),
+  ProductController.createVariant,
+);
+router.put(
+  '/:productId/variants/:variantId',
+  authenticate,
+  requirePermission('catalog:write'),
+  ProductController.updateVariant,
+);
+router.delete(
+  '/:productId/variants/:variantId',
+  authenticate,
+  requirePermission('catalog:delete'),
+  ProductController.deleteVariant,
+);
+
 router.get('/:slug', ProductController.getBySlug);
 
 router.post('/', authenticate, requirePermission('catalog:write'), ProductController.create);

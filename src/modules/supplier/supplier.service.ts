@@ -28,14 +28,53 @@ export default class SupplierService {
     return SupplierRepository.getSupplierProducts(partnerId);
   }
 
+  /**
+   * Decorates each raw result with `alreadyImported`/`catalogProductId` so
+   * the sourcing UI can flag (and block re-importing) products this tenant
+   * already has in its catalog. Search results from every adapter carry the
+   * external id under `id` — see product-sourcing.contract.ts's comment on
+   * SupplierSearchResultSchema for why that's safe to rely on here.
+   */
   static async searchSupplier(supplierId: string, query: string, page: number, limit: number) {
+    const tenantId = requireTenantId();
     const adapter = supplierRegistry.get(supplierId);
-    return adapter.searchProducts(query, page, limit);
+    const { items, total } = await adapter.searchProducts(query, page, limit);
+
+    const externalIds = items
+      .map((item) => (item as Record<string, unknown>).id)
+      .filter((id): id is string => typeof id === 'string');
+    const imported = await SupplierRepository.findImportedExternalIdsForTenant(
+      supplierId,
+      externalIds,
+      tenantId,
+    );
+
+    const decoratedItems = items.map((item) => {
+      const id = (item as Record<string, unknown>).id;
+      const catalogProductId = typeof id === 'string' ? (imported.get(id) ?? null) : null;
+      return { ...(item as object), alreadyImported: catalogProductId !== null, catalogProductId };
+    });
+
+    return { items: decoratedItems, total };
   }
 
   static async getSupplierProduct(supplierId: string, externalId: string) {
+    const tenantId = requireTenantId();
     const adapter = supplierRegistry.get(supplierId);
-    return adapter.getProduct(externalId);
+    const product = await adapter.getProduct(externalId);
+    if (!product) return product;
+
+    const mapping = await SupplierRepository.findImportedProductForTenant(
+      supplierId,
+      externalId,
+      tenantId,
+    );
+
+    return {
+      ...(product as object),
+      alreadyImported: mapping?.productId != null,
+      catalogProductId: mapping?.productId ?? null,
+    };
   }
 
   static async getAvailableSuppliers() {

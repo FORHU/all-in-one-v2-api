@@ -53,16 +53,41 @@ export type ProductDetailRow = Prisma.CatalogProductGetPayload<{
 
 const ADMIN_LISTING_INCLUDE = {
   category: { select: { id: true, name: true } },
-  media: { where: { isPrimary: true }, take: 1 },
+  pricingRule: { select: { id: true, name: true } },
+  // Full product-level gallery (not just the primary image) — the admin
+  // listing shows a photo strip per product, not just one thumbnail.
+  media: {
+    where: { productVariantId: null },
+    orderBy: { position: 'asc' },
+  },
   variants: {
     where: { deletedAt: null },
-    select: { id: true, inventoryStocks: { select: { available: true } } },
+    // baseCost = the raw supplier cost a markup rule was applied on top of
+    // (set on import, see ProductImportService) — surfaced so the admin
+    // listing can show "marked-up price / original supplier cost" together.
+    select: {
+      id: true,
+      baseCost: true,
+      inventoryStocks: { select: { available: true } },
+    },
   },
   _count: { select: { variants: { where: { deletedAt: null } } } },
 } satisfies Prisma.CatalogProductInclude;
 
 export type AdminProductListingRow = Prisma.CatalogProductGetPayload<{
   include: typeof ADMIN_LISTING_INCLUDE;
+}>;
+
+const VARIANT_INCLUDE = {
+  variantAttributes: {
+    include: { value: { include: { attribute: true } } },
+  },
+  inventoryStocks: { select: { available: true } },
+  media: { where: { isPrimary: true }, take: 1 },
+} satisfies Prisma.CatalogProductVariantInclude;
+
+export type ProductVariantRow = Prisma.CatalogProductVariantGetPayload<{
+  include: typeof VARIANT_INCLUDE;
 }>;
 
 /**
@@ -488,5 +513,59 @@ export default class ProductRepository {
       data: { brand: newBrand },
     });
     return result.count;
+  }
+
+  // ─── Variants ──────────────────────────────────────────────────────────────
+
+  static async listVariants(tenantId: string, productId: string): Promise<ProductVariantRow[]> {
+    return prisma.catalogProductVariant.findMany({
+      where: { tenantId, productId, deletedAt: null },
+      include: VARIANT_INCLUDE,
+      orderBy: { title: 'asc' },
+    });
+  }
+
+  static async findVariantById(
+    tenantId: string,
+    productId: string,
+    variantId: string,
+  ): Promise<ProductVariantRow | null> {
+    return prisma.catalogProductVariant.findFirst({
+      where: { id: variantId, tenantId, productId, deletedAt: null },
+      include: VARIANT_INCLUDE,
+    });
+  }
+
+  static async createVariant(
+    tenantId: string,
+    productId: string,
+    data: { title: string; price: number; compareAtPrice?: number | null; sku?: string | null },
+  ): Promise<ProductVariantRow> {
+    return prisma.catalogProductVariant.create({
+      data: { tenantId, productId, ...data },
+      include: VARIANT_INCLUDE,
+    });
+  }
+
+  /** Tenant-safe `updateMany` + refetch, same idiom as `update()` above. */
+  static async updateVariant(
+    tenantId: string,
+    productId: string,
+    variantId: string,
+    data: Prisma.CatalogProductVariantUncheckedUpdateManyInput,
+  ): Promise<ProductVariantRow | null> {
+    await prisma.catalogProductVariant.updateMany({
+      where: { id: variantId, tenantId, productId },
+      data,
+    });
+    return this.findVariantById(tenantId, productId, variantId);
+  }
+
+  /** Soft-delete only — a variant may already be referenced by order/cart history. */
+  static async softDeleteVariant(tenantId: string, productId: string, variantId: string) {
+    return prisma.catalogProductVariant.updateMany({
+      where: { id: variantId, tenantId, productId },
+      data: { deletedAt: new Date() },
+    });
   }
 }
