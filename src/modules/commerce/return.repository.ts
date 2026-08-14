@@ -1,4 +1,4 @@
-import { Prisma, ReturnStatus } from '@prisma/client';
+import { Prisma, ReturnStatus, RefundStatus } from '@prisma/client';
 import { prisma } from '../../utils/prisma';
 import { paginate } from '../../helpers/pagination.helper';
 
@@ -73,16 +73,48 @@ export default class ReturnRepository {
     });
   }
 
-  // New models added for 100% coverage
-  static async createRefund(tenantId: string, orderId: string, returnId: string, amount: number) {
+  static async createRefund(
+    tenantId: string,
+    orderId: string,
+    returnId: string,
+    amount: number,
+    transactionId?: string,
+  ) {
     return prisma.refund.create({
       data: {
         tenantId,
         orderId,
         returnId,
         amount,
-        status: 'PENDING', // Assuming RefundStatus enum
+        status: RefundStatus.PENDING,
+        ...(transactionId ? { transactionId } : {}),
       },
+    });
+  }
+
+  static async updateReturnStatus(tenantId: string, returnId: string, status: ReturnStatus) {
+    return prisma.return.updateMany({ where: { id: returnId, tenantId }, data: { status } });
+  }
+
+  /**
+   * Marks the most recently created still-PENDING Refund for an order as
+   * COMPLETED, once Stripe's `charge.refunded` webhook confirms the money
+   * actually moved (see PaymentService.handleWebhook). Matches by order
+   * rather than the specific Stripe refund id on the assumption that an
+   * order has at most one refund in flight at a time — reasonable for this
+   * store's scale, but would need tightening if concurrent partial refunds
+   * on the same order become a real scenario.
+   */
+  static async markMostRecentPendingRefundCompleted(orderId: string) {
+    const pending = await prisma.refund.findFirst({
+      where: { orderId, status: RefundStatus.PENDING },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!pending) return null;
+
+    return prisma.refund.update({
+      where: { id: pending.id },
+      data: { status: RefundStatus.COMPLETED },
     });
   }
 }

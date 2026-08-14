@@ -43,7 +43,7 @@ router.get('/v2', (_, res) => {
 router.use('/v2/auth', authRoute);
 router.use('/v2/users', userRoute);
 router.use('/v2/customers', customerRoute);
-router.use('/v2/addresses', addressRoute);
+router.use('/v2/addresses', addressRoute); 
 router.use('/v2/file-uploads', fileUploadRoute);
 router.use('/v2/products', productRoute);
 router.use('/v2/products', productSyncRoute);

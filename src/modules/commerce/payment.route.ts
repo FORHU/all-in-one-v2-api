@@ -17,9 +17,9 @@ router.post('/methods/setup-intent', authenticate, PaymentController.createSetup
 router.get('/methods', authenticate, PaymentController.listPaymentMethods);
 router.delete('/methods/:paymentMethodId', authenticate, PaymentController.detachPaymentMethod);
 
-// Provider callback — must stay unauthenticated.
-// TODO: this endpoint still trusts its payload. It needs HMAC signature
-// verification against the raw request body before going live.
+// Provider callback — must stay unauthenticated. Signature verification
+// against the raw request body happens in PaymentController.handleWebhook
+// (stripe.webhooks.constructEvent for Stripe, HMAC for other providers).
 router.post('/webhooks/:provider?', PaymentController.handleWebhook);
 router.get(
   '/:paymentId/events',
