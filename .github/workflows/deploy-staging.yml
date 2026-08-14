@@ -17,13 +17,13 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  ECR_REPOSITORY: all-in-one-v2-api-staging
+  ECR_REPOSITORY: all-in-one
   AWS_REGION: ap-southeast-1
   NODE_ENV: staging
   IMAGE_TAG: ${{ github.event.workflow_run.head_sha || github.sha }}
-  EC2_IAM_ROLE_NAME: all-in-one-api-staging-role
+  EC2_IAM_ROLE_NAME: forhu-staging-style-os-mirror-role
   CONTAINER_NAME: all-in-one-v2-api
-  APP_PORT: 3002
+  APP_PORT: 5002
 
 jobs:
   deploy:
@@ -78,7 +78,6 @@ jobs:
           JWT_EXPIRY: ${{ secrets.JWT_EXPIRY || '15m' }}
           ROOT_DOMAIN: ${{ secrets.ROOT_DOMAIN || 'localhost' }}
           DEFAULT_TENANT_SLUG: ${{ secrets.DEFAULT_TENANT_SLUG || '' }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || '' }}
           CHAT_WONDER_API_URL: ${{ secrets.CHAT_WONDER_API_URL || '' }}
           MAILER_TRANSPORT_HOST: ${{ secrets.MAILER_TRANSPORT_HOST || 'smtp.ethereal.email' }}
           MAILER_TRANSPORT_PORT: ${{ secrets.MAILER_TRANSPORT_PORT || '587' }}
@@ -127,7 +126,6 @@ jobs:
           JWT_EXPIRY=${JWT_EXPIRY}
           ROOT_DOMAIN=${ROOT_DOMAIN}
           DEFAULT_TENANT_SLUG=${DEFAULT_TENANT_SLUG}
-          OPENAI_API_KEY=${OPENAI_API_KEY}
           CHAT_WONDER_API_URL=${CHAT_WONDER_API_URL}
           MAILER_TRANSPORT_HOST=${MAILER_TRANSPORT_HOST}
           MAILER_TRANSPORT_PORT=${MAILER_TRANSPORT_PORT}
