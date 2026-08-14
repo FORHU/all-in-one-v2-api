@@ -1,11 +1,11 @@
 node_modules
 dist
-logs
 .git
-.github
+.env
+.env.*
+coverage
 tests
 docs
 *.log
-.env
-.env.example
 npm-debug.log*
+
