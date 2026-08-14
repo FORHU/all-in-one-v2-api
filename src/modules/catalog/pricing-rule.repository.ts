@@ -84,7 +84,9 @@ export default class PricingRuleRepository {
   }
 
   static async countProductsUsingRule(tenantId: string, ruleId: string): Promise<number> {
-    return prisma.catalogProduct.count({ where: { tenantId, pricingRuleId: ruleId, deletedAt: null } });
+    return prisma.catalogProduct.count({
+      where: { tenantId, pricingRuleId: ruleId, deletedAt: null },
+    });
   }
 
   static async findProductIdsUsingRule(tenantId: string, ruleId: string): Promise<string[]> {
@@ -110,7 +112,10 @@ export default class PricingRuleRepository {
       where: {
         tenantId,
         deletedAt: null,
-        OR: [{ pricingRuleId: null }, ...(previousDefaultRuleId ? [{ pricingRuleId: previousDefaultRuleId }] : [])],
+        OR: [
+          { pricingRuleId: null },
+          ...(previousDefaultRuleId ? [{ pricingRuleId: previousDefaultRuleId }] : []),
+        ],
       },
       select: { id: true },
     });

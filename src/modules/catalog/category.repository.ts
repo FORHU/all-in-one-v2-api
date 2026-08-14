@@ -27,7 +27,11 @@ export default class CategoryRepository {
    * importing the same category concurrently can't race into a duplicate
    * slug conflict.
    */
-  static async findOrCreateByName(tenantId: string, name: string, client: PrismaClientOrTx = prisma) {
+  static async findOrCreateByName(
+    tenantId: string,
+    name: string,
+    client: PrismaClientOrTx = prisma,
+  ) {
     const slug = this.slugify(name);
     return client.catalogCategory.upsert({
       where: { tenantId_slug: { tenantId, slug } },

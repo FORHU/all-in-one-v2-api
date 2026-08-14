@@ -12,7 +12,9 @@ export interface PricingRuleSaleConfig {
   endsAt: string; // ISO
 }
 
-export function isSaleCurrentlyActive(sale: Pick<PricingRuleSaleConfig, 'startsAt' | 'endsAt'>): boolean {
+export function isSaleCurrentlyActive(
+  sale: Pick<PricingRuleSaleConfig, 'startsAt' | 'endsAt'>,
+): boolean {
   const now = Date.now();
   return now >= new Date(sale.startsAt).getTime() && now <= new Date(sale.endsAt).getTime();
 }

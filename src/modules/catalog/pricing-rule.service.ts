@@ -110,7 +110,10 @@ export default class PricingRuleService {
     return toDto(created);
   }
 
-  static async updateRule(id: string, data: Partial<PricingRuleWriteInput>): Promise<PricingRuleDto> {
+  static async updateRule(
+    id: string,
+    data: Partial<PricingRuleWriteInput>,
+  ): Promise<PricingRuleDto> {
     const tenantId = requireTenantId();
 
     const rule = await PricingRuleRepository.findById(tenantId, id);
@@ -143,9 +146,15 @@ export default class PricingRuleService {
     // the sale — needs every product still on this rule recomputed
     // immediately, not just on the next import. Independent per product, so
     // these run concurrently rather than one sequential round trip at a time.
-    if (data.markupValue !== undefined || data.minimumProfit !== undefined || data.sale !== undefined) {
+    if (
+      data.markupValue !== undefined ||
+      data.minimumProfit !== undefined ||
+      data.sale !== undefined
+    ) {
       const productIds = await PricingRuleRepository.findProductIdsUsingRule(tenantId, id);
-      await Promise.all(productIds.map((productId) => this.recalculateProductPricing(tenantId, productId)));
+      await Promise.all(
+        productIds.map((productId) => this.recalculateProductPricing(tenantId, productId)),
+      );
     }
 
     return toDto(updated!);
@@ -188,7 +197,8 @@ export default class PricingRuleService {
     if (!rule) return throwResponse(404, 'Pricing rule not found');
 
     const previousDefault = await PricingRuleRepository.findDefault(tenantId);
-    const previousDefaultId = previousDefault && previousDefault.id !== id ? previousDefault.id : null;
+    const previousDefaultId =
+      previousDefault && previousDefault.id !== id ? previousDefault.id : null;
 
     const eligibleProductIds = await PricingRuleRepository.findProductIdsEligibleForDefault(
       tenantId,
@@ -259,7 +269,8 @@ export default class PricingRuleService {
 
     const regularPrice = Math.min(...finalPrices);
     const sale = product.pricingRule ? ruleSaleFromRow(product.pricingRule) : null;
-    const salePrice = sale && isSaleCurrentlyActive(sale) ? calculateSalePrice(regularPrice, sale) : null;
+    const salePrice =
+      sale && isSaleCurrentlyActive(sale) ? calculateSalePrice(regularPrice, sale) : null;
 
     await prisma.catalogProduct.updateMany({
       where: { id: productId, tenantId },

@@ -690,7 +690,7 @@ async function getOrCreateCustomerForTenant(prisma: PrismaClient, tenantId: stri
 
   const user = await prisma.authUser.findUnique({ where: { email } });
   if (!user) {
-    process.stderr.write(`⚠️ Customer ${email} not found. Ensure seedUsers runs first.\n`);
+    process.stderr.write(`Customer ${email} not found. Ensure seedUsers runs first.\n`);
     return null;
   }
 

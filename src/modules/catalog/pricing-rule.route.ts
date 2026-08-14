@@ -7,7 +7,12 @@ const router = express.Router();
 router.get('/', authenticate, requirePermission('catalog:read'), PricingRuleController.list);
 router.post('/', authenticate, requirePermission('catalog:write'), PricingRuleController.create);
 router.put('/:id', authenticate, requirePermission('catalog:write'), PricingRuleController.update);
-router.delete('/:id', authenticate, requirePermission('catalog:delete'), PricingRuleController.delete);
+router.delete(
+  '/:id',
+  authenticate,
+  requirePermission('catalog:delete'),
+  PricingRuleController.delete,
+);
 router.post(
   '/:id/apply-to-all',
   authenticate,

@@ -124,8 +124,8 @@ function normalizeCjProduct(data: Record<string, unknown>): NormalizedProduct {
 
   const images = Array.from(
     new Set(
-      [bigImage, ...imageSet, ...variants.flatMap((v) => v.images)].filter(
-        (v): v is string => Boolean(v),
+      [bigImage, ...imageSet, ...variants.flatMap((v) => v.images)].filter((v): v is string =>
+        Boolean(v),
       ),
     ),
   );
@@ -156,9 +156,7 @@ function normalizePrintfulProduct(data: Record<string, unknown>): NormalizedProd
         sku: undefined,
         price: toOptionalNumber(v.price),
         attributes:
-          color || size
-            ? { ...(color ? { color } : {}), ...(size ? { size } : {}) }
-            : undefined,
+          color || size ? { ...(color ? { color } : {}), ...(size ? { size } : {}) } : undefined,
         images: typeof v.image === 'string' ? [v.image] : [],
       };
     })

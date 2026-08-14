@@ -182,7 +182,15 @@ export default class InventoryRepository {
       });
     } else {
       await client.inventoryStock.create({
-        data: { tenantId, variantId, locationId, onHand, reserved: 0, available: onHand, reorderPoint },
+        data: {
+          tenantId,
+          variantId,
+          locationId,
+          onHand,
+          reserved: 0,
+          available: onHand,
+          reorderPoint,
+        },
       });
     }
 
