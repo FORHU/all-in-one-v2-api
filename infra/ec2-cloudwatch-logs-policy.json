@@ -1,0 +1,17 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllInOneApiLogGroups",
+      "Effect": "Allow",
+      "Action": ["logs:CreateLogGroup", "logs:DescribeLogStreams"],
+      "Resource": "arn:aws:logs:*:*:log-group:/all-in-one-v2-api/*"
+    },
+    {
+      "Sid": "AllInOneApiLogStreams",
+      "Effect": "Allow",
+      "Action": ["logs:CreateLogStream", "logs:PutLogEvents"],
+      "Resource": "arn:aws:logs:*:*:log-group:/all-in-one-v2-api/*:log-stream:*"
+    }
+  ]
+}
