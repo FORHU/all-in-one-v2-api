@@ -7,15 +7,15 @@
 
 ## 📊 Summary Dashboard
 
-| Domain / Architectural Pillar | Previous State | Current Hardened State | Status |
-|---|---|---|---|
-| **Refresh Tokens** | Infinite static refresh tokens | Single-use rotation with automatic family revocation on replay | ✅ Completed |
-| **Customer Tenancy** | Global customers shared across verticals | Tenant-isolated (`tenantId` scoped + `@@unique([tenantId, userId])`) | ✅ Completed |
-| **Order Integrity** | `onDelete: Cascade` wiped past orders | `onDelete: SetNull` preserves financial revenue & tax records | ✅ Completed |
-| **Role Architecture** | Overlapping `UserRole` vs `TenantMembership` | Global `UserRole` = `SUPER_ADMIN`/`DEVELOPER`/`USER`; merchant roles in `TenantRole` | ✅ Completed |
-| **RBAC Route Enforcement** | Inconsistent `authorize(ADMIN_ROLES)` | 100% of route modules enforce granular `requirePermission(...)` | ✅ Completed |
-| **Google SSO / OAuth** | Missing Google authentication endpoints | `POST /api/v2/auth/google` with ID token verification & email account linking | ✅ Completed |
-| **Migration SQL History** | Unsynchronized Prisma state | 3 clean Prisma migrations in `prisma/schema/migrations` | ✅ Completed |
+| Domain / Architectural Pillar | Previous State                               | Current Hardened State                                                               | Status       |
+| ----------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------ | ------------ |
+| **Refresh Tokens**            | Infinite static refresh tokens               | Single-use rotation with automatic family revocation on replay                       | ✅ Completed |
+| **Customer Tenancy**          | Global customers shared across verticals     | Tenant-isolated (`tenantId` scoped + `@@unique([tenantId, userId])`)                 | ✅ Completed |
+| **Order Integrity**           | `onDelete: Cascade` wiped past orders        | `onDelete: SetNull` preserves financial revenue & tax records                        | ✅ Completed |
+| **Role Architecture**         | Overlapping `UserRole` vs `TenantMembership` | Global `UserRole` = `SUPER_ADMIN`/`DEVELOPER`/`USER`; merchant roles in `TenantRole` | ✅ Completed |
+| **RBAC Route Enforcement**    | Inconsistent `authorize(ADMIN_ROLES)`        | 100% of route modules enforce granular `requirePermission(...)`                      | ✅ Completed |
+| **Google SSO / OAuth**        | Missing Google authentication endpoints      | `POST /api/v2/auth/google` with ID token verification & email account linking        | ✅ Completed |
+| **Migration SQL History**     | Unsynchronized Prisma state                  | 3 clean Prisma migrations in `prisma/schema/migrations`                              | ✅ Completed |
 
 ---
 
