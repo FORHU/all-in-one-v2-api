@@ -27,7 +27,8 @@ export const listReturns = async (req: Request, res: Response, next: NextFunctio
 
 export const createReturn = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const returnReq = await ReturnService.createReturn(req.body);
+    const { orderId, customerId, reason, notes } = req.body;
+    const returnReq = await ReturnService.createReturn({ orderId, customerId, reason, notes });
     return responseSuccess(res, 201, returnReq);
   } catch (error) {
     next(error);
@@ -44,11 +45,30 @@ export const getReturnsByOrderId = async (req: Request, res: Response, next: Nex
   }
 };
 
+export const approveReturn = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await ReturnService.approveReturn(req.params.id);
+    return responseSuccess(res, 200, result, 'Return approved');
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const rejectReturn = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { notes } = req.body;
+    const result = await ReturnService.rejectReturn(req.params.id, notes);
+    return responseSuccess(res, 200, result, 'Return rejected');
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const issueRefund = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { returnId } = req.params;
-    const { orderId, amount } = req.body;
-    const refund = await ReturnService.issueRefund(orderId, returnId, amount);
+    const { orderId, amount, reason } = req.body;
+    const refund = await ReturnService.issueRefund(orderId, returnId, amount, reason);
     return responseSuccess(res, 201, refund);
   } catch (error) {
     next(error);

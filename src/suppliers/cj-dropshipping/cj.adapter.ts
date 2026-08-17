@@ -236,22 +236,15 @@ export class CJDropshippingAdapter implements SupplierAdapter {
 
     // Depending on the requested `size`, CJ returns `content` as either a flat
     // array of products, or a single wrapper object holding `productList`.
+    // Returned as-is, trusting CJ's own relevance ranking — a prior local
+    // keyword filter here (narrowing to items whose name contained one of the
+    // query's words) caused `total`/`totalPages` (built from CJ's per-page,
+    // pre-filter `totalRecords`) to disagree with the actual (filtered, thus
+    // shorter) `items` array on every page, undercounting or even emptying
+    // pages the pager claimed existed.
     const items = (res.data.content ?? []).flatMap((c) => c.productList ?? c);
 
-    // CJ's `keyWord` match is fuzzy against tags/SKUs, not just the product
-    // name, so unrelated categories can slip through (searching "dress"
-    // surfacing watches, for example). Narrow to items whose name actually
-    // contains one of the query's words, preserving CJ's own relevance order
-    // among what's left.
-    const queryWords = query.toLowerCase().split(/\s+/).filter(Boolean);
-    const filteredItems = queryWords.length
-      ? items.filter((item) => {
-          const name = String(item.nameEn ?? '').toLowerCase();
-          return queryWords.some((word) => name.includes(word));
-        })
-      : items;
-
-    return { items: filteredItems, total: res.data.totalRecords ?? 0 };
+    return { items, total: res.data.totalRecords ?? 0 };
   }
 
   async getProduct(externalId: string): Promise<CJProductDetail | null> {

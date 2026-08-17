@@ -28,6 +28,7 @@ router.patch(
   requirePermission('orders:write'),
   OrderController.updateStatus,
 );
+router.post('/:id/cancel', authenticate, requirePermission('orders:write'), OrderController.cancel);
 router.get(
   '/:id/supplier-orders',
   authenticate,

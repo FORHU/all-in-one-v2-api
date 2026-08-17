@@ -34,6 +34,20 @@ const variantBodySchema = Joi.object({
 
 const variantUpdateBodySchema = variantBodySchema.fork(['title', 'price'], (s) => s.optional());
 
+const MEDIA_TYPES = ['IMAGE', 'GIF', 'VIDEO', 'AUDIO', 'DOCUMENT', 'ARCHIVE', 'OTHER'] as const;
+
+const mediaBodySchema = Joi.object({
+  url: Joi.string().uri().required(),
+  type: Joi.string()
+    .valid(...MEDIA_TYPES)
+    .optional(),
+  altText: Joi.string().allow(null, '').optional(),
+  position: Joi.number().integer().min(0).optional(),
+  isPrimary: Joi.boolean().optional(),
+});
+
+const mediaUpdateBodySchema = mediaBodySchema.fork(['url'], (s) => s.optional());
+
 export default class ProductController {
   static async list(req: Request, res: Response, next: NextFunction) {
     const { error, value } = listQuerySchema.validate(req.query);
@@ -194,6 +208,52 @@ export default class ProductController {
     try {
       await ProductService.deleteVariant(req.params.productId, req.params.variantId);
       return responseSuccess(res, 200, null, 'Variant deleted successfully');
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async listMedia(req: Request, res: Response, next: NextFunction) {
+    try {
+      const media = await ProductService.listMedia(req.params.productId);
+      return responseSuccess(res, 200, { items: media });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async createMedia(req: Request, res: Response, next: NextFunction) {
+    const { error, value } = mediaBodySchema.validate(req.body);
+    if (error) return res.status(400).json({ message: error.message });
+
+    try {
+      const media = await ProductService.createMedia(req.params.productId, value);
+      return responseSuccess(res, 201, media, 'Media added successfully');
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async updateMedia(req: Request, res: Response, next: NextFunction) {
+    const { error, value } = mediaUpdateBodySchema.validate(req.body);
+    if (error) return res.status(400).json({ message: error.message });
+
+    try {
+      const media = await ProductService.updateMedia(
+        req.params.productId,
+        req.params.mediaId,
+        value,
+      );
+      return responseSuccess(res, 200, media, 'Media updated successfully');
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async deleteMedia(req: Request, res: Response, next: NextFunction) {
+    try {
+      await ProductService.deleteMedia(req.params.productId, req.params.mediaId);
+      return responseSuccess(res, 200, null, 'Media deleted successfully');
     } catch (err) {
       next(err);
     }

@@ -56,6 +56,15 @@ export interface AdminProductVariantDto {
   thumbnailUrl: string | null;
 }
 
+export interface AdminProductMediaDto {
+  id: string;
+  url: string;
+  type: string;
+  altText: string | null;
+  position: number;
+  isPrimary: boolean;
+}
+
 export interface AdminProductListingItemDto {
   id: string;
   slug: string;
