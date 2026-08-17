@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { CatalogProductMedia, Prisma } from '@prisma/client';
 import {
   AdminProductListingRow,
   ProductDetailRow,
@@ -7,6 +7,7 @@ import {
 } from '../../product.repository';
 import {
   AdminProductListingItemDto,
+  AdminProductMediaDto,
   AdminProductVariantDto,
   ProductAttributeOptionDto,
   ProductDetailDto,
@@ -158,6 +159,17 @@ export function mapVariantToAdminDto(variant: ProductVariantRow): AdminProductVa
     size,
     stockAvailable: sumAvailableStock(variant),
     thumbnailUrl: variant.media[0]?.url ?? null,
+  };
+}
+
+export function mapMediaToAdminDto(media: CatalogProductMedia): AdminProductMediaDto {
+  return {
+    id: media.id,
+    url: media.url,
+    type: media.type,
+    altText: media.altText,
+    position: media.position,
+    isPrimary: media.isPrimary,
   };
 }
 

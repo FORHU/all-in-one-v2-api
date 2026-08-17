@@ -568,4 +568,51 @@ export default class ProductRepository {
       data: { deletedAt: new Date() },
     });
   }
+
+  // ─── Media ─────────────────────────────────────────────────────────────────
+  // CatalogProductMedia has no tenantId column of its own — isolation is
+  // enforced one level up, by verifying the parent product belongs to the
+  // caller's tenant (via findById) before any of these run, same as the
+  // variant methods above rely on their own parent-ownership check.
+
+  /** Product-level gallery only (`productVariantId: null`) — per-variant media is a separate, not-yet-built surface. */
+  static async listMedia(productId: string) {
+    return prisma.catalogProductMedia.findMany({
+      where: { productId, productVariantId: null },
+      orderBy: { position: 'asc' },
+    });
+  }
+
+  static async findMediaById(productId: string, mediaId: string) {
+    return prisma.catalogProductMedia.findFirst({ where: { id: mediaId, productId } });
+  }
+
+  static async createMedia(
+    productId: string,
+    data: Omit<Prisma.CatalogProductMediaUncheckedCreateInput, 'productId'>,
+  ) {
+    return prisma.catalogProductMedia.create({ data: { ...data, productId } });
+  }
+
+  static async updateMedia(
+    productId: string,
+    mediaId: string,
+    data: Prisma.CatalogProductMediaUncheckedUpdateManyInput,
+  ) {
+    await prisma.catalogProductMedia.updateMany({ where: { id: mediaId, productId }, data });
+    return this.findMediaById(productId, mediaId);
+  }
+
+  /** Unsets every other primary flag in this product's gallery before a new one is marked primary. */
+  static async clearPrimaryMedia(productId: string) {
+    return prisma.catalogProductMedia.updateMany({
+      where: { productId, productVariantId: null, isPrimary: true },
+      data: { isPrimary: false },
+    });
+  }
+
+  /** Hard delete — CatalogProductMedia has no deletedAt column (unlike products/variants); it's just gallery rows, nothing else references them. */
+  static async deleteMedia(productId: string, mediaId: string) {
+    return prisma.catalogProductMedia.deleteMany({ where: { id: mediaId, productId } });
+  }
 }

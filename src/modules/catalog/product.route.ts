@@ -57,6 +57,33 @@ router.delete(
   ProductController.deleteVariant,
 );
 
+// Admin media gallery management — product-level images/video, same nested
+// pattern as variants above.
+router.get(
+  '/:productId/media',
+  authenticate,
+  requirePermission('catalog:read'),
+  ProductController.listMedia,
+);
+router.post(
+  '/:productId/media',
+  authenticate,
+  requirePermission('catalog:write'),
+  ProductController.createMedia,
+);
+router.put(
+  '/:productId/media/:mediaId',
+  authenticate,
+  requirePermission('catalog:write'),
+  ProductController.updateMedia,
+);
+router.delete(
+  '/:productId/media/:mediaId',
+  authenticate,
+  requirePermission('catalog:delete'),
+  ProductController.deleteMedia,
+);
+
 router.get('/:slug', ProductController.getBySlug);
 
 router.post('/', authenticate, requirePermission('catalog:write'), ProductController.create);

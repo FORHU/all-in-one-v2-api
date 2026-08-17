@@ -1,5 +1,12 @@
 import express from 'express';
-import { listReturns, createReturn, getReturnsByOrderId, issueRefund } from './return.controller';
+import {
+  listReturns,
+  createReturn,
+  getReturnsByOrderId,
+  approveReturn,
+  rejectReturn,
+  issueRefund,
+} from './return.controller';
 import { authenticate, requirePermission } from '../../middleware/auth.middleware';
 
 const router = express.Router();
@@ -8,6 +15,8 @@ const router = express.Router();
 router.get('/', authenticate, requirePermission('orders:read'), listReturns);
 router.post('/', authenticate, requirePermission('orders:write'), createReturn);
 router.get('/order/:orderId', authenticate, requirePermission('orders:read'), getReturnsByOrderId);
+router.patch('/:id/approve', authenticate, requirePermission('orders:write'), approveReturn);
+router.patch('/:id/reject', authenticate, requirePermission('orders:write'), rejectReturn);
 router.post('/:returnId/refund', authenticate, requirePermission('orders:refund'), issueRefund);
 
 export default router;
