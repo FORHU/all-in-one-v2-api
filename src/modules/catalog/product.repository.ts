@@ -25,6 +25,10 @@ const LISTING_INCLUDE = {
       // Stock now lives on InventoryStock (multi-location), not directly on
       // the variant — see prisma/schema/inventory.prisma.
       inventoryStocks: { select: { available: true } },
+      // Dropship/print-on-demand variants have no InventoryStock rows (no
+      // warehouse) — sumAvailableStock falls back to this last-synced
+      // supplier number. See InventoryRepository.getEffectiveAvailableStock.
+      supplierVariants: { select: { stock: true } },
     },
   },
 } satisfies Prisma.CatalogProductInclude;
@@ -42,6 +46,7 @@ const DETAIL_INCLUDE = {
         include: { value: { include: { attribute: true } } },
       },
       inventoryStocks: { select: { available: true } },
+      supplierVariants: { select: { stock: true } },
     },
   },
   category: { select: { name: true, slug: true } },
@@ -69,6 +74,7 @@ const ADMIN_LISTING_INCLUDE = {
       id: true,
       baseCost: true,
       inventoryStocks: { select: { available: true } },
+      supplierVariants: { select: { stock: true } },
     },
   },
   _count: { select: { variants: { where: { deletedAt: null } } } },
@@ -83,6 +89,7 @@ const VARIANT_INCLUDE = {
     include: { value: { include: { attribute: true } } },
   },
   inventoryStocks: { select: { available: true } },
+  supplierVariants: { select: { stock: true } },
   media: { where: { isPrimary: true }, take: 1 },
 } satisfies Prisma.CatalogProductVariantInclude;
 

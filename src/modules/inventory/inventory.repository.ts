@@ -125,6 +125,36 @@ export default class InventoryRepository {
     };
   }
 
+  /**
+   * Available stock for a variant, sourced appropriately for how it's fulfilled:
+   * - Any InventoryStock rows exist → first-party/warehouse-tracked product,
+   *   trust that number as-is (including a real, legitimate 0).
+   * - No InventoryStock rows at all → dropship/print-on-demand variant with no
+   *   warehouse concept; fall back to the linked SupplierVariant's last-synced
+   *   stock count (see ProductImportService), since the supplier — not this
+   *   platform — holds the physical goods.
+   */
+  static async getEffectiveAvailableStock(
+    tenantId: string,
+    variantId: string,
+  ): Promise<
+    | { source: 'location'; available: number; summary: Awaited<ReturnType<typeof InventoryRepository.getStockSummaryByVariant>> }
+    | { source: 'supplier'; available: number }
+  > {
+    const summary = await this.getStockSummaryByVariant(tenantId, variantId);
+    if (summary.locations.length > 0) {
+      return { source: 'location', available: summary.totalAvailable, summary };
+    }
+
+    const supplierVariant = await prisma.supplierVariant.findFirst({
+      where: { productVariantId: variantId },
+      select: { stock: true },
+      orderBy: { lastSyncedAt: 'desc' },
+    });
+
+    return { source: 'supplier', available: supplierVariant?.stock ?? 0 };
+  }
+
   /** Get total onHand and available stock across all locations for multiple variants */
   static async getStockSummariesForVariants(tenantId: string, variantIds: string[]) {
     const stocks = await prisma.inventoryStock.findMany({

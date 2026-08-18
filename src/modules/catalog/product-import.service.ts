@@ -364,6 +364,14 @@ export class ProductImportService {
           });
         }
 
+        // Shared across every variant below — CJ/Printful variants of the
+        // same product are almost always the cross product of a handful of
+        // colors/sizes, so without this the same {code, value} pair gets
+        // upserted over and over (once per variant that shares it) inside
+        // this one long-lived transaction. See the cache param's doc comment
+        // on upsertVariantAttributesFromLabels.
+        const attributeValueCache = new Map<string, string>();
+
         // One real CatalogProductVariant per supplier variant — without this,
         // the product has nothing a cart/order can reference and can't
         // actually be sold.
@@ -378,6 +386,9 @@ export class ProductImportService {
           });
 
           const cost = variant.price ?? lowestPrice;
+          const liveStock = stockByExternalId.get(variant.externalId);
+          const stockToSet =
+            typeof liveStock === 'number' && liveStock >= 0 ? liveStock : DEFAULT_IMPORT_STOCK;
           const priceResult = calculateVariantPrice(cost, product.pricingRule);
           const variantData = {
             tenantId,
@@ -406,19 +417,24 @@ export class ProductImportService {
               tenantId,
               catalogVariant.id,
               variant.attributes,
+              attributeValueCache,
             );
           }
 
           // Stock is synced from the supplier on every import AND every
           // resync (product-sync.consumer.ts routes through here too) — for
-          // dropship/print-on-demand variants the supplier's warehouse is
-          // the actual source of truth, not something an admin hand-manages.
-          // Falls back to DEFAULT_IMPORT_STOCK only when the supplier didn't
-          // report a number for this variant (adapter error, unmapped id).
+          // dropship/print-on-demand variants the supplier IS the warehouse,
+          // so the number lives on SupplierVariant.stock, which is what
+          // InventoryRepository.getEffectiveAvailableStock falls back to
+          // when this tenant has no InventoryLocation. Falls back to
+          // DEFAULT_IMPORT_STOCK only when the supplier didn't report a
+          // number for this variant (adapter error, unmapped id).
+          //
+          // The InventoryStock write below is only for tenants that DO have
+          // a location set up (first-party sellers with real warehouses) —
+          // it's best-effort and never required for a dropship variant to
+          // be sellable.
           if (primaryLocation) {
-            const liveStock = stockByExternalId.get(variant.externalId);
-            const stockToSet =
-              typeof liveStock === 'number' && liveStock >= 0 ? liveStock : DEFAULT_IMPORT_STOCK;
             await InventoryRepository.setStock(
               tenantId,
               catalogVariant.id,
@@ -439,6 +455,7 @@ export class ProductImportService {
             update: {
               productVariantId: catalogVariant.id,
               costPrice: cost,
+              stock: stockToSet,
               title: variant.title,
               thumbnailUrl: variant.images[0],
               attributes: variant.attributes as Prisma.InputJsonValue | undefined,
@@ -450,6 +467,7 @@ export class ProductImportService {
               productVariantId: catalogVariant.id,
               externalId: variant.externalId,
               costPrice: cost,
+              stock: stockToSet,
               title: variant.title,
               thumbnailUrl: variant.images[0],
               attributes: variant.attributes as Prisma.InputJsonValue | undefined,

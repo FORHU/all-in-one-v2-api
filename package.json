@@ -17,6 +17,7 @@
     "db:setup": "npx prisma generate && npx prisma migrate dev",
     "db:seed": "ts-node prisma/seed.ts",
     "db:seed:suppliers": "ts-node prisma/seed-suppliers.ts",
+    "products:resync-all": "ts-node scripts/resync-all-products.ts",
     "test": "jest",
     "test:unit": "jest tests/unit --passWithNoTests",
     "test:integration": "jest tests/integration --passWithNoTests",

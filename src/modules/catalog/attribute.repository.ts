@@ -162,12 +162,22 @@ export default class AttributeRepository {
    * JSON `attributes` column callers may also write as an audit trail.
    * Accepts an injectable Prisma client so it can run inside a caller's own
    * transaction (e.g. product import).
+   *
+   * `cache` is optional and keyed on `code::value` — callers upserting many
+   * variants in one transaction (e.g. product import, where the same
+   * color/size pairs repeat across dozens of variants) can pass a shared
+   * `Map` so each distinct pair is only upserted once instead of once per
+   * variant. Every extra round trip here adds to how long that transaction's
+   * DB connection stays open, which matters over a network link to a remote
+   * DB — cutting redundant upserts is what keeps a 30-variant import from
+   * running long enough to risk the connection dropping mid-transaction.
    */
   static async upsertVariantAttributesFromLabels(
     client: PrismaClientOrTx,
     tenantId: string,
     variantId: string,
     attrs: Record<string, string>,
+    cache?: Map<string, string>,
   ) {
     const valueIds: string[] = [];
 
@@ -175,6 +185,13 @@ export default class AttributeRepository {
       const code = rawCode.trim().toLowerCase();
       const value = rawValue.trim();
       if (!code || !value) continue;
+
+      const cacheKey = `${code}::${value}`;
+      const cached = cache?.get(cacheKey);
+      if (cached) {
+        valueIds.push(cached);
+        continue;
+      }
 
       const attribute = await client.catalogAttribute.upsert({
         where: { tenantId_code: { tenantId, code } },
@@ -194,6 +211,7 @@ export default class AttributeRepository {
         create: { attributeId: attribute.id, value, label: capitalize(value) },
       });
 
+      cache?.set(cacheKey, attributeValue.id);
       valueIds.push(attributeValue.id);
     }
 
