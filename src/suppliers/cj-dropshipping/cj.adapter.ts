@@ -15,10 +15,26 @@ import {
   CJSimulatePayParams,
   CJUpdateSandboxStatusParams,
   CJUpdateSandboxTrackNumberParams,
+  CJLogisticsOption,
+  CJUpdateLogisticsParams,
 } from './cj.types';
 
 /** CJ's sandbox status ladder, in order — see CJSandboxTargetStatus. */
 const SANDBOX_STATUS_LADDER: CJSandboxTargetStatus[] = [400, 500, 600, 700];
+
+/**
+ * Quotes bare integer literals of 16+ digits before JSON.parse, so they
+ * survive as precision-safe strings instead of being silently rounded by
+ * standard JSON parsing (which only represents integers exactly up to
+ * Number.MAX_SAFE_INTEGER, ~16 digits) — CJ's `id` fields on
+ * getOrderLogisticsInfo run to 19 digits. 16 is a deliberately safe
+ * threshold: ordinary numeric fields in CJ's responses (prices, counts,
+ * timestamps) are far shorter and pass through untouched.
+ */
+function parseJsonPreservingBigInts(text: string): unknown {
+  const safe = text.replace(/([:[,]\s*)(-?\d{16,})(\s*[,}\]])/g, '$1"$2"$3');
+  return JSON.parse(safe);
+}
 
 const CACHE_VERSION = 'v1';
 const CJ_ACCESS_TOKEN_KEY = `cj:access_token:${CACHE_VERSION}`;
@@ -352,12 +368,30 @@ export class CJDropshippingAdapter implements SupplierAdapter {
     return res?.data;
   }
 
+  /**
+   * Moves an order from CREATED(100) to UNPAID(200) — required before any
+   * payment call, real (payBalance) or sandbox (simulatePay). Confirmed
+   * live: calling simulatePay on a CREATED order fails with code 812,
+   * "Current order status is CREATED(100), not UNPAID(200), cannot
+   * simulate pay." — this step is NOT replaced by the sandbox flow, only
+   * the actual charge (payBalance) is.
+   */
+  async confirmOrder(orderId: string): Promise<boolean> {
+    const res = await this.request<boolean>('/shopping/order/confirmOrder', 'PATCH', { orderId });
+    return Boolean(res?.data);
+  }
+
   // --- Sandbox (testing) ---
   //
   // CJ's sandbox isn't a separate host — it's the same endpoints with
-  // isSandbox=1 on order creation, plus three test-only calls that stand in
-  // for real payment and fulfillment:
-  //   createOrderV2(isSandbox=1) -> simulatePay -> updateSandboxStatus* -> updateSandboxTrackNumber
+  // isSandbox=1 on order creation, plus test-only calls that stand in for
+  // real payment and fulfillment. The full sequence, confirmed live:
+  //   createOrderV2(isSandbox=1)
+  //     -> [if logisticsMiss] getOrderLogisticsInfo -> updateLogistics
+  //     -> confirmOrder                 (CREATED -> UNPAID — real call, not sandbox-only)
+  //     -> simulatePay                  (UNPAID -> 300, stands in for payBalance)
+  //     -> updateSandboxStatus* (advanceSandboxOrder)
+  //     -> updateSandboxTrackNumber
   // See docs: https://developers.cjdropshipping.cn/en/api/start/sandbox.html
 
   /**
@@ -376,7 +410,12 @@ export class CJDropshippingAdapter implements SupplierAdapter {
     return res?.data;
   }
 
-  /** Moves a sandbox order from unpaid straight to 300 (paid) — replaces the real confirmOrder + payBalance pair. */
+  /**
+   * Moves an already-UNPAID sandbox order to 300 (paid) — stands in for
+   * the real payBalance charge only. Requires confirmOrder() first: an
+   * order fresh from createOrderV2 is CREATED, not UNPAID, and CJ rejects
+   * simulatePay on a CREATED order (code 812).
+   */
   async simulatePay(params: CJSimulatePayParams): Promise<boolean> {
     if (!params.orderId && !params.shipmentOrderId) {
       throw new Error('simulatePay requires orderId or shipmentOrderId');
@@ -409,11 +448,67 @@ export class CJDropshippingAdapter implements SupplierAdapter {
    * Convenience for tests: replays updateSandboxStatus one hop at a time
    * from 300 up to `targetStatus`, since CJ won't accept a direct jump.
    * Call simulatePay() first — this assumes the order is already at 300.
+   * Throws as soon as a hop is rejected rather than silently continuing —
+   * CJ rejecting one transition (e.g. the order was never actually paid)
+   * means every subsequent one in the ladder would fail too, so pressing
+   * on and reporting success at the end would be misleading.
    */
   async advanceSandboxOrder(orderId: string, targetStatus: CJSandboxTargetStatus): Promise<void> {
     const targetIndex = SANDBOX_STATUS_LADDER.indexOf(targetStatus);
     for (let i = 0; i <= targetIndex; i++) {
-      await this.updateSandboxStatus({ orderId, targetStatus: SANDBOX_STATUS_LADDER[i] });
+      const step = SANDBOX_STATUS_LADDER[i];
+      const ok = await this.updateSandboxStatus({ orderId, targetStatus: step });
+      if (!ok) {
+        throw new Error(
+          `advanceSandboxOrder: CJ rejected the transition to ${step} for order ${orderId}`,
+        );
+      }
     }
+  }
+
+  // --- Logistics ---
+
+  /**
+   * Real shipping methods CJ will accept for an already-created order. Call
+   * this when createOrderV2/createOrderV3 (real or sandbox) comes back with
+   * `logisticsMiss: true` — the `logisticName` passed at creation wasn't a
+   * real option for that order, so it exists but is unshippable (and, per
+   * observed sandbox behavior, unpayable) until corrected via
+   * updateLogistics with one of the options this returns.
+   */
+  async getOrderLogisticsInfo(orderCode: string): Promise<CJLogisticsOption[]> {
+    const accessToken = await this.getAccessToken();
+    if (!accessToken) return [];
+
+    // Bypasses the shared request() helper deliberately: it parses via
+    // res.json(), which would corrupt the big-integer `id` fields this
+    // endpoint returns before we ever see them (see
+    // parseJsonPreservingBigInts). Still goes through the same limiter for
+    // rate-limit consistency with every other call; skips request()'s
+    // retry-on-429 loop since this is a low-volume, one-off lookup, not a
+    // high-traffic path.
+    const url = `${CJ_BASE_URL}/shopping/order/getOrderLogisticsInfo?orderCode=${encodeURIComponent(orderCode)}`;
+    const result = await this.limiter.schedule(async () => {
+      const res = await fetch(url, {
+        headers: { 'CJ-Access-Token': accessToken },
+      });
+      const text = await res.text();
+      return parseJsonPreservingBigInts(text) as CJApiResponse<CJLogisticsOption[]>;
+    });
+
+    if (!result.result || result.code !== 200) {
+      logger.error(
+        '[CJDropshippingAdapter] API error for /shopping/order/getOrderLogisticsInfo:',
+        result.message,
+      );
+      return [];
+    }
+    return Array.isArray(result.data) ? result.data : [];
+  }
+
+  /** Sets/corrects an order's shipping method — see getOrderLogisticsInfo. */
+  async updateLogistics(params: CJUpdateLogisticsParams): Promise<boolean> {
+    const res = await this.request<boolean>('/shopping/order/updateLogistics', 'POST', params);
+    return Boolean(res?.data);
   }
 }

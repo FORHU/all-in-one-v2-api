@@ -151,6 +151,43 @@ export interface CJUpdateSandboxTrackNumberParams {
   trackNumber: string;
 }
 
+/**
+ * Row shape of GET /shopping/order/getOrderLogisticsInfo — one shipping
+ * method CJ will actually accept for a given order. Call this whenever
+ * createOrderV2/createOrderV3 comes back with `logisticsMiss: true` — it
+ * means the `logisticName` passed at creation wasn't a real option, so the
+ * order was created but left unshippable (and therefore unpayable) until
+ * corrected via updateLogistics.
+ *
+ * Confirmed against a live account via scripts/test-cj-sandbox.ts — note
+ * the field is `logisticsName` (with an s), unlike CJCreateOrderParams'
+ * `logisticName` (without). `id` here is the logistics *option's* id, not
+ * the order's — that's what updateLogistics' `id` param actually wants.
+ */
+export interface CJLogisticsOption {
+  /**
+   * String, not number: CJ's real id is a 19-digit integer, past
+   * Number.MAX_SAFE_INTEGER — plain JSON parsing rounds it, and every
+   * option in the list ends up with the same corrupted value (confirmed
+   * live). CJDropshippingAdapter.getOrderLogisticsInfo parses this
+   * endpoint's response specially to keep it intact as a string.
+   */
+  id: string;
+  orderCode: string;
+  logisticsName: string;
+  postage: number;
+  arrivalTime: string;
+  hasStock: boolean;
+  [key: string]: unknown;
+}
+
+export interface CJUpdateLogisticsParams {
+  /** The chosen CJLogisticsOption's own `id` (string — see CJLogisticsOption.id) — not the order's id/code. */
+  id: string;
+  orderCode: string;
+  logisticName: string;
+}
+
 export interface CJOrder {
   orderId: string;
   orderNum: string;
