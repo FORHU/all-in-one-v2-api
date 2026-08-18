@@ -53,12 +53,27 @@ function collectAttributeOptions(
 }
 
 /**
- * Total sellable stock for a variant — summed across every InventoryStock
- * location row (warehouse, regional, flagship, pop-up, etc.). `available`
- * is already onHand minus reserved, so no further adjustment needed.
+ * Total sellable stock for a variant.
+ *
+ * First-party/warehouse-tracked variants have real InventoryStock rows —
+ * summed across every location (warehouse, regional, flagship, pop-up,
+ * etc.); `available` is already onHand minus reserved, so no further
+ * adjustment needed there.
+ *
+ * Dropship/print-on-demand variants have no warehouse at all, so no
+ * InventoryStock rows ever exist for them — stock instead falls back to the
+ * linked SupplierVariant's last-synced count (see ProductImportService /
+ * InventoryRepository.getEffectiveAvailableStock, which this mirrors for
+ * the read path).
  */
-function sumAvailableStock(variant: { inventoryStocks: { available: number }[] }): number {
-  return variant.inventoryStocks.reduce((sum, s) => sum + s.available, 0);
+function sumAvailableStock(variant: {
+  inventoryStocks: { available: number }[];
+  supplierVariants: { stock: number | null }[];
+}): number {
+  if (variant.inventoryStocks.length > 0) {
+    return variant.inventoryStocks.reduce((sum, s) => sum + s.available, 0);
+  }
+  return variant.supplierVariants.reduce((max, sv) => Math.max(max, sv.stock ?? 0), 0);
 }
 
 /** Per-variant stock, tagged with its color/size values so the PDP can look up the count for whatever the shopper currently has selected. */

@@ -330,19 +330,25 @@ export default class OrderService {
     const shippingAmount = new Prisma.Decimal(0);
     const totalAmount = subtotal.minus(discountAmount).plus(taxAmount).plus(shippingAmount);
 
-    // Reserve stock
+    // Reserve stock. Dropship/print-on-demand variants (no InventoryLocation
+    // for this tenant) have nothing to reserve — the supplier owns the
+    // physical stock, so we just check the last-synced count and move on;
+    // only first-party, warehouse-tracked variants get an actual reservation.
     for (const item of items) {
-      const stockSummary = await InventoryRepository.getStockSummaryByVariant(
+      const effectiveStock = await InventoryRepository.getEffectiveAvailableStock(
         tenantId,
         item.productVariantId,
       );
-      if (stockSummary.totalAvailable < item.quantity) {
+      if (effectiveStock.available < item.quantity) {
         return throwResponse(
           400,
           `Insufficient stock for ${item.productVariant?.title || item.productVariantId}`,
         );
       }
-      const locationWithStock = stockSummary.locations.find(
+      if (effectiveStock.source === 'supplier') {
+        continue;
+      }
+      const locationWithStock = effectiveStock.summary.locations.find(
         (loc: { available: number; locationId: string }) => loc.available >= item.quantity,
       );
       if (!locationWithStock) {

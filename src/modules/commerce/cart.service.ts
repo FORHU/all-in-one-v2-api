@@ -67,7 +67,7 @@ export class CartService {
       throw new Error('Product variant not found');
     }
 
-    const stockSummary = await InventoryRepository.getStockSummaryByVariant(
+    const effectiveStock = await InventoryRepository.getEffectiveAvailableStock(
       tenantId,
       productVariantId,
     );
@@ -82,8 +82,8 @@ export class CartService {
     });
 
     const newQuantity = existingItem ? existingItem.quantity + quantity : quantity;
-    if (stockSummary.totalAvailable < newQuantity) {
-      throw new Error(`Insufficient stock. Only ${stockSummary.totalAvailable} available.`);
+    if (effectiveStock.available < newQuantity) {
+      throw new Error(`Insufficient stock. Only ${effectiveStock.available} available.`);
     }
 
     if (existingItem) {

@@ -138,14 +138,18 @@ export default class CollectionRepository {
       metadata?: Prisma.InputJsonValue;
       isPublic?: boolean;
       parentId?: string;
+      categoryId?: string | null;
     },
   ) {
-    const { parentId, ...rest } = data;
+    const { parentId, categoryId, ...rest } = data;
     return prisma.catalogCollection.create({
       data: {
         ...rest,
         tenant: { connect: { id: tenantId } },
         ...(parentId ? { parent: { connect: { id: parentId } } } : {}),
+        ...(categoryId
+          ? { category: { connect: { tenantId_id: { tenantId, id: categoryId } } } }
+          : {}),
       },
       include: collectionWithItems,
     });
@@ -171,7 +175,7 @@ export default class CollectionRepository {
     data: {
       productId: string;
       productVariantId?: string;
-      slot?: string;
+      slot?: string | null;
       imageUrl?: string;
       position?: number;
       isOptional?: boolean;
@@ -198,8 +202,12 @@ export default class CollectionRepository {
     });
   }
 
+  // deleteMany (not delete) so removing an item that's already gone — e.g. a
+  // double-click firing two requests before the UI disables the button — is
+  // a harmless no-op instead of a P2025 "record to delete does not exist"
+  // throw. DELETE is supposed to be idempotent.
   static async removeItem(itemId: string) {
-    return prisma.catalogCollectionItem.delete({ where: { id: itemId } });
+    return prisma.catalogCollectionItem.deleteMany({ where: { id: itemId } });
   }
 
   /** Reorder items in bulk — accepts array of { id, position } pairs. */

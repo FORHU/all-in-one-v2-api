@@ -10,6 +10,7 @@ import { startAiConsumer } from './consumers/ai.consumer';
 import { startProductSyncConsumer } from './consumers/product-sync.consumer';
 import { workerMetrics } from './utils/worker-metrics';
 import { startScheduler } from './infrastructure/scheduler';
+import { registerSuppliers } from './suppliers';
 import logger from './utils/logger';
 
 const WORKER_HEALTH_PORT = Number(process.env.WORKER_HEALTH_PORT || 8080);
@@ -59,6 +60,12 @@ const startWorker = async () => {
   // Connect to all infrastructure
   await rabbitmq.connect();
   await redis.connect();
+
+  // Populate supplierRegistry (CJ/AliExpress/Printful adapters) — the
+  // product-sync consumer below calls supplierRegistry.get(...) per job, so
+  // this has to happen before consumers start receiving messages, same as
+  // server.ts's setup() does for the API process.
+  registerSuppliers();
 
   // Register all consumers
   await startEmailConsumer();
