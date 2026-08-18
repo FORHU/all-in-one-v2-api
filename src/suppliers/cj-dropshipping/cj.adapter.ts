@@ -401,11 +401,7 @@ export class CJDropshippingAdapter implements SupplierAdapter {
    * otherwise.
    */
   async updateSandboxTrackNumber(params: CJUpdateSandboxTrackNumberParams): Promise<boolean> {
-    const res = await this.request<boolean>(
-      '/shopping/sandbox/updateTrackNumber',
-      'POST',
-      params,
-    );
+    const res = await this.request<boolean>('/shopping/sandbox/updateTrackNumber', 'POST', params);
     return Boolean(res?.data);
   }
 
