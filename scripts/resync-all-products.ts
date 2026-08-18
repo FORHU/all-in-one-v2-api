@@ -58,7 +58,9 @@ async function main() {
 
 main()
   .catch((error) => {
-    process.stderr.write(`Resync backfill failed: ${error instanceof Error ? error.message : error}\n`);
+    process.stderr.write(
+      `Resync backfill failed: ${error instanceof Error ? error.message : error}\n`,
+    );
     process.exitCode = 1;
   })
   .finally(async () => {

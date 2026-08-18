@@ -147,7 +147,8 @@ export default class CollectionController {
   static async addItem(req: Request, res: Response, next: NextFunction) {
     try {
       const { error, value } = addItemSchema.validate(req.body);
-      if (error) return throwResponse(400, 'Invalid collection item data', { details: error.details });
+      if (error)
+        return throwResponse(400, 'Invalid collection item data', { details: error.details });
 
       const item = await CollectionService.addItem(req.params.collectionId, value);
       return responseSuccess(res, 201, item, 'Collection item added successfully');
@@ -159,7 +160,8 @@ export default class CollectionController {
   static async updateItem(req: Request, res: Response, next: NextFunction) {
     try {
       const { error, value } = updateItemSchema.validate(req.body);
-      if (error) return throwResponse(400, 'Invalid collection item data', { details: error.details });
+      if (error)
+        return throwResponse(400, 'Invalid collection item data', { details: error.details });
 
       const item = await CollectionService.updateItem(
         req.params.collectionId,

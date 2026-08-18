@@ -59,7 +59,13 @@ export class ProductSyncService {
         const job = await JobService.createJob(
           'PRODUCT_SYNC',
           `Resync ${chunk.length} products from ${supplier.name}`,
-          { supplierId: supplier.name, externalIds: chunk, total: chunk.length, successCount: 0, failCount: 0 },
+          {
+            supplierId: supplier.name,
+            externalIds: chunk,
+            total: chunk.length,
+            successCount: 0,
+            failCount: 0,
+          },
         );
 
         await JobQueueService.publishProductSyncJob(job.id, supplier.name, { externalIds: chunk });

@@ -135,7 +135,9 @@ export default class CollectionRepository {
         ...rest,
         tenant: { connect: { id: tenantId } },
         ...(parentId ? { parent: { connect: { id: parentId } } } : {}),
-        ...(categoryId ? { category: { connect: { tenantId_id: { tenantId, id: categoryId } } } } : {}),
+        ...(categoryId
+          ? { category: { connect: { tenantId_id: { tenantId, id: categoryId } } } }
+          : {}),
       },
       include: collectionWithItems,
     });

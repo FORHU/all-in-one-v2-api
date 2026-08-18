@@ -138,7 +138,11 @@ export default class InventoryRepository {
     tenantId: string,
     variantId: string,
   ): Promise<
-    | { source: 'location'; available: number; summary: Awaited<ReturnType<typeof InventoryRepository.getStockSummaryByVariant>> }
+    | {
+        source: 'location';
+        available: number;
+        summary: Awaited<ReturnType<typeof InventoryRepository.getStockSummaryByVariant>>;
+      }
     | { source: 'supplier'; available: number }
   > {
     const summary = await this.getStockSummaryByVariant(tenantId, variantId);

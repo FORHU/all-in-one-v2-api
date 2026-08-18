@@ -124,7 +124,10 @@ export default class CollectionService {
       // API directly:
       if (parent.parentId) {
         // ...the new parent can't itself already be nested...
-        return throwResponse(400, 'Parent collection must be top-level — cannot nest three levels deep');
+        return throwResponse(
+          400,
+          'Parent collection must be top-level — cannot nest three levels deep',
+        );
       }
       if (collection.children.length > 0) {
         // ...and this collection can't already have children, or they'd
