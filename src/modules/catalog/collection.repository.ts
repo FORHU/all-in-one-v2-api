@@ -8,37 +8,49 @@ import { buildPage, PageResult } from '../../helpers/pagination.helper';
  * collection items linked to CatalogProduct.
  */
 
-// Reusable include shape for a collection with its full tree
-const collectionWithItems = {
-  items: {
-    orderBy: { position: 'asc' as const },
-    include: {
-      product: {
-        include: {
-          media: { where: { isPrimary: true }, take: 1 },
-          variants: { take: 1 },
-        },
-      },
-      productVariant: true,
-    },
-  },
-  children: {
-    include: {
-      items: {
-        orderBy: { position: 'asc' as const },
-        include: {
-          product: {
-            include: {
-              media: { where: { isPrimary: true }, take: 1 },
-              variants: { take: 1 },
-            },
+// Reusable include shape for a collection with its full tree. When
+// `categoryId` is given, each collection's items are narrowed to only those
+// whose product belongs to that category — used when browsing a category
+// page's "Shop the Look" widget, so a Tops page only shows tops items from
+// an otherwise mixed outfit (top + shoes + accessories). Admin/CRUD lookups
+// (findById/findBySlug/create/update below) pass no categoryId and always
+// get every item, since editing a look needs the full outfit, not a
+// category-narrowed view of it.
+const buildCollectionWithItems = (categoryId?: string) =>
+  ({
+    items: {
+      where: categoryId ? { product: { categoryId } } : undefined,
+      orderBy: { position: 'asc' as const },
+      include: {
+        product: {
+          include: {
+            media: { where: { isPrimary: true }, take: 1 },
+            variants: { take: 1 },
           },
-          productVariant: true,
+        },
+        productVariant: true,
+      },
+    },
+    children: {
+      include: {
+        items: {
+          where: categoryId ? { product: { categoryId } } : undefined,
+          orderBy: { position: 'asc' as const },
+          include: {
+            product: {
+              include: {
+                media: { where: { isPrimary: true }, take: 1 },
+                variants: { take: 1 },
+              },
+            },
+            productVariant: true,
+          },
         },
       },
     },
-  },
-} satisfies Prisma.CatalogCollectionInclude;
+  }) satisfies Prisma.CatalogCollectionInclude;
+
+const collectionWithItems = buildCollectionWithItems();
 
 export default class CollectionRepository {
   // ─── Collections ────────────────────────────────────────────────────────────
@@ -79,7 +91,7 @@ export default class CollectionRepository {
         orderBy,
         skip,
         take: limit,
-        include: collectionWithItems,
+        include: buildCollectionWithItems(categoryId),
       }),
       prisma.catalogCollection.count({ where }),
     ]);
