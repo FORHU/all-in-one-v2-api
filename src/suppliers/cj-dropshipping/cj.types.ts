@@ -122,6 +122,33 @@ export interface CJCreateOrderParams {
   logisticName?: string;
   fromCountryCode?: string;
   products: CJOrderItem[];
+  /** 1 = create as a sandbox/test order (no real balance, no real shipment). Omitted for real orders. */
+  isSandbox?: 0 | 1;
+}
+
+/**
+ * CJ's sandbox status ladder. Orders move strictly 300 (paid) → 400 → 500 →
+ * 600 → 700 — updateSandboxStatus only ever accepts the *next* value in this
+ * list, never a skip or a revert.
+ */
+export type CJSandboxTargetStatus = 400 | 500 | 600 | 700;
+
+export interface CJSimulatePayParams {
+  /** CJ order ID of the sandbox order. Provide this or shipmentOrderId. */
+  orderId?: string;
+  /** Parent order ID, for paying a batch of sandbox orders at once. */
+  shipmentOrderId?: string;
+}
+
+export interface CJUpdateSandboxStatusParams {
+  orderId: string;
+  targetStatus: CJSandboxTargetStatus;
+}
+
+export interface CJUpdateSandboxTrackNumberParams {
+  orderId: string;
+  /** Max 64 characters. Only accepted while the order is paid and not yet closed (status 300-600). */
+  trackNumber: string;
 }
 
 export interface CJOrder {

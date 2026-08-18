@@ -181,7 +181,12 @@ export function mapProductToDetailDto(
   // seed data doesn't populate that table, so this falls back to the single
   // thumbnailUrl — the frontend gallery adapts to however many images it
   // actually gets rather than assuming a fixed count.
-  const galleryUrls = product.media.map((m) => m.url);
+  //
+  // CatalogProductMedia carries one row per variant, and imported products
+  // (CJ Dropshipping etc.) commonly reuse the same photo across every size
+  // of a given color — deduping by URL here means the gallery only ever
+  // shows genuinely different photos, not the same shot once per size.
+  const galleryUrls = [...new Set(product.media.map((m) => m.url))];
   const images =
     galleryUrls.length > 0 ? galleryUrls : product.thumbnailUrl ? [product.thumbnailUrl] : [];
 

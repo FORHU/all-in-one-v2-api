@@ -2,6 +2,14 @@ import { supplierRegistry } from '../../src/suppliers/supplier.registry';
 import { CJDropshippingAdapter } from '../../src/suppliers/cj-dropshipping/cj.adapter';
 import { PrintfulAdapter } from '../../src/suppliers/printful/printful.adapter';
 
+/** Bypasses auth/rate-limiting/fetch to unit-test just the sandbox methods' request shaping. */
+type WithRequest = { request: (...args: unknown[]) => Promise<unknown> };
+function mockRequest(adapter: CJDropshippingAdapter, data: unknown) {
+  return jest
+    .spyOn(adapter as unknown as WithRequest, 'request')
+    .mockResolvedValue({ code: 200, result: true, message: 'Success', data, requestId: 'req-1' });
+}
+
 describe('Dropshipping Pipeline & Supplier Adapters', () => {
   let cjAdapter: CJDropshippingAdapter;
   let printfulAdapter: PrintfulAdapter;
@@ -84,6 +92,120 @@ describe('Dropshipping Pipeline & Supplier Adapters', () => {
       expect(placeOrderPayload.externalVariantId).toBe('CJ-AM2026-BLK-42');
       expect(placeOrderPayload.quantity).toBe(2);
       expect(placeOrderPayload.shippingAddress.country).toBe('PH');
+    });
+  });
+
+  describe('CJ Sandbox Flow', () => {
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    const samplePayload = {
+      orderId: 'ORD-1001',
+      items: [{ productVariantId: 'p1', supplierVariantExternalId: 'vid-123', quantity: 2 }],
+      shippingAddress: {
+        firstName: 'Demo',
+        lastName: 'Customer',
+        address1: '123 Commerce St',
+        city: 'Manila',
+        state: 'NCR',
+        country: 'PH',
+        zip: '1000',
+      },
+    };
+
+    it('placeSandboxOrder tags the payload with isSandbox=1 and the given logistics fields', async () => {
+      const requestSpy = mockRequest(cjAdapter, { orderId: 'CJ-SANDBOX-1' });
+
+      const result = await cjAdapter.placeSandboxOrder(samplePayload, {
+        logisticName: 'CJPacket',
+        fromCountryCode: 'CN',
+      });
+
+      expect(requestSpy).toHaveBeenCalledWith(
+        '/shopping/order/createOrderV2',
+        'POST',
+        expect.objectContaining({
+          orderNumber: 'ORD-1001',
+          isSandbox: 1,
+          logisticName: 'CJPacket',
+          fromCountryCode: 'CN',
+          products: [{ vid: 'vid-123', quantity: 2 }],
+        }),
+      );
+      expect(result).toEqual({ orderId: 'CJ-SANDBOX-1' });
+    });
+
+    it('placeOrder (non-sandbox) never sets isSandbox on the payload', async () => {
+      const requestSpy = mockRequest(cjAdapter, { orderId: 'CJ-REAL-1' });
+
+      await cjAdapter.placeOrder(samplePayload);
+
+      const sentPayload = requestSpy.mock.calls[0][2] as Record<string, unknown>;
+      expect(sentPayload.isSandbox).toBeUndefined();
+    });
+
+    it('simulatePay rejects when neither orderId nor shipmentOrderId is given', async () => {
+      await expect(cjAdapter.simulatePay({})).rejects.toThrow(
+        'simulatePay requires orderId or shipmentOrderId',
+      );
+    });
+
+    it('simulatePay moves a sandbox order to paid (status 300)', async () => {
+      const requestSpy = mockRequest(cjAdapter, true);
+
+      const paid = await cjAdapter.simulatePay({ orderId: 'CJ-SANDBOX-1' });
+
+      expect(requestSpy).toHaveBeenCalledWith('/shopping/sandbox/simulatePay', 'POST', {
+        orderId: 'CJ-SANDBOX-1',
+      });
+      expect(paid).toBe(true);
+    });
+
+    it('updateSandboxStatus steps the order forward by exactly one stage', async () => {
+      const requestSpy = mockRequest(cjAdapter, true);
+
+      await cjAdapter.updateSandboxStatus({ orderId: 'CJ-SANDBOX-1', targetStatus: 400 });
+
+      expect(requestSpy).toHaveBeenCalledWith('/shopping/sandbox/updateStatus', 'POST', {
+        orderId: 'CJ-SANDBOX-1',
+        targetStatus: 400,
+      });
+    });
+
+    it('advanceSandboxOrder replays updateStatus one hop at a time up to the target', async () => {
+      const requestSpy = mockRequest(cjAdapter, true);
+
+      await cjAdapter.advanceSandboxOrder('CJ-SANDBOX-1', 600);
+
+      expect(requestSpy).toHaveBeenNthCalledWith(1, '/shopping/sandbox/updateStatus', 'POST', {
+        orderId: 'CJ-SANDBOX-1',
+        targetStatus: 400,
+      });
+      expect(requestSpy).toHaveBeenNthCalledWith(2, '/shopping/sandbox/updateStatus', 'POST', {
+        orderId: 'CJ-SANDBOX-1',
+        targetStatus: 500,
+      });
+      expect(requestSpy).toHaveBeenNthCalledWith(3, '/shopping/sandbox/updateStatus', 'POST', {
+        orderId: 'CJ-SANDBOX-1',
+        targetStatus: 600,
+      });
+      expect(requestSpy).toHaveBeenCalledTimes(3);
+    });
+
+    it('updateSandboxTrackNumber attaches a tracking string to a paid, unclosed order', async () => {
+      const requestSpy = mockRequest(cjAdapter, true);
+
+      const ok = await cjAdapter.updateSandboxTrackNumber({
+        orderId: 'CJ-SANDBOX-1',
+        trackNumber: 'SBXTN2607290902',
+      });
+
+      expect(requestSpy).toHaveBeenCalledWith('/shopping/sandbox/updateTrackNumber', 'POST', {
+        orderId: 'CJ-SANDBOX-1',
+        trackNumber: 'SBXTN2607290902',
+      });
+      expect(ok).toBe(true);
     });
   });
 });

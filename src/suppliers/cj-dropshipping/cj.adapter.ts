@@ -10,7 +10,15 @@ import {
   CJProductListV2Data,
   CJProductListV2Item,
   CJVariantStock,
+  CJCreateOrderParams,
+  CJSandboxTargetStatus,
+  CJSimulatePayParams,
+  CJUpdateSandboxStatusParams,
+  CJUpdateSandboxTrackNumberParams,
 } from './cj.types';
+
+/** CJ's sandbox status ladder, in order — see CJSandboxTargetStatus. */
+const SANDBOX_STATUS_LADDER: CJSandboxTargetStatus[] = [400, 500, 600, 700];
 
 const CACHE_VERSION = 'v1';
 const CJ_ACCESS_TOKEN_KEY = `cj:access_token:${CACHE_VERSION}`;
@@ -305,9 +313,12 @@ export class CJDropshippingAdapter implements SupplierAdapter {
     return stocks;
   }
 
-  async placeOrder(payload: PlaceOrderPayload): Promise<unknown> {
-    // Maps canonical payload to CJ's payload
-    const cjPayload = {
+  /** Maps the canonical payload to CJ's createOrderV2 shape. Shared by placeOrder and placeSandboxOrder. */
+  private buildCreateOrderPayload(
+    payload: PlaceOrderPayload,
+    extra?: { isSandbox?: 0 | 1; logisticName?: string; fromCountryCode?: string },
+  ): CJCreateOrderParams {
+    return {
       orderNumber: payload.orderId,
       shippingCountryCode: payload.shippingAddress.country,
       shippingCountry: payload.shippingAddress.country,
@@ -318,12 +329,18 @@ export class CJDropshippingAdapter implements SupplierAdapter {
       shippingCustomerName: `${payload.shippingAddress.firstName} ${payload.shippingAddress.lastName}`,
       shippingZip: payload.shippingAddress.zip,
       shippingPhone: payload.shippingAddress.phone || '0000000000',
+      logisticName: extra?.logisticName,
+      fromCountryCode: extra?.fromCountryCode,
       products: payload.items.map((item) => ({
         vid: item.supplierVariantExternalId,
         quantity: item.quantity,
       })),
+      ...(extra?.isSandbox ? { isSandbox: extra.isSandbox } : {}),
     };
+  }
 
+  async placeOrder(payload: PlaceOrderPayload): Promise<unknown> {
+    const cjPayload = this.buildCreateOrderPayload(payload);
     const res = await this.request('/shopping/order/createOrderV2', 'POST', cjPayload);
     return res?.data;
   }
@@ -333,5 +350,70 @@ export class CJDropshippingAdapter implements SupplierAdapter {
       orderId: externalOrderId,
     });
     return res?.data;
+  }
+
+  // --- Sandbox (testing) ---
+  //
+  // CJ's sandbox isn't a separate host — it's the same endpoints with
+  // isSandbox=1 on order creation, plus three test-only calls that stand in
+  // for real payment and fulfillment:
+  //   createOrderV2(isSandbox=1) -> simulatePay -> updateSandboxStatus* -> updateSandboxTrackNumber
+  // See docs: https://developers.cjdropshipping.cn/en/api/start/sandbox.html
+
+  /**
+   * Creates a test order (no real balance charged, nothing ships).
+   * `logisticName`/`fromCountryCode` are required by CJ's createOrderV2 for
+   * any order, sandbox or real — this adapter has no account-level default
+   * for either yet (placeOrder() shares that same gap), so callers must
+   * supply them explicitly to get a valid test order.
+   */
+  async placeSandboxOrder(
+    payload: PlaceOrderPayload,
+    options: { logisticName: string; fromCountryCode: string },
+  ): Promise<unknown> {
+    const cjPayload = this.buildCreateOrderPayload(payload, { isSandbox: 1, ...options });
+    const res = await this.request('/shopping/order/createOrderV2', 'POST', cjPayload);
+    return res?.data;
+  }
+
+  /** Moves a sandbox order from unpaid straight to 300 (paid) — replaces the real confirmOrder + payBalance pair. */
+  async simulatePay(params: CJSimulatePayParams): Promise<boolean> {
+    if (!params.orderId && !params.shipmentOrderId) {
+      throw new Error('simulatePay requires orderId or shipmentOrderId');
+    }
+    const res = await this.request<boolean>('/shopping/sandbox/simulatePay', 'POST', params);
+    return Boolean(res?.data);
+  }
+
+  /**
+   * Steps a sandbox order forward exactly one stage. CJ enforces the ladder
+   * strictly (300→400→500→600→700) — passing anything but the next status
+   * is rejected, there's no skipping ahead or reverting.
+   */
+  async updateSandboxStatus(params: CJUpdateSandboxStatusParams): Promise<boolean> {
+    const res = await this.request<boolean>('/shopping/sandbox/updateStatus', 'POST', params);
+    return Boolean(res?.data);
+  }
+
+  /**
+   * Attaches a fake tracking number to a sandbox order. Only accepted while
+   * the order is paid and not yet closed (status 300-600) — CJ returns 819
+   * otherwise.
+   */
+  async updateSandboxTrackNumber(params: CJUpdateSandboxTrackNumberParams): Promise<boolean> {
+    const res = await this.request<boolean>('/shopping/sandbox/updateTrackNumber', 'POST', params);
+    return Boolean(res?.data);
+  }
+
+  /**
+   * Convenience for tests: replays updateSandboxStatus one hop at a time
+   * from 300 up to `targetStatus`, since CJ won't accept a direct jump.
+   * Call simulatePay() first — this assumes the order is already at 300.
+   */
+  async advanceSandboxOrder(orderId: string, targetStatus: CJSandboxTargetStatus): Promise<void> {
+    const targetIndex = SANDBOX_STATUS_LADDER.indexOf(targetStatus);
+    for (let i = 0; i <= targetIndex; i++) {
+      await this.updateSandboxStatus({ orderId, targetStatus: SANDBOX_STATUS_LADDER[i] });
+    }
   }
 }
