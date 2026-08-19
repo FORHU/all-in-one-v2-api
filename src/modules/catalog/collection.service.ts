@@ -2,6 +2,8 @@ import CollectionRepository from './collection.repository';
 import CategoryRepository from './category.repository';
 import { throwResponse } from '../../utils/throw-response';
 import { requireTenantId } from '../../utils/async-context';
+import { deleteFromS3 } from '../../utils/s3.util';
+import logger from '../../utils/logger';
 import { Prisma, CollectionType } from '@prisma/client';
 
 export default class CollectionService {
@@ -98,7 +100,7 @@ export default class CollectionService {
       slug?: string;
       type?: CollectionType;
       description?: string;
-      imageUrl?: string;
+      imageUrl?: string | null;
       metadata?: Prisma.InputJsonValue;
       isPublic?: boolean;
       parentId?: string | null;
@@ -152,7 +154,20 @@ export default class CollectionService {
       if (slugTaken) return throwResponse(409, `Collection slug '${data.slug}' already in use`);
     }
 
-    return CollectionRepository.update(tenantId, id, data);
+    const previousImageUrl = collection.imageUrl;
+    const updated = await CollectionRepository.update(tenantId, id, data);
+
+    // Replacing (or clearing) the cover image orphans the old S3 object —
+    // clean it up now that the new value is confirmed saved. Best-effort:
+    // this must never fail the update response itself, and it silently
+    // no-ops on a pasted external URL we never uploaded.
+    if (data.imageUrl !== undefined && data.imageUrl !== previousImageUrl && previousImageUrl) {
+      deleteFromS3(previousImageUrl).catch((err) => {
+        logger.warn(`Failed to delete replaced collection image from S3: ${err.message}`);
+      });
+    }
+
+    return updated;
   }
 
   static async deleteCollection(id: string) {

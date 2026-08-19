@@ -28,6 +28,7 @@
     "schema": "prisma/schema"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1113.0",
     "@prisma/client": "^6.19.2",
     "@socket.io/redis-adapter": "^8.3.0",
     "amqplib": "^2.0.1",
