@@ -2,6 +2,8 @@ import { ProductStatus, ProductVisibility } from '@prisma/client';
 import ProductRepository, { ProductListingFilters, ProductListingRow } from './product.repository';
 import { requireTenantId } from '../../utils/async-context';
 import { throwResponse } from '../../utils/throw-response';
+import { deleteFromS3 } from '../../utils/s3.util';
+import logger from '../../utils/logger';
 import { prisma } from '../../utils/prisma';
 import AttributeRepository from './attribute.repository';
 import PricingRuleRepository from './pricing-rule.repository';
@@ -243,7 +245,23 @@ export default class ProductService {
       data = { ...data, slug };
     }
 
+    const previousThumbnailUrl = product.thumbnailUrl;
     await ProductRepository.update(tenantId, id, data);
+
+    // Replacing (or clearing) the thumbnail orphans the old S3 object —
+    // clean it up now that the new value is confirmed saved. Best-effort:
+    // this must never fail the update response itself, and it silently
+    // no-ops on a pasted external URL we never uploaded (e.g. a supplier's
+    // CDN link).
+    if (
+      data.thumbnailUrl !== undefined &&
+      data.thumbnailUrl !== previousThumbnailUrl &&
+      previousThumbnailUrl
+    ) {
+      deleteFromS3(previousThumbnailUrl).catch((err) => {
+        logger.warn(`Failed to delete replaced product thumbnail from S3: ${err.message}`);
+      });
+    }
 
     // A different pricing rule (or none at all) was explicitly chosen —
     // recompute this product's prices right away rather than waiting for

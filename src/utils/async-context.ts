@@ -42,6 +42,15 @@ export const requireTenantId = (): string => {
   return tenantId;
 };
 
+/** The active tenant's slug, or a hard failure — same contract as {@link requireTenantId}. */
+export const requireTenantSlug = (): string => {
+  const tenantSlug = asyncLocalStorage.getStore()?.tenantSlug;
+  if (!tenantSlug) {
+    throw { status: 400, message: 'No tenant resolved for this request' };
+  }
+  return tenantSlug;
+};
+
 /** Runs `fn` with tenant context attached — used by workers and consumers. */
 export const runWithTenant = <T>(tenantId: string, fn: () => T): T => {
   const current = asyncLocalStorage.getStore();

@@ -75,3 +75,9 @@ export const PRINTFUL_STORE_ID = process.env.PRINTFUL_STORE_ID || '';
 export const PRINTFUL_RATE_LIMIT_MS = parseInt(process.env.PRINTFUL_RATE_LIMIT_MS || '500');
 
 export const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+
+export const AWS_REGION = process.env.AWS_REGION || 'ap-southeast-1';
+// Credentials (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY) are deliberately not
+// read here — they're the SDK's own standard env var names, so the S3 client
+// picks them up itself via its default credential provider chain.
+export const AWS_S3_BUCKET = process.env.AWS_S3_BUCKET_NAME || process.env.S3_BUCKET || '';

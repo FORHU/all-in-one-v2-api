@@ -16,7 +16,7 @@ const createCollectionSchema = Joi.object({
   imageUrl: Joi.string().allow(null, '').optional(),
   metadata: Joi.object().optional(),
   isPublic: Joi.boolean().optional(),
-  parentId: Joi.string().optional(),
+  parentId: Joi.string().allow(null).optional(),
   categoryId: Joi.string().allow(null).optional(),
 });
 
