@@ -4,7 +4,7 @@ import CustomerRepository from './customer.repository';
 import CouponRepository from './coupon.repository';
 import InventoryRepository from '../inventory/inventory.repository';
 import NotificationRepository from '../system/notification.repository';
-import { OrderStatus, Prisma, Coupon } from '@prisma/client';
+import { OrderStatus, PaymentStatus, Prisma, Coupon } from '@prisma/client';
 import { throwResponse } from '../../utils/throw-response';
 import { requireTenantId } from '../../utils/async-context';
 import { prisma } from '../../utils/prisma';
@@ -330,19 +330,25 @@ export default class OrderService {
     const shippingAmount = new Prisma.Decimal(0);
     const totalAmount = subtotal.minus(discountAmount).plus(taxAmount).plus(shippingAmount);
 
-    // Reserve stock
+    // Reserve stock. Dropship/print-on-demand variants (no InventoryLocation
+    // for this tenant) have nothing to reserve — the supplier owns the
+    // physical stock, so we just check the last-synced count and move on;
+    // only first-party, warehouse-tracked variants get an actual reservation.
     for (const item of items) {
-      const stockSummary = await InventoryRepository.getStockSummaryByVariant(
+      const effectiveStock = await InventoryRepository.getEffectiveAvailableStock(
         tenantId,
         item.productVariantId,
       );
-      if (stockSummary.totalAvailable < item.quantity) {
+      if (effectiveStock.available < item.quantity) {
         return throwResponse(
           400,
           `Insufficient stock for ${item.productVariant?.title || item.productVariantId}`,
         );
       }
-      const locationWithStock = stockSummary.locations.find(
+      if (effectiveStock.source === 'supplier') {
+        continue;
+      }
+      const locationWithStock = effectiveStock.summary.locations.find(
         (loc: { available: number; locationId: string }) => loc.available >= item.quantity,
       );
       if (!locationWithStock) {
@@ -409,6 +415,18 @@ export default class OrderService {
       return throwResponse(400, `Invalid order status '${status}'`);
     }
 
+    // CANCELLED/REFUNDED carry real financial consequences (voiding or
+    // returning a captured payment) that this generic endpoint has no way
+    // to check — it would just relabel the order and fake-sync the payment
+    // row without ever touching Stripe. Route those two through the
+    // dedicated, guarded paths instead.
+    if (status === OrderStatus.CANCELLED || status === OrderStatus.REFUNDED) {
+      return throwResponse(
+        400,
+        'Use POST /orders/:id/cancel to cancel an order, or the Returns workflow to refund one',
+      );
+    }
+
     const tenantId = requireTenantId();
 
     const order = await OrderRepository.findById(tenantId, orderId);
@@ -416,6 +434,27 @@ export default class OrderService {
       return throwResponse(404, 'Order not found');
     }
     return OrderRepository.updateStatus(tenantId, orderId, status);
+  }
+
+  /**
+   * Cancels an order that hasn't been paid for yet. Once a payment has been
+   * captured (PAID), cancelling here would silently strand the charge — the
+   * admin has to go through the Returns workflow instead, which issues a
+   * real Stripe refund (see ReturnService.issueRefund).
+   */
+  static async cancelOrder(orderId: string) {
+    const tenantId = requireTenantId();
+    const order = await OrderRepository.findById(tenantId, orderId);
+    if (!order) {
+      return throwResponse(404, 'Order not found');
+    }
+
+    const hasCapturedPayment = order.payments?.some((p) => p.status === PaymentStatus.PAID);
+    if (hasCapturedPayment) {
+      return throwResponse(409, 'Order has a captured payment — issue a refund instead');
+    }
+
+    return OrderRepository.updateStatus(tenantId, orderId, OrderStatus.CANCELLED);
   }
 
   static async getSupplierOrders(orderId: string) {

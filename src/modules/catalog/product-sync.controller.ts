@@ -1,7 +1,9 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { JobService } from '../system/job.service';
 import { JobQueueService } from '../system/job-queue.service';
 import { supplierRegistry } from '../../suppliers/supplier.registry';
+import { ProductSyncService } from './product-sync.service';
+import { requireTenantId } from '../../utils/async-context';
 import logger from '../../utils/logger';
 
 export class ProductSyncController {
@@ -66,6 +68,73 @@ export class ProductSyncController {
         success: false,
         message: 'Internal server error while starting sync job.',
       });
+    }
+  }
+
+  /**
+   * POST /api/v2/products/resync-all
+   * Re-queues every already-imported product for this tenant (optionally
+   * scoped to one supplier) instead of requiring the caller to know and
+   * list every externalId by hand. Scoped to the caller's tenant, unlike
+   * the platform-wide scheduled resync.
+   * Expects (optional): { supplierId?: 'cj-dropshipping' }
+   */
+  static async resyncAll(req: Request, res: Response) {
+    try {
+      const { supplierId } = req.body ?? {};
+
+      if (supplierId !== undefined && typeof supplierId !== 'string') {
+        return res.status(400).json({
+          success: false,
+          message: 'supplierId must be a string when provided.',
+        });
+      }
+
+      if (supplierId) {
+        try {
+          supplierRegistry.get(supplierId);
+        } catch (err: unknown) {
+          const message =
+            err instanceof Error ? err.message : `Supplier ${supplierId} not supported.`;
+          return res.status(400).json({ success: false, message });
+        }
+      }
+
+      const result = await ProductSyncService.resyncAll({
+        supplierName: supplierId,
+        tenantId: requireTenantId(),
+      });
+
+      return res.status(202).json({
+        success: true,
+        message: 'Resync jobs started in the background.',
+        data: result,
+      });
+    } catch (error: unknown) {
+      logger.error('[ProductSyncController:resyncAll] Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Internal server error while starting resync jobs.',
+      });
+    }
+  }
+
+  /**
+   * POST /api/v2/products/:id/resync
+   * Synchronous per-product refresh — no worker/queue involved, so errors
+   * (supplier unreachable, no linked supplier, etc.) surface immediately
+   * instead of failing silently in the background.
+   */
+  static async resyncOne(req: Request, res: Response, next: NextFunction) {
+    try {
+      const product = await ProductSyncService.resyncOne(requireTenantId(), req.params.id);
+      return res.status(200).json({
+        success: true,
+        message: `Refreshed "${product.title}" from its supplier.`,
+        data: product,
+      });
+    } catch (error) {
+      next(error);
     }
   }
 }

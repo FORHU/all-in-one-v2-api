@@ -14,6 +14,10 @@ export const importProduct = async (req: Request, res: Response, next: NextFunct
       // Which vertical receives the product. Optional when the request already
       // resolves to one (e.g. the admin is on fashion.example.com).
       tenantSlug: Joi.string().optional(),
+      // Admin's explicit category choice from the import UI: a real id, or
+      // `null` for explicit "No category". Omitted entirely = today's
+      // auto-create-from-supplier-label behavior (see ProductImportService).
+      categoryId: Joi.string().optional().allow(null),
     });
 
     const { error, value } = schema.validate(req.body);
@@ -22,7 +26,7 @@ export const importProduct = async (req: Request, res: Response, next: NextFunct
       return throwResponse(400, 'Invalid import parameters', { details: error.details });
     }
 
-    const { supplierId, externalId, tenantSlug } = value;
+    const { supplierId, externalId, tenantSlug, categoryId } = value;
 
     let tenantId = getTenantId();
     if (tenantSlug) {
@@ -48,6 +52,7 @@ export const importProduct = async (req: Request, res: Response, next: NextFunct
       tenantId,
       supplierId,
       externalData as Record<string, unknown>,
+      categoryId,
     );
 
     return res.status(201).json({

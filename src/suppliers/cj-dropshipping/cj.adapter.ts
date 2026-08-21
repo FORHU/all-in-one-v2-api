@@ -10,7 +10,31 @@ import {
   CJProductListV2Data,
   CJProductListV2Item,
   CJVariantStock,
+  CJCreateOrderParams,
+  CJSandboxTargetStatus,
+  CJSimulatePayParams,
+  CJUpdateSandboxStatusParams,
+  CJUpdateSandboxTrackNumberParams,
+  CJLogisticsOption,
+  CJUpdateLogisticsParams,
 } from './cj.types';
+
+/** CJ's sandbox status ladder, in order — see CJSandboxTargetStatus. */
+const SANDBOX_STATUS_LADDER: CJSandboxTargetStatus[] = [400, 500, 600, 700];
+
+/**
+ * Quotes bare integer literals of 16+ digits before JSON.parse, so they
+ * survive as precision-safe strings instead of being silently rounded by
+ * standard JSON parsing (which only represents integers exactly up to
+ * Number.MAX_SAFE_INTEGER, ~16 digits) — CJ's `id` fields on
+ * getOrderLogisticsInfo run to 19 digits. 16 is a deliberately safe
+ * threshold: ordinary numeric fields in CJ's responses (prices, counts,
+ * timestamps) are far shorter and pass through untouched.
+ */
+function parseJsonPreservingBigInts(text: string): unknown {
+  const safe = text.replace(/([:[,]\s*)(-?\d{16,})(\s*[,}\]])/g, '$1"$2"$3');
+  return JSON.parse(safe);
+}
 
 const CACHE_VERSION = 'v1';
 const CJ_ACCESS_TOKEN_KEY = `cj:access_token:${CACHE_VERSION}`;
@@ -236,22 +260,15 @@ export class CJDropshippingAdapter implements SupplierAdapter {
 
     // Depending on the requested `size`, CJ returns `content` as either a flat
     // array of products, or a single wrapper object holding `productList`.
+    // Returned as-is, trusting CJ's own relevance ranking — a prior local
+    // keyword filter here (narrowing to items whose name contained one of the
+    // query's words) caused `total`/`totalPages` (built from CJ's per-page,
+    // pre-filter `totalRecords`) to disagree with the actual (filtered, thus
+    // shorter) `items` array on every page, undercounting or even emptying
+    // pages the pager claimed existed.
     const items = (res.data.content ?? []).flatMap((c) => c.productList ?? c);
 
-    // CJ's `keyWord` match is fuzzy against tags/SKUs, not just the product
-    // name, so unrelated categories can slip through (searching "dress"
-    // surfacing watches, for example). Narrow to items whose name actually
-    // contains one of the query's words, preserving CJ's own relevance order
-    // among what's left.
-    const queryWords = query.toLowerCase().split(/\s+/).filter(Boolean);
-    const filteredItems = queryWords.length
-      ? items.filter((item) => {
-          const name = String(item.nameEn ?? '').toLowerCase();
-          return queryWords.some((word) => name.includes(word));
-        })
-      : items;
-
-    return { items: filteredItems, total: res.data.totalRecords ?? 0 };
+    return { items, total: res.data.totalRecords ?? 0 };
   }
 
   async getProduct(externalId: string): Promise<CJProductDetail | null> {
@@ -312,9 +329,12 @@ export class CJDropshippingAdapter implements SupplierAdapter {
     return stocks;
   }
 
-  async placeOrder(payload: PlaceOrderPayload): Promise<unknown> {
-    // Maps canonical payload to CJ's payload
-    const cjPayload = {
+  /** Maps the canonical payload to CJ's createOrderV2 shape. Shared by placeOrder and placeSandboxOrder. */
+  private buildCreateOrderPayload(
+    payload: PlaceOrderPayload,
+    extra?: { isSandbox?: 0 | 1; logisticName?: string; fromCountryCode?: string },
+  ): CJCreateOrderParams {
+    return {
       orderNumber: payload.orderId,
       shippingCountryCode: payload.shippingAddress.country,
       shippingCountry: payload.shippingAddress.country,
@@ -325,12 +345,18 @@ export class CJDropshippingAdapter implements SupplierAdapter {
       shippingCustomerName: `${payload.shippingAddress.firstName} ${payload.shippingAddress.lastName}`,
       shippingZip: payload.shippingAddress.zip,
       shippingPhone: payload.shippingAddress.phone || '0000000000',
+      logisticName: extra?.logisticName,
+      fromCountryCode: extra?.fromCountryCode,
       products: payload.items.map((item) => ({
         vid: item.supplierVariantExternalId,
         quantity: item.quantity,
       })),
+      ...(extra?.isSandbox ? { isSandbox: extra.isSandbox } : {}),
     };
+  }
 
+  async placeOrder(payload: PlaceOrderPayload): Promise<unknown> {
+    const cjPayload = this.buildCreateOrderPayload(payload);
     const res = await this.request('/shopping/order/createOrderV2', 'POST', cjPayload);
     return res?.data;
   }
@@ -340,5 +366,149 @@ export class CJDropshippingAdapter implements SupplierAdapter {
       orderId: externalOrderId,
     });
     return res?.data;
+  }
+
+  /**
+   * Moves an order from CREATED(100) to UNPAID(200) — required before any
+   * payment call, real (payBalance) or sandbox (simulatePay). Confirmed
+   * live: calling simulatePay on a CREATED order fails with code 812,
+   * "Current order status is CREATED(100), not UNPAID(200), cannot
+   * simulate pay." — this step is NOT replaced by the sandbox flow, only
+   * the actual charge (payBalance) is.
+   */
+  async confirmOrder(orderId: string): Promise<boolean> {
+    const res = await this.request<boolean>('/shopping/order/confirmOrder', 'PATCH', { orderId });
+    return Boolean(res?.data);
+  }
+
+  // --- Sandbox (testing) ---
+  //
+  // CJ's sandbox isn't a separate host — it's the same endpoints with
+  // isSandbox=1 on order creation, plus test-only calls that stand in for
+  // real payment and fulfillment. The full sequence, confirmed live:
+  //   createOrderV2(isSandbox=1)
+  //     -> [if logisticsMiss] getOrderLogisticsInfo -> updateLogistics
+  //     -> confirmOrder                 (CREATED -> UNPAID — real call, not sandbox-only)
+  //     -> simulatePay                  (UNPAID -> 300, stands in for payBalance)
+  //     -> updateSandboxStatus* (advanceSandboxOrder)
+  //     -> updateSandboxTrackNumber
+  // See docs: https://developers.cjdropshipping.cn/en/api/start/sandbox.html
+
+  /**
+   * Creates a test order (no real balance charged, nothing ships).
+   * `logisticName`/`fromCountryCode` are required by CJ's createOrderV2 for
+   * any order, sandbox or real — this adapter has no account-level default
+   * for either yet (placeOrder() shares that same gap), so callers must
+   * supply them explicitly to get a valid test order.
+   */
+  async placeSandboxOrder(
+    payload: PlaceOrderPayload,
+    options: { logisticName: string; fromCountryCode: string },
+  ): Promise<unknown> {
+    const cjPayload = this.buildCreateOrderPayload(payload, { isSandbox: 1, ...options });
+    const res = await this.request('/shopping/order/createOrderV2', 'POST', cjPayload);
+    return res?.data;
+  }
+
+  /**
+   * Moves an already-UNPAID sandbox order to 300 (paid) — stands in for
+   * the real payBalance charge only. Requires confirmOrder() first: an
+   * order fresh from createOrderV2 is CREATED, not UNPAID, and CJ rejects
+   * simulatePay on a CREATED order (code 812).
+   */
+  async simulatePay(params: CJSimulatePayParams): Promise<boolean> {
+    if (!params.orderId && !params.shipmentOrderId) {
+      throw new Error('simulatePay requires orderId or shipmentOrderId');
+    }
+    const res = await this.request<boolean>('/shopping/sandbox/simulatePay', 'POST', params);
+    return Boolean(res?.data);
+  }
+
+  /**
+   * Steps a sandbox order forward exactly one stage. CJ enforces the ladder
+   * strictly (300→400→500→600→700) — passing anything but the next status
+   * is rejected, there's no skipping ahead or reverting.
+   */
+  async updateSandboxStatus(params: CJUpdateSandboxStatusParams): Promise<boolean> {
+    const res = await this.request<boolean>('/shopping/sandbox/updateStatus', 'POST', params);
+    return Boolean(res?.data);
+  }
+
+  /**
+   * Attaches a fake tracking number to a sandbox order. Only accepted while
+   * the order is paid and not yet closed (status 300-600) — CJ returns 819
+   * otherwise.
+   */
+  async updateSandboxTrackNumber(params: CJUpdateSandboxTrackNumberParams): Promise<boolean> {
+    const res = await this.request<boolean>('/shopping/sandbox/updateTrackNumber', 'POST', params);
+    return Boolean(res?.data);
+  }
+
+  /**
+   * Convenience for tests: replays updateSandboxStatus one hop at a time
+   * from 300 up to `targetStatus`, since CJ won't accept a direct jump.
+   * Call simulatePay() first — this assumes the order is already at 300.
+   * Throws as soon as a hop is rejected rather than silently continuing —
+   * CJ rejecting one transition (e.g. the order was never actually paid)
+   * means every subsequent one in the ladder would fail too, so pressing
+   * on and reporting success at the end would be misleading.
+   */
+  async advanceSandboxOrder(orderId: string, targetStatus: CJSandboxTargetStatus): Promise<void> {
+    const targetIndex = SANDBOX_STATUS_LADDER.indexOf(targetStatus);
+    for (let i = 0; i <= targetIndex; i++) {
+      const step = SANDBOX_STATUS_LADDER[i];
+      const ok = await this.updateSandboxStatus({ orderId, targetStatus: step });
+      if (!ok) {
+        throw new Error(
+          `advanceSandboxOrder: CJ rejected the transition to ${step} for order ${orderId}`,
+        );
+      }
+    }
+  }
+
+  // --- Logistics ---
+
+  /**
+   * Real shipping methods CJ will accept for an already-created order. Call
+   * this when createOrderV2/createOrderV3 (real or sandbox) comes back with
+   * `logisticsMiss: true` — the `logisticName` passed at creation wasn't a
+   * real option for that order, so it exists but is unshippable (and, per
+   * observed sandbox behavior, unpayable) until corrected via
+   * updateLogistics with one of the options this returns.
+   */
+  async getOrderLogisticsInfo(orderCode: string): Promise<CJLogisticsOption[]> {
+    const accessToken = await this.getAccessToken();
+    if (!accessToken) return [];
+
+    // Bypasses the shared request() helper deliberately: it parses via
+    // res.json(), which would corrupt the big-integer `id` fields this
+    // endpoint returns before we ever see them (see
+    // parseJsonPreservingBigInts). Still goes through the same limiter for
+    // rate-limit consistency with every other call; skips request()'s
+    // retry-on-429 loop since this is a low-volume, one-off lookup, not a
+    // high-traffic path.
+    const url = `${CJ_BASE_URL}/shopping/order/getOrderLogisticsInfo?orderCode=${encodeURIComponent(orderCode)}`;
+    const result = await this.limiter.schedule(async () => {
+      const res = await fetch(url, {
+        headers: { 'CJ-Access-Token': accessToken },
+      });
+      const text = await res.text();
+      return parseJsonPreservingBigInts(text) as CJApiResponse<CJLogisticsOption[]>;
+    });
+
+    if (!result.result || result.code !== 200) {
+      logger.error(
+        '[CJDropshippingAdapter] API error for /shopping/order/getOrderLogisticsInfo:',
+        result.message,
+      );
+      return [];
+    }
+    return Array.isArray(result.data) ? result.data : [];
+  }
+
+  /** Sets/corrects an order's shipping method — see getOrderLogisticsInfo. */
+  async updateLogistics(params: CJUpdateLogisticsParams): Promise<boolean> {
+    const res = await this.request<boolean>('/shopping/order/updateLogistics', 'POST', params);
+    return Boolean(res?.data);
   }
 }

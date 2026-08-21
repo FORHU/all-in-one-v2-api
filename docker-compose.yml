@@ -43,7 +43,14 @@ services:
 
   app:
     build: .
-    restart: always
+    # Not "always" like the other services here — this container competes
+    # with `npm run dev` for the same host port, and "always" meant Docker
+    # kept silently bringing it back (e.g. after Docker Desktop/WSL2
+    # restarts) even after being manually stopped, each time serving a
+    # different local DB than whatever DATABASE_URL was actually configured
+    # for local dev. Start it explicitly (`docker compose up app`) when you
+    # actually want the containerized API instead of the local dev server.
+    restart: 'no'
     ports:
       - '${PORT:-3002}:${PORT:-3002}'
     env_file:

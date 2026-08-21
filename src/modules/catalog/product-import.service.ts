@@ -7,6 +7,7 @@ import InventoryRepository from '../inventory/inventory.repository';
 import PricingRuleRepository from './pricing-rule.repository';
 import CategoryRepository from './category.repository';
 import { supplierRegistry } from '../../suppliers/supplier.registry';
+import { throwResponse } from '../../utils/throw-response';
 
 // Neither CJ nor Printful's catalog (pre-fulfillment) payloads carry a real
 // per-variant stock count — CJ's own getInventory() falls back to this same
@@ -205,6 +206,12 @@ export class ProductImportService {
     tenantId: string,
     supplierName: string,
     externalData: Record<string, unknown>,
+    // Admin's explicit category choice from the import UI. `undefined` (param
+    // omitted) preserves today's auto-create-from-supplier-label behavior —
+    // this is also what the unattended resync consumer relies on, since
+    // there's no admin present there to make a choice. `null` means the
+    // admin explicitly chose "No category".
+    categoryId?: string | null,
   ) {
     const dbSupplier = await prisma.supplierPartner.findUnique({
       where: { name: supplierName },
@@ -267,12 +274,26 @@ export class ProductImportService {
 
     const importedProduct = await prisma.$transaction(
       async (tx) => {
-        // Matches/creates a tenant CatalogCategory from the supplier's own
-        // category label — re-imports of the same product name-match onto
-        // the same category (or a renamed one) rather than creating dupes.
-        const category = normalized.categoryName
-          ? await CategoryRepository.findOrCreateByName(tenantId, normalized.categoryName, tx)
-          : null;
+        // Three-way: an explicit categoryId (string) is the admin's real
+        // choice from the import UI and is used as-is; `null` is the admin's
+        // explicit "No category"; `undefined` (param omitted, e.g. the
+        // unattended resync consumer) falls back to matching/creating a
+        // tenant CatalogCategory from the supplier's own category label —
+        // re-imports of the same product name-match onto the same category
+        // (or a renamed one) rather than creating dupes.
+        let category: { id: string } | null;
+        if (categoryId === undefined) {
+          category = normalized.categoryName
+            ? await CategoryRepository.findOrCreateByName(tenantId, normalized.categoryName, tx)
+            : null;
+        } else if (categoryId === null) {
+          category = null;
+        } else {
+          category = await CategoryRepository.findById(tenantId, categoryId);
+          if (!category) {
+            throwResponse(404, `Category '${categoryId}' not found`);
+          }
+        }
 
         const product = await tx.catalogProduct.upsert({
           where: { tenantId_slug: { tenantId, slug } },
@@ -343,6 +364,14 @@ export class ProductImportService {
           });
         }
 
+        // Shared across every variant below — CJ/Printful variants of the
+        // same product are almost always the cross product of a handful of
+        // colors/sizes, so without this the same {code, value} pair gets
+        // upserted over and over (once per variant that shares it) inside
+        // this one long-lived transaction. See the cache param's doc comment
+        // on upsertVariantAttributesFromLabels.
+        const attributeValueCache = new Map<string, string>();
+
         // One real CatalogProductVariant per supplier variant — without this,
         // the product has nothing a cart/order can reference and can't
         // actually be sold.
@@ -357,6 +386,9 @@ export class ProductImportService {
           });
 
           const cost = variant.price ?? lowestPrice;
+          const liveStock = stockByExternalId.get(variant.externalId);
+          const stockToSet =
+            typeof liveStock === 'number' && liveStock >= 0 ? liveStock : DEFAULT_IMPORT_STOCK;
           const priceResult = calculateVariantPrice(cost, product.pricingRule);
           const variantData = {
             tenantId,
@@ -385,19 +417,24 @@ export class ProductImportService {
               tenantId,
               catalogVariant.id,
               variant.attributes,
+              attributeValueCache,
             );
           }
 
           // Stock is synced from the supplier on every import AND every
           // resync (product-sync.consumer.ts routes through here too) — for
-          // dropship/print-on-demand variants the supplier's warehouse is
-          // the actual source of truth, not something an admin hand-manages.
-          // Falls back to DEFAULT_IMPORT_STOCK only when the supplier didn't
-          // report a number for this variant (adapter error, unmapped id).
+          // dropship/print-on-demand variants the supplier IS the warehouse,
+          // so the number lives on SupplierVariant.stock, which is what
+          // InventoryRepository.getEffectiveAvailableStock falls back to
+          // when this tenant has no InventoryLocation. Falls back to
+          // DEFAULT_IMPORT_STOCK only when the supplier didn't report a
+          // number for this variant (adapter error, unmapped id).
+          //
+          // The InventoryStock write below is only for tenants that DO have
+          // a location set up (first-party sellers with real warehouses) —
+          // it's best-effort and never required for a dropship variant to
+          // be sellable.
           if (primaryLocation) {
-            const liveStock = stockByExternalId.get(variant.externalId);
-            const stockToSet =
-              typeof liveStock === 'number' && liveStock >= 0 ? liveStock : DEFAULT_IMPORT_STOCK;
             await InventoryRepository.setStock(
               tenantId,
               catalogVariant.id,
@@ -418,6 +455,7 @@ export class ProductImportService {
             update: {
               productVariantId: catalogVariant.id,
               costPrice: cost,
+              stock: stockToSet,
               title: variant.title,
               thumbnailUrl: variant.images[0],
               attributes: variant.attributes as Prisma.InputJsonValue | undefined,
@@ -429,6 +467,7 @@ export class ProductImportService {
               productVariantId: catalogVariant.id,
               externalId: variant.externalId,
               costPrice: cost,
+              stock: stockToSet,
               title: variant.title,
               thumbnailUrl: variant.images[0],
               attributes: variant.attributes as Prisma.InputJsonValue | undefined,

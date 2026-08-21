@@ -127,6 +127,15 @@ export default class OrderController {
     }
   }
 
+  static async cancel(req: Request, res: Response, next: NextFunction) {
+    try {
+      const order = await OrderService.cancelOrder(req.params.id);
+      return responseSuccess(res, 200, order, 'Order cancelled');
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async getSupplierOrders(req: Request, res: Response, next: NextFunction) {
     try {
       const orders = await OrderService.getSupplierOrders(req.params.id);

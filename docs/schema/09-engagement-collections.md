@@ -73,7 +73,44 @@ A `Refund` is a financial document. It points to a `Return` (optional) and an `o
 `CatalogCollection` is currently modelled as a manual curation table (via `CatalogCollectionItem`).
 If the business requests "Smart Collections" (e.g., "All items where tag = sale"), this schema requires an update to include a `ruleDefinition Json?` field on the `CatalogCollection` model to evaluate products dynamically.
 
+### "Get the Look" vs. "Shop the Look" — one table pair, two placements
+
+Both storefront widgets are the **same** `CatalogCollection` + `CatalogCollectionItem` pair. There is no separate table per placement — what differs is only the data, specifically `CatalogCollection.categoryId`:
+
+| Widget | Where it renders | Query | `categoryId` |
+| --- | --- | --- | --- |
+| **Shop the Look** | Category detail pages (e.g. `/categories/tops`) | `GET /v2/collections?categorySlug=tops` | Set — resolved server-side to the category's ID; only collections tagged to that category are returned. |
+| **Get the Look** | Homepage hero | `GET /v2/collections` (no `categorySlug`) | Null — omitting `categorySlug` skips the category filter entirely and returns every top-level collection for the tenant. |
+
+An unknown `categorySlug` intentionally resolves to zero results rather than silently falling back to "show everything" (`collection.service.ts`, `listCollections`) — the same convention `ProductService.listProducts` uses.
+
+`type` (`OUTFIT | SETUP | ROUTINE | BUNDLE | LOOKBOOK | ROOM_BUNDLE`) is a display/merchandising label, not what scopes a collection to a placement — a `LOOKBOOK`-typed row can still be category-scoped, and an `OUTFIT`-typed row can still be homepage-wide. Don't use `type` to control where something appears; use `categoryId`.
+
+**Frontend status (as of this writing):** only the category-page widget (`tenants/fashion/components/TrendingLookbook.tsx`, via `useCollections()`) is actually wired to this API. The homepage widget (`tenants/fashion/components/HeroBanner.tsx`'s "Get the Look" carousel) still reads a static `data/looks.ts` mock and has not been ported to `useCollections()` yet — seeding `CatalogCollection` rows with `categoryId: null` will not yet appear there until that frontend change is made.
+
 ## Fields Explanation (Key Models)
+
+### `CatalogCollection`
+
+| Field | Type | Purpose | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `type` | `CollectionType` | Merchandising label | Yes | `OUTFIT`, `SETUP`, `ROUTINE`, `BUNDLE`, `LOOKBOOK`, `ROOM_BUNDLE`. Display-only — see note above. |
+| `categoryId` | `String?` | Placement scope | No | Null = homepage/tenant-wide ("Get the Look"). Set = that category's page only ("Shop the Look"). |
+| `parentId` | `String?` | Nesting | No | Self-referential — a parent `LOOKBOOK` can hold child `OUTFIT`/`ROUTINE` collections across verticals. |
+| `imageUrl` | `String?` | Hero image | No | Rendered as the large "active look" image on the storefront. |
+| `metadata` | `Json?` | Vertical-specific params | No | e.g. `{ climate, style, roomType, season }`. |
+| `isPublic` | `Boolean` | Visibility | Yes | Defaults `true`. |
+
+### `CatalogCollectionItem`
+
+| Field | Type | Purpose | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `productId` | `String` | Linked product | Yes | Every slot must resolve to a real `CatalogProduct` — clicking it navigates there. |
+| `productVariantId` | `String?` | Linked variant | No | Null = frontend shows the product's default/primary variant. |
+| `slot` | `String?` | Semantic role | No | e.g. `"UpperGarment"`, `"Footwear"` — matches the `BASE`/`OVER` tag split the frontend renders as "Base Item" / "Accessory Items". |
+| `position` | `Int` | Display order | Yes | Defaults `0`. |
+| `isOptional` | `Boolean` | Required vs. optional in the set | Yes | Defaults `false`. |
+| `imageUrl` | `String?` | Per-item image override | No | Falls back to the product's `thumbnailUrl` when unset. |
 
 ### `Return`
 

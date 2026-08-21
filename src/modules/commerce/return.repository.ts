@@ -24,6 +24,27 @@ export default class ReturnRepository {
   }
 
   /**
+   * Just enough of the order to drive the returns UI (prefill a refund
+   * amount, know whether there's a customer to attach a new return to) —
+   * lets the returns feature answer "does this order have any open
+   * returns, and what's it worth" from its own endpoint, without the
+   * frontend needing to cross into the orders feature for it.
+   */
+  static async getOrderSummary(tenantId: string, orderId: string) {
+    return prisma.commerceOrder.findFirst({
+      where: { id: orderId, tenantId },
+      select: { id: true, customerId: true, totalAmount: true, currency: true },
+    });
+  }
+
+  static async findById(tenantId: string, returnId: string) {
+    return prisma.return.findFirst({
+      where: { id: returnId, tenantId },
+      include: { refund: true },
+    });
+  }
+
+  /**
    * Paginated list for the admin returns page, scoped to one tenant.
    * Search matches the return reason, the order's number, or the requesting
    * customer's name/email.
@@ -79,6 +100,7 @@ export default class ReturnRepository {
     returnId: string,
     amount: number,
     transactionId?: string,
+    reason?: string,
   ) {
     return prisma.refund.create({
       data: {
@@ -88,12 +110,21 @@ export default class ReturnRepository {
         amount,
         status: RefundStatus.PENDING,
         ...(transactionId ? { transactionId } : {}),
+        ...(reason ? { reason } : {}),
       },
     });
   }
 
-  static async updateReturnStatus(tenantId: string, returnId: string, status: ReturnStatus) {
-    return prisma.return.updateMany({ where: { id: returnId, tenantId }, data: { status } });
+  static async updateReturnStatus(
+    tenantId: string,
+    returnId: string,
+    status: ReturnStatus,
+    notes?: string,
+  ) {
+    return prisma.return.updateMany({
+      where: { id: returnId, tenantId },
+      data: { status, ...(notes !== undefined ? { notes } : {}) },
+    });
   }
 
   /**

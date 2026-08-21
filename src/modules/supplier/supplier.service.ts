@@ -2,6 +2,7 @@ import SupplierRepository from './supplier.repository';
 import { Prisma } from '@prisma/client';
 import { requireTenantId } from '../../utils/async-context';
 import { supplierRegistry } from '../../suppliers/supplier.registry';
+import { throwResponse } from '../../utils/throw-response';
 
 export default class SupplierService {
   static async createPartner(data: Prisma.SupplierPartnerCreateInput) {
@@ -62,7 +63,14 @@ export default class SupplierService {
     const tenantId = requireTenantId();
     const adapter = supplierRegistry.get(supplierId);
     const product = await adapter.getProduct(externalId);
-    if (!product) return product;
+    // Adapters return null when the supplier has nothing for this id
+    // (delisted, removed, or a transient lookup failure) — surfacing that as
+    // a real 404 here (rather than a 200 with `data: null`) keeps it in the
+    // structured ApiError path client-side instead of failing the response
+    // schema's parse with an opaque error.
+    if (!product) {
+      throwResponse(404, `Product '${externalId}' not found on supplier '${supplierId}'`);
+    }
 
     const mapping = await SupplierRepository.findImportedProductForTenant(
       supplierId,

@@ -1,6 +1,9 @@
 import CollectionRepository from './collection.repository';
+import CategoryRepository from './category.repository';
 import { throwResponse } from '../../utils/throw-response';
 import { requireTenantId } from '../../utils/async-context';
+import { deleteFromS3 } from '../../utils/s3.util';
+import logger from '../../utils/logger';
 import { Prisma, CollectionType } from '@prisma/client';
 
 export default class CollectionService {
@@ -67,6 +70,7 @@ export default class CollectionService {
     metadata?: Prisma.InputJsonValue;
     isPublic?: boolean;
     parentId?: string;
+    categoryId?: string | null;
   }) {
     const tenantId = requireTenantId();
 
@@ -74,6 +78,12 @@ export default class CollectionService {
     if (data.parentId) {
       const parent = await CollectionRepository.findById(tenantId, data.parentId);
       if (!parent) return throwResponse(404, 'Parent collection not found');
+    }
+
+    // Validate category exists in the same tenant
+    if (data.categoryId) {
+      const category = await CategoryRepository.findById(tenantId, data.categoryId);
+      if (!category) return throwResponse(404, 'Category not found');
     }
 
     // Guard duplicate slug
@@ -90,18 +100,53 @@ export default class CollectionService {
       slug?: string;
       type?: CollectionType;
       description?: string;
-      imageUrl?: string;
+      imageUrl?: string | null;
       metadata?: Prisma.InputJsonValue;
       isPublic?: boolean;
       parentId?: string | null;
+      categoryId?: string | null;
     },
   ) {
     const tenantId = requireTenantId();
     const collection = await CollectionRepository.findById(tenantId, id);
     if (!collection) return throwResponse(404, 'Collection not found');
 
-    // Guard circular parent (can't set parentId to itself)
-    if (data.parentId === id) return throwResponse(400, 'A collection cannot be its own parent');
+    if (data.parentId) {
+      // Guard circular parent (can't set parentId to itself)
+      if (data.parentId === id) return throwResponse(400, 'A collection cannot be its own parent');
+
+      const parent = await CollectionRepository.findById(tenantId, data.parentId);
+      if (!parent) return throwResponse(404, 'Parent collection not found');
+
+      // Nesting only ever goes one level deep — CollectionRepository's
+      // `collectionWithItems` include only eager-loads `children`, not
+      // grandchildren, and the create-side form only offers top-level
+      // collections as parents (see CollectionFormModal). Enforce both
+      // directions server-side so that assumption can't be bypassed via the
+      // API directly:
+      if (parent.parentId) {
+        // ...the new parent can't itself already be nested...
+        return throwResponse(
+          400,
+          'Parent collection must be top-level — cannot nest three levels deep',
+        );
+      }
+      if (collection.children.length > 0) {
+        // ...and this collection can't already have children, or they'd
+        // become invisible grandchildren of the new parent the moment it's
+        // re-parented (nothing deletes them — they just stop being fetched).
+        return throwResponse(
+          400,
+          'Cannot nest a collection that already has its own children — remove or re-parent them first',
+        );
+      }
+    }
+
+    // Validate category exists in the same tenant
+    if (data.categoryId) {
+      const category = await CategoryRepository.findById(tenantId, data.categoryId);
+      if (!category) return throwResponse(404, 'Category not found');
+    }
 
     // Guard duplicate slug if slug is changing
     if (data.slug && data.slug !== collection.slug) {
@@ -109,7 +154,20 @@ export default class CollectionService {
       if (slugTaken) return throwResponse(409, `Collection slug '${data.slug}' already in use`);
     }
 
-    return CollectionRepository.update(tenantId, id, data);
+    const previousImageUrl = collection.imageUrl;
+    const updated = await CollectionRepository.update(tenantId, id, data);
+
+    // Replacing (or clearing) the cover image orphans the old S3 object —
+    // clean it up now that the new value is confirmed saved. Best-effort:
+    // this must never fail the update response itself, and it silently
+    // no-ops on a pasted external URL we never uploaded.
+    if (data.imageUrl !== undefined && data.imageUrl !== previousImageUrl && previousImageUrl) {
+      deleteFromS3(previousImageUrl).catch((err) => {
+        logger.warn(`Failed to delete replaced collection image from S3: ${err.message}`);
+      });
+    }
+
+    return updated;
   }
 
   static async deleteCollection(id: string) {
@@ -126,7 +184,7 @@ export default class CollectionService {
     data: {
       productId: string;
       productVariantId?: string;
-      slot?: string;
+      slot?: string | null;
       imageUrl?: string;
       position?: number;
       isOptional?: boolean;
@@ -146,7 +204,7 @@ export default class CollectionService {
     data: {
       productId?: string;
       productVariantId?: string | null;
-      slot?: string;
+      slot?: string | null;
       imageUrl?: string | null;
       position?: number;
       isOptional?: boolean;
