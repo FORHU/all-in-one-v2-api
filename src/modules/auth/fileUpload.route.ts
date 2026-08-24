@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { upload } from '../../middleware/upload.middleware';
 import { authenticate, requirePermission } from '../../middleware/auth.middleware';
+import { restoreTenantContext } from '../../middleware/tenant.middleware';
 import { requireTenantId, requireTenantSlug } from '../../utils/async-context';
 import { uploadToS3 } from '../../utils/s3.util';
 import { responseSuccess } from '../../helpers/response.helper';
@@ -32,6 +33,11 @@ router.post(
   authenticate,
   requirePermission('catalog:write'),
   upload.single('file'),
+  // multer's multipart parsing sits between resolveTenant and this handler
+  // and can silently drop AsyncLocalStorage continuity — re-enter it from
+  // the snapshot resolveTenant left on `req` before requireTenantId() below
+  // runs. See restoreTenantContext's doc comment.
+  restoreTenantContext,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.file) return throwResponse(400, 'No file uploaded');

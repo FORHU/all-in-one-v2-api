@@ -6,6 +6,23 @@ import { asyncLocalStorage, getContext } from '../utils/async-context';
 import { ROOT_DOMAIN, DEFAULT_TENANT_SLUG } from '../config';
 import logger from '../utils/logger';
 
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace Express {
+    interface Request {
+      /**
+       * Snapshot of the tenant resolveTenant found for this request, mirrored
+       * onto `req` (not just AsyncLocalStorage). Stream-based middleware like
+       * multer can lose AsyncLocalStorage continuity — see restoreTenantContext
+       * below — so anything running after a stream-consuming middleware should
+       * re-derive context from these rather than trust the store is still live.
+       */
+      tenantId?: string;
+      tenantSlug?: string;
+    }
+  }
+}
+
 const PLATFORM_ADMIN_ROLES: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.DEVELOPER];
 
 const CACHE_TTL_SECONDS = 300;
@@ -66,10 +83,34 @@ export const resolveTenant = async (req: Request, res: Response, next: NextFunct
 
     res.setHeader('x-tenant-slug', tenant.slug);
 
-    const ctx = getContext();
-    if (!ctx) return next();
+    // Mirrored onto `req` itself, not just AsyncLocalStorage — a plain object
+    // reference survives stream-based middleware (e.g. multer parsing a
+    // multipart body) that can otherwise lose AsyncLocalStorage continuity.
+    // See restoreTenantContext below.
+    req.tenantId = tenant.id;
+    req.tenantSlug = tenant.slug;
 
-    asyncLocalStorage.run({ ...ctx, tenantId: tenant.id, tenantSlug: tenant.slug }, () => next());
+    // Never silently drop a successfully-resolved tenant just because the
+    // correlation context wasn't there to merge into — that previously let a
+    // request sail through resolveTenant with a real, active tenant found,
+    // only to hard-fail downstream at requireTenantId() with a misleading
+    // "No tenant resolved" error. Falls back to a fresh context instead.
+    const ctx = getContext();
+    if (!ctx) {
+      logger.warn(
+        `[TenantMiddleware] Resolved tenant '${tenant.slug}' but no request context was set — correlationMiddleware may not have run first.`,
+      );
+    }
+
+    asyncLocalStorage.run(
+      {
+        requestId: ctx?.requestId ?? '',
+        correlationId: ctx?.correlationId ?? '',
+        tenantId: tenant.id,
+        tenantSlug: tenant.slug,
+      },
+      () => next(),
+    );
   } catch (error) {
     // Resolution failures must never take the request down. Health probes and
     // unscoped routes have to keep working when the database or cache is
@@ -79,6 +120,32 @@ export const resolveTenant = async (req: Request, res: Response, next: NextFunct
     logger.error('[TenantMiddleware] Failed to resolve tenant, continuing unscoped', error);
     next();
   }
+};
+
+/**
+ * Re-enters the AsyncLocalStorage tenant context from the snapshot
+ * `resolveTenant` left on `req` — needed on any route where a stream-based
+ * middleware (multer's multipart parsing, most notably) sits between
+ * `resolveTenant` and the handler, since that can silently drop the
+ * AsyncLocalStorage context the same way a `runWithTenant`-less background
+ * job would. Mount it immediately after that middleware, e.g.:
+ *   `authenticate, requirePermission(...), upload.single('file'), restoreTenantContext, handler`
+ * A no-op (just calls `next()`) when resolveTenant never found a tenant, so
+ * unscoped routes using this middleware are unaffected.
+ */
+export const restoreTenantContext = (req: Request, _res: Response, next: NextFunction) => {
+  if (!req.tenantId) return next();
+
+  const ctx = getContext();
+  asyncLocalStorage.run(
+    {
+      requestId: ctx?.requestId ?? '',
+      correlationId: ctx?.correlationId ?? '',
+      tenantId: req.tenantId,
+      tenantSlug: req.tenantSlug,
+    },
+    () => next(),
+  );
 };
 
 /**

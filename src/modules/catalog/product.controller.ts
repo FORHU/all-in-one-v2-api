@@ -104,6 +104,20 @@ export default class ProductController {
   }
 
   /**
+   * GET /api/v2/products/:id/admin — single product in the admin (editable)
+   * shape, for a caller that only has an id (e.g. a collection item row)
+   * rather than an already-loaded admin listing row.
+   */
+  static async adminGetById(req: Request, res: Response, next: NextFunction) {
+    try {
+      const product = await ProductService.getProductByIdForAdmin(req.params.id);
+      return responseSuccess(res, 200, product);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
    * GET /api/v2/products/brands — distinct brand values in use, with
    * per-brand product counts. Backs the admin Brands page.
    */
