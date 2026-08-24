@@ -168,6 +168,20 @@ export default class ProductService {
     };
   }
 
+  /**
+   * GET /api/v2/products/:id/admin — single-product fetch in the same admin
+   * shape listProductsForAdmin/createProduct/updateProduct return, for a
+   * caller that only has a product id (e.g. a collection item row) and needs
+   * the full editable record rather than the narrow denormalized slice a
+   * collection item carries.
+   */
+  static async getProductByIdForAdmin(id: string) {
+    const tenantId = requireTenantId();
+    const product = await ProductRepository.findByIdForAdmin(tenantId, id);
+    if (!product) return throwResponse(404, 'Product not found');
+    return mapProductToAdminListingDto(product);
+  }
+
   static async getBrandCounts() {
     const tenantId = requireTenantId();
     return ProductRepository.getBrandCounts(tenantId);
