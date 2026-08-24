@@ -155,30 +155,30 @@ export const restoreTenantContext = (req: Request, _res: Response, next: NextFun
  */
 export const requireTenantRole =
   (...roles: TenantRole[]) =>
-    async (req: Request, res: Response, next: NextFunction) => {
-      try {
-        if (!req.user) {
-          return res.status(401).json({ message: 'Authentication required' });
-        }
-
-        // Global platform admins can manage any tenant
-        if (PLATFORM_ADMIN_ROLES.includes(req.user.role)) {
-          return next();
-        }
-
-        const ctx = getContext();
-        if (!ctx || !ctx.tenantId) {
-          return res.status(400).json({ message: 'Tenant context required' });
-        }
-
-        const membership = await TenantRepository.getMembership(ctx.tenantId, req.user.id);
-
-        if (!membership || !roles.includes(membership.role)) {
-          return res.status(403).json({ message: 'Insufficient tenant permissions' });
-        }
-
-        next();
-      } catch (error) {
-        next(error);
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Authentication required' });
       }
-    };
+
+      // Global platform admins can manage any tenant
+      if (PLATFORM_ADMIN_ROLES.includes(req.user.role)) {
+        return next();
+      }
+
+      const ctx = getContext();
+      if (!ctx || !ctx.tenantId) {
+        return res.status(400).json({ message: 'Tenant context required' });
+      }
+
+      const membership = await TenantRepository.getMembership(ctx.tenantId, req.user.id);
+
+      if (!membership || !roles.includes(membership.role)) {
+        return res.status(403).json({ message: 'Insufficient tenant permissions' });
+      }
+
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
