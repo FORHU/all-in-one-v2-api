@@ -57,7 +57,12 @@ export default class CollectionRepository {
 
   private static readonly SORTABLE_FIELDS = new Set(['title', 'createdAt', 'updatedAt']);
 
-  /** Paginated top-level collections for a tenant (parentId = null). */
+  /**
+   * Paginated top-level collections for a tenant (parentId = null).
+   * `includePrivate` defaults to true so internal/admin callers keep seeing
+   * unpublished collections; the public storefront controller explicitly
+   * passes false for unauthenticated requests.
+   */
   static async findAllRoot(
     tenantId: string,
     page = 1,
@@ -67,6 +72,7 @@ export default class CollectionRepository {
     sortOrder?: 'asc' | 'desc',
     type?: CollectionType,
     categoryId?: string,
+    includePrivate = true,
   ): Promise<
     PageResult<Prisma.CatalogCollectionGetPayload<{ include: typeof collectionWithItems }>>
   > {
@@ -74,6 +80,7 @@ export default class CollectionRepository {
       tenantId,
       parentId: null,
       isDeleted: false,
+      ...(includePrivate ? {} : { isPublic: true }),
       ...(type ? { type } : {}),
       ...(categoryId ? { categoryId } : {}),
       ...(search && { title: { contains: search, mode: 'insensitive' } }),
@@ -107,9 +114,15 @@ export default class CollectionRepository {
     return category?.id ?? null;
   }
 
-  static async findById(tenantId: string, id: string) {
+  /** `includePrivate` defaults to true — see findAllRoot's doc comment. */
+  static async findById(tenantId: string, id: string, includePrivate = true) {
     return prisma.catalogCollection.findFirst({
-      where: { id, tenantId, isDeleted: false },
+      where: {
+        id,
+        tenantId,
+        isDeleted: false,
+        ...(includePrivate ? {} : { isPublic: true }),
+      },
       include: {
         parent: true,
         ...collectionWithItems,
@@ -117,9 +130,15 @@ export default class CollectionRepository {
     });
   }
 
-  static async findBySlug(tenantId: string, slug: string) {
+  /** `includePrivate` defaults to true — see findAllRoot's doc comment. */
+  static async findBySlug(tenantId: string, slug: string, includePrivate = true) {
     return prisma.catalogCollection.findFirst({
-      where: { tenantId, slug, isDeleted: false },
+      where: {
+        tenantId,
+        slug,
+        isDeleted: false,
+        ...(includePrivate ? {} : { isPublic: true }),
+      },
       include: {
         parent: true,
         ...collectionWithItems,

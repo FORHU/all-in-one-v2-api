@@ -25,6 +25,7 @@ export default class CollectionService {
     sortOrder?: 'asc' | 'desc',
     type?: CollectionType,
     categorySlug?: string,
+    includePrivate = true,
   ) {
     const tenantId = requireTenantId();
 
@@ -46,17 +47,22 @@ export default class CollectionService {
       sortOrder,
       type,
       categoryId,
+      includePrivate,
     );
   }
 
-  static async getCollectionById(id: string) {
-    const collection = await CollectionRepository.findById(requireTenantId(), id);
+  static async getCollectionById(id: string, includePrivate = true) {
+    const collection = await CollectionRepository.findById(requireTenantId(), id, includePrivate);
     if (!collection) return throwResponse(404, 'Collection not found');
     return collection;
   }
 
-  static async getCollectionBySlug(slug: string) {
-    const collection = await CollectionRepository.findBySlug(requireTenantId(), slug);
+  static async getCollectionBySlug(slug: string, includePrivate = true) {
+    const collection = await CollectionRepository.findBySlug(
+      requireTenantId(),
+      slug,
+      includePrivate,
+    );
     if (!collection) return throwResponse(404, `Collection '${slug}' not found`);
     return collection;
   }
