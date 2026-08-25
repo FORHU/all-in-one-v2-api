@@ -300,7 +300,9 @@ export class PrintfulAdapter implements SupplierAdapter {
   normalizeProductDetail(raw: unknown): Record<string, unknown> {
     const data = (raw ?? {}) as Record<string, unknown>;
     const product = (data.product ?? {}) as Record<string, unknown>;
-    const variants = Array.isArray(data.variants) ? (data.variants as Record<string, unknown>[]) : [];
+    const variants = Array.isArray(data.variants)
+      ? (data.variants as Record<string, unknown>[])
+      : [];
 
     return {
       pid: String(product.id ?? ''),

@@ -74,7 +74,8 @@ export default class SupplierService {
     if (!rawProduct) {
       throwResponse(404, `Product '${externalId}' not found on supplier '${supplierId}'`);
     }
-    const product = adapter.normalizeProductDetail?.(rawProduct) ?? (rawProduct as Record<string, unknown>);
+    const product =
+      adapter.normalizeProductDetail?.(rawProduct) ?? (rawProduct as Record<string, unknown>);
 
     const mapping = await SupplierRepository.findImportedProductForTenant(
       supplierId,
