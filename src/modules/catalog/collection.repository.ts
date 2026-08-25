@@ -154,7 +154,7 @@ export default class CollectionRepository {
       type: CollectionType;
       description?: string;
       imageUrl?: string;
-      metadata?: Prisma.InputJsonValue;
+      metadata?: Prisma.InputJsonValue | typeof Prisma.JsonNull;
       isPublic?: boolean;
       parentId?: string;
       categoryId?: string | null;

@@ -1,6 +1,7 @@
 import { supplierRegistry } from '../../src/suppliers/supplier.registry';
 import { CJDropshippingAdapter } from '../../src/suppliers/cj-dropshipping/cj.adapter';
 import { PrintfulAdapter } from '../../src/suppliers/printful/printful.adapter';
+import type { SupplierAdapter } from '../../src/suppliers/supplier.interface';
 
 /** Bypasses auth/rate-limiting/fetch to unit-test just the sandbox methods' request shaping. */
 type WithRequest = { request: (...args: unknown[]) => Promise<unknown> };
@@ -48,6 +49,102 @@ describe('Dropshipping Pipeline & Supplier Adapters', () => {
       expect(() => supplierRegistry.get('UNKNOWN_SUPPLIER')).toThrow(
         'No SupplierAdapter found for supplierId: UNKNOWN_SUPPLIER',
       );
+    });
+  });
+
+  describe('Search/Detail Result Normalization (regression guard for supplier.service.ts)', () => {
+    // Real Printful /product/listV2-style search item, captured live via
+    // DevTools — note the numeric `id` and Printful-only field names
+    // (`title`, `image`, `type_name`) that don't match CJ's shape, which the
+    // shared search contract (SupplierSearchResultSchema) was originally
+    // ground-truthed against. This exact shape is what broke the frontend's
+    // Zod parse before normalizeSearchResult existed: `id: z.string()`
+    // rejects a raw number outright.
+    const rawPrintfulSearchItem = {
+      id: 679,
+      main_category_id: 24,
+      type: 'DTFILM',
+      type_name: 'Cooling Performance Short Sleeve Tee',
+      title: 'Unisex Performance Crew Neck T-Shirt | A4 N3142',
+      brand: 'A4',
+      model: 'N3142',
+      image:
+        'https://files.cdn.printful.com/o/upload/product-catalog-img/e2/e239b78e54f77c63f3ec3bcda3be8e62_1',
+      variant_count: 70,
+      currency: 'USD',
+    };
+
+    it("normalizeSearchResult turns Printful's numeric id into the string the shared search contract requires", () => {
+      const normalized = printfulAdapter.normalizeSearchResult?.(rawPrintfulSearchItem);
+      expect(normalized).toBeDefined();
+      expect(typeof normalized!.id).toBe('string');
+      expect(normalized!.id).toBe('679');
+      expect(normalized!.nameEn).toBe(rawPrintfulSearchItem.title);
+      expect(normalized!.bigImage).toBe(rawPrintfulSearchItem.image);
+    });
+
+    it("normalizeProductDetail flattens Printful's nested {product, variants} into pid/variants[].vid strings", () => {
+      const rawDetail = {
+        product: {
+          id: 679,
+          title: 'Unisex Performance Crew Neck T-Shirt | A4 N3142',
+          image: 'https://files.cdn.printful.com/.../front.png',
+          description: 'Stay cool, dry, and confident...',
+          type_name: 'T-Shirts',
+        },
+        variants: [
+          {
+            id: 4013,
+            name: 'Black / S',
+            color: 'Black',
+            size: 'S',
+            price: '12.95',
+            image: 'https://files.cdn.printful.com/.../black-s.png',
+          },
+          {
+            id: 4014,
+            name: 'Black / M',
+            color: 'Black',
+            size: 'M',
+            price: '12.95',
+            image: 'https://files.cdn.printful.com/.../black-m.png',
+          },
+        ],
+      };
+
+      const normalized = printfulAdapter.normalizeProductDetail?.(rawDetail);
+      expect(normalized).toBeDefined();
+      expect(normalized!.pid).toBe('679');
+      expect(normalized!.productNameEn).toBe(rawDetail.product.title);
+
+      const variants = normalized!.variants as Record<string, unknown>[];
+      expect(variants).toHaveLength(2);
+      expect(typeof variants[0].vid).toBe('string');
+      expect(variants[0].vid).toBe('4013');
+      expect(variants[0].variantKey).toBe('Black-S');
+    });
+
+    it("CJ's raw shape already matches the shared contract, so it implements neither normalizer", () => {
+      // Guards the fallback path in SupplierService:
+      // `adapter.normalizeSearchResult?.(item) ?? item`. If CJ ever needs a
+      // real implementation, this assertion should start failing — replace
+      // it with real assertions the way the Printful ones above are.
+      const cjAsAdapter: SupplierAdapter = cjAdapter;
+      expect(cjAsAdapter.normalizeSearchResult).toBeUndefined();
+      expect(cjAsAdapter.normalizeProductDetail).toBeUndefined();
+    });
+
+    it('every registered adapter with a normalizeSearchResult always returns a string id — the exact invariant that broke the frontend Zod parse for Printful', () => {
+      const sampleRawItemBySupplier: Record<string, unknown> = {
+        printful: rawPrintfulSearchItem,
+      };
+
+      for (const adapter of supplierRegistry.getAll()) {
+        if (!adapter.normalizeSearchResult) continue;
+        const sample = sampleRawItemBySupplier[adapter.supplierId];
+        if (!sample) continue;
+        expect(typeof adapter.normalizeSearchResult(sample).id).toBe('string');
+      }
     });
   });
 
