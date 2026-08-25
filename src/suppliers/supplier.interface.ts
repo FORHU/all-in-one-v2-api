@@ -58,6 +58,25 @@ export interface SupplierAdapter {
   getInventory(externalVariantIds: string[]): Promise<SupplierStock[]>;
 
   /**
+   * Normalizes one raw search-result item (as returned by searchProducts)
+   * into the canonical shape SupplierService.searchSupplier and the
+   * frontend's SupplierSearchResultSchema expect: `{ id: string, nameEn?,
+   * bigImage?, sellPrice?, sku?, categoryName? }`. Optional — omit when the
+   * adapter's raw shape already matches (e.g. CJ, ground-truthed against
+   * /product/listV2); SupplierService falls back to passing the raw item
+   * through unchanged when this isn't implemented.
+   */
+  normalizeSearchResult?(raw: unknown): Record<string, unknown>;
+
+  /**
+   * Same idea as normalizeSearchResult, for one raw product-detail payload
+   * (as returned by getProduct): `{ pid: string, productNameEn?, bigImage?,
+   * description?, categoryName?, variants?: [{ vid, variantNameEn?,
+   * variantKey?, variantImage?, variantSellPrice? }] }`.
+   */
+  normalizeProductDetail?(raw: unknown): Record<string, unknown>;
+
+  /**
    * Place an order with the supplier.
    */
   placeOrder(payload: PlaceOrderPayload): Promise<unknown>;

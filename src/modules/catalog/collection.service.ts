@@ -6,6 +6,17 @@ import { deleteFromS3 } from '../../utils/s3.util';
 import logger from '../../utils/logger';
 import { Prisma, CollectionType } from '@prisma/client';
 
+/**
+ * Prisma requires the `Prisma.JsonNull` sentinel (not a plain JS `null`) to
+ * actually write SQL NULL into a nullable Json column — a raw `null` here
+ * would throw. `undefined` (key omitted) still means "leave it alone".
+ */
+function toJsonInput(
+  metadata: Prisma.InputJsonValue | null | undefined,
+): Prisma.InputJsonValue | typeof Prisma.JsonNull | undefined {
+  return metadata === null ? Prisma.JsonNull : metadata;
+}
+
 export default class CollectionService {
   // ─── Collections ────────────────────────────────────────────────────────────
 
@@ -73,7 +84,7 @@ export default class CollectionService {
     type: CollectionType;
     description?: string;
     imageUrl?: string;
-    metadata?: Prisma.InputJsonValue;
+    metadata?: Prisma.InputJsonValue | null;
     isPublic?: boolean;
     parentId?: string;
     categoryId?: string | null;
@@ -96,7 +107,7 @@ export default class CollectionService {
     const existing = await CollectionRepository.findBySlug(tenantId, data.slug);
     if (existing) return throwResponse(409, `Collection slug '${data.slug}' already in use`);
 
-    return CollectionRepository.create(tenantId, data);
+    return CollectionRepository.create(tenantId, { ...data, metadata: toJsonInput(data.metadata) });
   }
 
   static async updateCollection(
@@ -107,7 +118,7 @@ export default class CollectionService {
       type?: CollectionType;
       description?: string;
       imageUrl?: string | null;
-      metadata?: Prisma.InputJsonValue;
+      metadata?: Prisma.InputJsonValue | null;
       isPublic?: boolean;
       parentId?: string | null;
       categoryId?: string | null;
@@ -161,7 +172,10 @@ export default class CollectionService {
     }
 
     const previousImageUrl = collection.imageUrl;
-    const updated = await CollectionRepository.update(tenantId, id, data);
+    const updated = await CollectionRepository.update(tenantId, id, {
+      ...data,
+      metadata: toJsonInput(data.metadata),
+    });
 
     // Replacing (or clearing) the cover image orphans the old S3 object —
     // clean it up now that the new value is confirmed saved. Best-effort:

@@ -270,6 +270,59 @@ export class PrintfulAdapter implements SupplierAdapter {
     }
   }
 
+  /**
+   * Printful's catalog search returns a numeric `id` (the shared search
+   * contract requires a string) plus field names that don't match CJ's
+   * shape (`title` not `nameEn`, `image` not `bigImage`), and carries no
+   * product-level price at all — Printful only prices per variant, fetched
+   * via getProduct/normalizeProductDetail below. Without this,
+   * SupplierSearchResponseSchema.parse() throws on every Printful result
+   * client-side even though the HTTP call itself succeeds.
+   */
+  normalizeSearchResult(raw: unknown): Record<string, unknown> {
+    const item = (raw ?? {}) as Record<string, unknown>;
+    return {
+      id: String(item.id ?? ''),
+      nameEn: typeof item.title === 'string' ? item.title : undefined,
+      bigImage: typeof item.image === 'string' ? item.image : undefined,
+      categoryName: typeof item.type_name === 'string' ? item.type_name : undefined,
+    };
+  }
+
+  /**
+   * getProduct returns `{ product, variants }` with a numeric product id
+   * nested under `product.id` and variants shaped as `{ id, name, color,
+   * size, price, image }` — nothing like CJ's `pid`/`variants[].vid` shape
+   * the detail contract was ground-truthed against. Same mismatch this
+   * adapter's own import-side normalizer works around in
+   * ProductImportService.normalizePrintfulProduct.
+   */
+  normalizeProductDetail(raw: unknown): Record<string, unknown> {
+    const data = (raw ?? {}) as Record<string, unknown>;
+    const product = (data.product ?? {}) as Record<string, unknown>;
+    const variants = Array.isArray(data.variants) ? (data.variants as Record<string, unknown>[]) : [];
+
+    return {
+      pid: String(product.id ?? ''),
+      productNameEn: typeof product.title === 'string' ? product.title : undefined,
+      bigImage: typeof product.image === 'string' ? product.image : undefined,
+      description: typeof product.description === 'string' ? product.description : undefined,
+      categoryName: typeof product.type_name === 'string' ? product.type_name : undefined,
+      variants: variants.map((v) => {
+        const color = typeof v.color === 'string' ? v.color : undefined;
+        const size = typeof v.size === 'string' ? v.size : undefined;
+        return {
+          vid: String(v.id ?? ''),
+          variantNameEn:
+            typeof v.name === 'string' ? v.name : [color, size].filter(Boolean).join(' / ') || null,
+          variantKey: [color, size].filter(Boolean).join('-') || undefined,
+          variantImage: typeof v.image === 'string' ? v.image : undefined,
+          variantSellPrice: v.price,
+        };
+      }),
+    };
+  }
+
   // ---------------------------------------------------------------------------
   // Printful-specific public methods (beyond the SupplierAdapter interface)
   // ---------------------------------------------------------------------------

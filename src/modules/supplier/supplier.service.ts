@@ -30,20 +30,23 @@ export default class SupplierService {
   }
 
   /**
-   * Decorates each raw result with `alreadyImported`/`catalogProductId` so
-   * the sourcing UI can flag (and block re-importing) products this tenant
-   * already has in its catalog. Search results from every adapter carry the
-   * external id under `id` — see product-sourcing.contract.ts's comment on
-   * SupplierSearchResultSchema for why that's safe to rely on here.
+   * Normalizes each adapter's raw result onto the canonical shape (via the
+   * adapter's own normalizeSearchResult, when it implements one — see
+   * SupplierAdapter's doc comment) and decorates it with `alreadyImported`/
+   * `catalogProductId` so the sourcing UI can flag (and block re-importing)
+   * products this tenant already has in its catalog.
    */
   static async searchSupplier(supplierId: string, query: string, page: number, limit: number) {
     const tenantId = requireTenantId();
     const adapter = supplierRegistry.get(supplierId);
-    const { items, total } = await adapter.searchProducts(query, page, limit);
+    const { items: rawItems, total } = await adapter.searchProducts(query, page, limit);
+    const items = rawItems.map(
+      (item) => adapter.normalizeSearchResult?.(item) ?? (item as Record<string, unknown>),
+    );
 
     const externalIds = items
-      .map((item) => (item as Record<string, unknown>).id)
-      .filter((id): id is string => typeof id === 'string');
+      .map((item) => item.id)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0);
     const imported = await SupplierRepository.findImportedExternalIdsForTenant(
       supplierId,
       externalIds,
@@ -51,9 +54,9 @@ export default class SupplierService {
     );
 
     const decoratedItems = items.map((item) => {
-      const id = (item as Record<string, unknown>).id;
+      const id = item.id;
       const catalogProductId = typeof id === 'string' ? (imported.get(id) ?? null) : null;
-      return { ...(item as object), alreadyImported: catalogProductId !== null, catalogProductId };
+      return { ...item, alreadyImported: catalogProductId !== null, catalogProductId };
     });
 
     return { items: decoratedItems, total };
@@ -62,15 +65,16 @@ export default class SupplierService {
   static async getSupplierProduct(supplierId: string, externalId: string) {
     const tenantId = requireTenantId();
     const adapter = supplierRegistry.get(supplierId);
-    const product = await adapter.getProduct(externalId);
+    const rawProduct = await adapter.getProduct(externalId);
     // Adapters return null when the supplier has nothing for this id
     // (delisted, removed, or a transient lookup failure) — surfacing that as
     // a real 404 here (rather than a 200 with `data: null`) keeps it in the
     // structured ApiError path client-side instead of failing the response
     // schema's parse with an opaque error.
-    if (!product) {
+    if (!rawProduct) {
       throwResponse(404, `Product '${externalId}' not found on supplier '${supplierId}'`);
     }
+    const product = adapter.normalizeProductDetail?.(rawProduct) ?? (rawProduct as Record<string, unknown>);
 
     const mapping = await SupplierRepository.findImportedProductForTenant(
       supplierId,
@@ -79,7 +83,7 @@ export default class SupplierService {
     );
 
     return {
-      ...(product as object),
+      ...product,
       alreadyImported: mapping?.productId != null,
       catalogProductId: mapping?.productId ?? null,
     };
