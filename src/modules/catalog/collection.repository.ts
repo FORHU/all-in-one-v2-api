@@ -244,7 +244,10 @@ export default class CollectionRepository {
   static async reorderItems(collectionId: string, updates: { id: string; position: number }[]) {
     return prisma.$transaction(
       updates.map(({ id, position }) =>
-        prisma.catalogCollectionItem.updateMany({ where: { id, collectionId }, data: { position } }),
+        prisma.catalogCollectionItem.updateMany({
+          where: { id, collectionId },
+          data: { position },
+        }),
       ),
     );
   }
