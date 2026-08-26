@@ -36,7 +36,7 @@ const updateCollectionSchema = Joi.object({
 
 const addItemSchema = Joi.object({
   productId: Joi.string().required(),
-  productVariantId: Joi.string().optional(),
+  productVariantId: Joi.string().allow(null).optional(),
   slot: Joi.string().allow(null, '').optional(),
   imageUrl: Joi.string().allow(null, '').optional(),
   position: Joi.number().optional(),
