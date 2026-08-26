@@ -201,15 +201,24 @@ export default class OrderRepository {
     });
   }
 
+  /**
+   * CommerceShipment carries no tenantId of its own — it's scoped through
+   * supplierOrder.order.tenantId, two relations up. `updateMany` (tenant-safe
+   * idiom) + refetch, same as ProductRepository.updateVariant — `tenantId`
+   * was previously accepted here but never used in the `where`, so any
+   * shipment id from any tenant could be updated.
+   */
   static async updateShipment(
     tenantId: string,
     shipmentId: string,
     status: string,
     trackingNumber?: string,
   ) {
-    return prisma.commerceShipment.update({
-      where: { id: shipmentId },
+    const result = await prisma.commerceShipment.updateMany({
+      where: { id: shipmentId, supplierOrder: { order: { tenantId } } },
       data: { status: status as ShipmentStatus, trackingNumber },
     });
+    if (result.count === 0) return null;
+    return prisma.commerceShipment.findUnique({ where: { id: shipmentId } });
   }
 }

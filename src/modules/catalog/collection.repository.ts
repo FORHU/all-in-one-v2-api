@@ -193,7 +193,7 @@ export default class CollectionRepository {
     collectionId: string,
     data: {
       productId: string;
-      productVariantId?: string;
+      productVariantId?: string | null;
       slot?: string | null;
       imageUrl?: string;
       position?: number;
@@ -210,10 +210,20 @@ export default class CollectionRepository {
     });
   }
 
-  static async updateItem(itemId: string, data: Prisma.CatalogCollectionItemUpdateInput) {
-    return prisma.catalogCollectionItem.update({
+  /** Tenant/collection-safe lookup — used to confirm an item actually belongs to the collection named in the URL before mutating it. */
+  static async findItemById(collectionId: string, itemId: string) {
+    return prisma.catalogCollectionItem.findFirst({ where: { id: itemId, collectionId } });
+  }
+
+  /** Tenant-safe `updateMany` + refetch, same idiom as ProductRepository.updateVariant — `collectionId` in the `where` ensures itemId can't reach into another collection. */
+  static async updateItem(
+    collectionId: string,
+    itemId: string,
+    data: Prisma.CatalogCollectionItemUncheckedUpdateManyInput,
+  ) {
+    await prisma.catalogCollectionItem.updateMany({ where: { id: itemId, collectionId }, data });
+    return prisma.catalogCollectionItem.findFirst({
       where: { id: itemId },
-      data,
       include: {
         product: { include: { media: { where: { isPrimary: true }, take: 1 } } },
         productVariant: true,
@@ -224,16 +234,17 @@ export default class CollectionRepository {
   // deleteMany (not delete) so removing an item that's already gone — e.g. a
   // double-click firing two requests before the UI disables the button — is
   // a harmless no-op instead of a P2025 "record to delete does not exist"
-  // throw. DELETE is supposed to be idempotent.
-  static async removeItem(itemId: string) {
-    return prisma.catalogCollectionItem.deleteMany({ where: { id: itemId } });
+  // throw. DELETE is supposed to be idempotent. `collectionId` in the
+  // `where` also keeps this scoped to the collection named in the URL.
+  static async removeItem(collectionId: string, itemId: string) {
+    return prisma.catalogCollectionItem.deleteMany({ where: { id: itemId, collectionId } });
   }
 
-  /** Reorder items in bulk — accepts array of { id, position } pairs. */
-  static async reorderItems(updates: { id: string; position: number }[]) {
+  /** Reorder items in bulk — accepts array of { id, position } pairs, all scoped to `collectionId`. */
+  static async reorderItems(collectionId: string, updates: { id: string; position: number }[]) {
     return prisma.$transaction(
       updates.map(({ id, position }) =>
-        prisma.catalogCollectionItem.update({ where: { id }, data: { position } }),
+        prisma.catalogCollectionItem.updateMany({ where: { id, collectionId }, data: { position } }),
       ),
     );
   }
