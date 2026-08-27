@@ -462,6 +462,13 @@ export default class OrderService {
   }
 
   static async updateShipment(shipmentId: string, status: string, trackingNumber?: string) {
-    return OrderRepository.updateShipment(requireTenantId(), shipmentId, status, trackingNumber);
+    const shipment = await OrderRepository.updateShipment(
+      requireTenantId(),
+      shipmentId,
+      status,
+      trackingNumber,
+    );
+    if (!shipment) return throwResponse(404, 'Shipment not found');
+    return shipment;
   }
 }

@@ -145,6 +145,7 @@ export default class ProductService {
     status?: ProductStatus,
     categoryId?: string,
     brand?: string,
+    hasPricingRule?: boolean,
   ) {
     const tenantId = requireTenantId();
     const [result, statusCounts] = await Promise.all([
@@ -158,6 +159,7 @@ export default class ProductService {
         status,
         categoryId,
         brand,
+        hasPricingRule,
       ),
       ProductRepository.getStatusCounts(tenantId),
     ]);
