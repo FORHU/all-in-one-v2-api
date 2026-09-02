@@ -47,6 +47,16 @@ app.disable('x-powered-by');
 app.use(resolveTenant);
 
 // API Routes
+//
+// Authenticated JSON — never let the browser cache or revalidate it. Without
+// this, Express's default weak ETags make the browser store each response and
+// later re-request it conditionally; the server answers 304 with an empty
+// body, which the frontend fetch client (expecting a JSON body) reports as a
+// failed request.
+app.use('/api', (_req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
 app.use('/api', router);
 
 // Swagger UI — available at http://localhost:PORT/api/docs (dev only)
