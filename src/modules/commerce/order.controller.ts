@@ -19,6 +19,15 @@ const checkoutDirectSchema = Joi.object({
     .min(1)
     .required(),
   shippingAddressId: Joi.string().optional(),
+  couponCode: Joi.string().trim().optional(),
+  promotionCode: Joi.string().trim().optional(),
+  currency: Joi.string().optional(),
+});
+
+const checkoutSchema = Joi.object({
+  shippingAddressId: Joi.string().optional(),
+  couponCode: Joi.string().trim().optional(),
+  promotionCode: Joi.string().trim().optional(),
   currency: Joi.string().optional(),
 });
 
@@ -45,16 +54,20 @@ export default class OrderController {
   }
 
   static async checkout(req: Request, res: Response, next: NextFunction) {
+    const { error, value } = checkoutSchema.validate(req.body);
+    if (error) return responseError(res, 400, error.message);
+
     try {
       const customerId = await resolveCustomerId(req);
       const sessionId = req.headers['x-session-id'] as string | undefined;
-      const { shippingAddressId, currency } = req.body;
 
       const order = await OrderService.checkoutFromCart({
         customerId,
         sessionId,
-        shippingAddressId,
-        currency,
+        shippingAddressId: value.shippingAddressId,
+        couponCode: value.couponCode,
+        promotionCode: value.promotionCode,
+        currency: value.currency,
       });
 
       return responseSuccess(res, 201, order, 'Order placed successfully');
@@ -82,6 +95,8 @@ export default class OrderController {
         userId: req.user.id,
         items: value.items,
         shippingAddressId: value.shippingAddressId,
+        couponCode: value.couponCode,
+        promotionCode: value.promotionCode,
         currency: value.currency,
       });
 

@@ -2,6 +2,9 @@ import OrderRepository from './order.repository';
 import CartRepository from './cart.repository';
 import CustomerRepository from './customer.repository';
 import CouponRepository from './coupon.repository';
+import CouponService from './coupon.service';
+import PromotionRepository from '../promotion/promotion.repository';
+import PromotionEngine, { PromotionLineItem } from '../promotion/promotion.engine';
 import InventoryRepository from '../inventory/inventory.repository';
 import NotificationRepository from '../system/notification.repository';
 import { OrderStatus, PaymentStatus, Prisma, Coupon } from '@prisma/client';
@@ -94,9 +97,17 @@ export default class OrderService {
     sessionId?: string;
     shippingAddressId?: string;
     couponCode?: string;
+    promotionCode?: string;
     currency?: string;
   }) {
-    const { customerId, sessionId, shippingAddressId, couponCode, currency = 'USD' } = params;
+    const {
+      customerId,
+      sessionId,
+      shippingAddressId,
+      couponCode,
+      promotionCode,
+      currency = 'USD',
+    } = params;
 
     if (!customerId && !sessionId) {
       return throwResponse(400, 'A signed-in customer or an x-session-id header is required');
@@ -121,6 +132,7 @@ export default class OrderService {
       sessionId,
       shippingAddressId,
       couponCode,
+      promotionCode,
       currency,
       afterCreate: async (tx) => {
         // Clear the cart we actually read from inside the transaction.
@@ -145,9 +157,19 @@ export default class OrderService {
     userId: string;
     items: { productId: string; size?: string; color?: string; quantity: number }[];
     shippingAddressId?: string;
+    couponCode?: string;
+    promotionCode?: string;
     currency?: string;
   }) {
-    const { customerId, userId, items, shippingAddressId, currency = 'USD' } = params;
+    const {
+      customerId,
+      userId,
+      items,
+      shippingAddressId,
+      couponCode,
+      promotionCode,
+      currency = 'USD',
+    } = params;
 
     if (!items || items.length === 0) {
       return throwResponse(400, 'No items provided');
@@ -160,6 +182,8 @@ export default class OrderService {
       tenantId,
       customerId,
       shippingAddressId,
+      couponCode,
+      promotionCode,
       currency,
     });
 
@@ -269,6 +293,7 @@ export default class OrderService {
       sessionId?: string;
       shippingAddressId?: string;
       couponCode?: string;
+      promotionCode?: string;
       currency?: string;
       afterCreate?: (tx: Prisma.TransactionClient) => Promise<void>;
     },
@@ -279,6 +304,7 @@ export default class OrderService {
       sessionId,
       shippingAddressId,
       couponCode,
+      promotionCode,
       currency = 'USD',
     } = params;
 
@@ -300,34 +326,53 @@ export default class OrderService {
     let coupon: Coupon | null = null;
     if (couponCode) {
       coupon = await CouponRepository.findByCode(tenantId, couponCode);
-      if (!coupon || !coupon.isActive) {
-        return throwResponse(400, 'Invalid or expired coupon');
-      }
+      if (!coupon) return throwResponse(400, 'Invalid or expired coupon');
+      // Active, unexpired, under its usage cap, and over its minimum order value.
+      CouponService.assertUsable(coupon, subtotal);
     }
 
-    let discountAmount = new Prisma.Decimal(0);
+    let couponDiscount = new Prisma.Decimal(0);
     if (coupon) {
       if (coupon.discountType === 'PERCENTAGE') {
-        discountAmount = subtotal
+        couponDiscount = subtotal
           .times(new Prisma.Decimal(coupon.discountValue as Prisma.Decimal.Value))
           .dividedBy(100);
         if (
           coupon.maxDiscount &&
-          discountAmount.greaterThan(new Prisma.Decimal(coupon.maxDiscount as Prisma.Decimal.Value))
+          couponDiscount.greaterThan(new Prisma.Decimal(coupon.maxDiscount as Prisma.Decimal.Value))
         ) {
-          discountAmount = new Prisma.Decimal(coupon.maxDiscount as Prisma.Decimal.Value);
+          couponDiscount = new Prisma.Decimal(coupon.maxDiscount as Prisma.Decimal.Value);
         }
       } else if (coupon.discountType === 'FIXED_AMOUNT') {
-        discountAmount = new Prisma.Decimal(coupon.discountValue as Prisma.Decimal.Value);
+        couponDiscount = new Prisma.Decimal(coupon.discountValue as Prisma.Decimal.Value);
       }
-      if (discountAmount.greaterThan(subtotal)) {
-        discountAmount = subtotal;
+      if (couponDiscount.greaterThan(subtotal)) {
+        couponDiscount = subtotal;
       }
     }
 
-    // Tax and shipping are stored per order but not yet calculated
+    // Campaign promotions (rule engine): automatic ones always, plus the one
+    // matching `promotionCode` if the shopper entered a code. Evaluated fresh
+    // here so a promo that expired between "added to cart" and "pay" can't
+    // still be honoured.
+    const promoEvaluation = await PromotionEngine.evaluate({
+      tenantId,
+      items: await this.buildPromotionLineItems(tenantId, items),
+      subtotal,
+      shippingAmount: new Prisma.Decimal(0),
+      isFirstOrder: customerId ? await this.isCustomersFirstOrder(tenantId, customerId) : false,
+      code: promotionCode,
+    });
+
+    let discountAmount = couponDiscount.plus(promoEvaluation.discountAmount);
+    if (discountAmount.greaterThan(subtotal)) discountAmount = subtotal;
+
+    // Tax and shipping are stored per order but not yet calculated. Once
+    // shipping is real, `promoEvaluation.freeShipping` zeroes it here.
     const taxAmount = new Prisma.Decimal(0);
-    const shippingAmount = new Prisma.Decimal(0);
+    const shippingAmount = promoEvaluation.freeShipping
+      ? new Prisma.Decimal(0)
+      : new Prisma.Decimal(0);
     const totalAmount = subtotal.minus(discountAmount).plus(taxAmount).plus(shippingAmount);
 
     // Reserve stock. Dropship/print-on-demand variants (no InventoryLocation
@@ -381,6 +426,9 @@ export default class OrderService {
           ...(customerId ? { customer: { connect: { id: customerId } } } : { sessionId }),
           ...(shippingAddressId ? { shippingAddress: { connect: { id: shippingAddressId } } } : {}),
           ...(coupon ? { coupon: { connect: { id: coupon.id } } } : {}),
+          ...(promoEvaluation.promotionId
+            ? { promotion: { connect: { id: promoEvaluation.promotionId } } }
+            : {}),
           items: {
             create: items.map((item: CartItemLike) => {
               const variant = item.productVariant;
@@ -404,10 +452,66 @@ export default class OrderService {
         },
       });
 
+      // Claim one use of every promotion this order applied, plus the coupon,
+      // in the same transaction as order creation so a rolled-back checkout
+      // never inflates a usage count.
+      await PromotionRepository.incrementUsage(
+        promoEvaluation.applied.map((a) => a.promotionId),
+        tx,
+      );
+      if (coupon) await CouponRepository.incrementUsage(coupon.id, tx);
+
       if (params.afterCreate) await params.afterCreate(tx);
 
       return createdOrder;
     });
+  }
+
+  /**
+   * Turns raw cart lines into what the promotion engine needs: each line's
+   * product, category and collection membership, so PRODUCT/CATEGORY/
+   * COLLECTION-scoped promotions can decide whether the line is in scope.
+   */
+  private static async buildPromotionLineItems(
+    tenantId: string,
+    items: CartItemLike[],
+  ): Promise<PromotionLineItem[]> {
+    const variantIds = items.map((i) => i.productVariantId);
+    const variants = await prisma.catalogProductVariant.findMany({
+      where: { id: { in: variantIds }, tenantId },
+      select: {
+        id: true,
+        productId: true,
+        product: {
+          select: {
+            categoryId: true,
+            collectionItems: { select: { collectionId: true } },
+          },
+        },
+      },
+    });
+    const byId = new Map(variants.map((v) => [v.id, v]));
+
+    return items.map((item) => {
+      const meta = byId.get(item.productVariantId);
+      return {
+        productVariantId: item.productVariantId,
+        productId: meta?.productId ?? '',
+        categoryId: meta?.product?.categoryId ?? null,
+        collectionIds: meta?.product?.collectionItems.map((c) => c.collectionId) ?? [],
+        quantity: item.quantity,
+        unitPrice: new Prisma.Decimal(item.unitPrice as Prisma.Decimal.Value),
+      };
+    });
+  }
+
+  /** True when this customer has no earlier order in the tenant (for FIRST_ORDER rules). */
+  private static async isCustomersFirstOrder(
+    tenantId: string,
+    customerId: string,
+  ): Promise<boolean> {
+    const count = await prisma.commerceOrder.count({ where: { tenantId, customerId } });
+    return count === 0;
   }
 
   static async updateOrderStatus(orderId: string, status: OrderStatus) {
@@ -462,6 +566,13 @@ export default class OrderService {
   }
 
   static async updateShipment(shipmentId: string, status: string, trackingNumber?: string) {
-    return OrderRepository.updateShipment(requireTenantId(), shipmentId, status, trackingNumber);
+    const shipment = await OrderRepository.updateShipment(
+      requireTenantId(),
+      shipmentId,
+      status,
+      trackingNumber,
+    );
+    if (!shipment) return throwResponse(404, 'Shipment not found');
+    return shipment;
   }
 }

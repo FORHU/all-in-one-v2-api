@@ -1,5 +1,6 @@
 import CollectionRepository from './collection.repository';
 import CategoryRepository from './category.repository';
+import ProductRepository from './product.repository';
 import { throwResponse } from '../../utils/throw-response';
 import { requireTenantId } from '../../utils/async-context';
 import { deleteFromS3 } from '../../utils/s3.util';
@@ -224,7 +225,7 @@ export default class CollectionService {
     collectionId: string,
     data: {
       productId: string;
-      productVariantId?: string;
+      productVariantId?: string | null;
       slot?: string | null;
       imageUrl?: string;
       position?: number;
@@ -232,9 +233,25 @@ export default class CollectionService {
       metadata?: Prisma.InputJsonValue;
     },
   ) {
-    // Verify collection belongs to this tenant
-    const collection = await CollectionRepository.findById(requireTenantId(), collectionId);
+    const tenantId = requireTenantId();
+    const collection = await CollectionRepository.findById(tenantId, collectionId);
     if (!collection) return throwResponse(404, 'Collection not found');
+
+    // Cross-tenant guard: without this, a productId from a different tenant
+    // would still create the item (the FK only requires the row to exist
+    // somewhere), and every subsequent read joins `product` with no tenant
+    // filter — silently leaking that tenant's product into this collection.
+    const product = await ProductRepository.findById(tenantId, data.productId);
+    if (!product) return throwResponse(404, 'Product not found');
+
+    if (data.productVariantId) {
+      const variant = await ProductRepository.findVariantById(
+        tenantId,
+        data.productId,
+        data.productVariantId,
+      );
+      if (!variant) return throwResponse(404, 'Product variant not found');
+    }
 
     return CollectionRepository.addItem(collectionId, data);
   }
@@ -252,24 +269,45 @@ export default class CollectionService {
       metadata?: Prisma.InputJsonValue;
     },
   ) {
-    const collection = await CollectionRepository.findById(requireTenantId(), collectionId);
+    const tenantId = requireTenantId();
+    const collection = await CollectionRepository.findById(tenantId, collectionId);
     if (!collection) return throwResponse(404, 'Collection not found');
 
-    return CollectionRepository.updateItem(itemId, data);
+    // Confirms itemId actually belongs to collectionId — without this, any
+    // item id reachable from any tenant's collection could be edited through
+    // a :collectionId the caller merely happens to own.
+    const item = await CollectionRepository.findItemById(collectionId, itemId);
+    if (!item) return throwResponse(404, 'Collection item not found');
+
+    if (data.productId) {
+      const product = await ProductRepository.findById(tenantId, data.productId);
+      if (!product) return throwResponse(404, 'Product not found');
+    }
+
+    if (data.productVariantId) {
+      const variant = await ProductRepository.findVariantById(
+        tenantId,
+        data.productId ?? item.productId,
+        data.productVariantId,
+      );
+      if (!variant) return throwResponse(404, 'Product variant not found');
+    }
+
+    return CollectionRepository.updateItem(collectionId, itemId, data);
   }
 
   static async removeItem(collectionId: string, itemId: string) {
     const collection = await CollectionRepository.findById(requireTenantId(), collectionId);
     if (!collection) return throwResponse(404, 'Collection not found');
 
-    return CollectionRepository.removeItem(itemId);
+    return CollectionRepository.removeItem(collectionId, itemId);
   }
 
-  /** Bulk reorder items — accepts [{ id, position }] */
+  /** Bulk reorder items — accepts [{ id, position }], all scoped to collectionId. */
   static async reorderItems(collectionId: string, updates: { id: string; position: number }[]) {
     const collection = await CollectionRepository.findById(requireTenantId(), collectionId);
     if (!collection) return throwResponse(404, 'Collection not found');
 
-    return CollectionRepository.reorderItems(updates);
+    return CollectionRepository.reorderItems(collectionId, updates);
   }
 }

@@ -24,6 +24,7 @@ import {
   CJDisputeListParams,
   CJDispute,
 } from './cj.types';
+import { cleanCjText } from './cj.text.util';
 
 /** CJ's sandbox status ladder, in order — see CJSandboxTargetStatus. */
 const SANDBOX_STATUS_LADDER: CJSandboxTargetStatus[] = [400, 500, 600, 700];
@@ -282,6 +283,40 @@ export class CJDropshippingAdapter implements SupplierAdapter {
       pid: externalId,
     });
     return res?.data || null;
+  }
+
+  /**
+   * Cleans CJ's title text-escaping artifacts (see cleanCjText) on a raw
+   * /product/listV2 search result before it reaches the sourcing UI —
+   * otherwise the preview-before-import search list shows the same garbled
+   * "Women"s Summer..." titles ProductImportService.normalizeCjProduct
+   * already cleans up at actual import time.
+   */
+  normalizeSearchResult(raw: unknown): Record<string, unknown> {
+    const item = raw as CJProductListV2Item;
+    return {
+      ...item,
+      nameEn: typeof item.nameEn === 'string' ? cleanCjText(item.nameEn) : item.nameEn,
+    };
+  }
+
+  /** Same idea as normalizeSearchResult, for the /product/query detail payload the "preview before import" panel reads. */
+  normalizeProductDetail(raw: unknown): Record<string, unknown> {
+    const detail = raw as CJProductDetail;
+    return {
+      ...detail,
+      productNameEn:
+        typeof detail.productNameEn === 'string'
+          ? cleanCjText(detail.productNameEn)
+          : detail.productNameEn,
+      variants: Array.isArray(detail.variants)
+        ? detail.variants.map((v) => ({
+            ...v,
+            variantNameEn:
+              typeof v.variantNameEn === 'string' ? cleanCjText(v.variantNameEn) : v.variantNameEn,
+          }))
+        : detail.variants,
+    };
   }
 
   /**

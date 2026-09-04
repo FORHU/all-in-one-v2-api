@@ -132,6 +132,10 @@ export default class ProductRepository {
     status?: ProductStatus,
     categoryId?: string,
     brand?: string,
+    // `true` = only products with a pricing rule assigned. `false` = only
+    // products with none (selling at raw supplier cost, or manually priced
+    // with no markup) — backs the admin "No markup rule" filter.
+    hasPricingRule?: boolean,
   ): Promise<PageResult<AdminProductListingRow>> {
     const where: Prisma.CatalogProductWhereInput = {
       tenantId,
@@ -142,6 +146,9 @@ export default class ProductRepository {
       // this is "show only this brand" (from a Brand tile click), not a
       // free-text guess.
       ...(brand && { brand }),
+      ...(hasPricingRule !== undefined && {
+        pricingRuleId: hasPricingRule ? { not: null } : null,
+      }),
       ...(search && {
         OR: [
           { title: { contains: search, mode: 'insensitive' } },

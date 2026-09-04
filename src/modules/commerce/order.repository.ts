@@ -237,9 +237,11 @@ export default class OrderRepository {
     status: string,
     trackingNumber?: string,
   ) {
-    return prisma.commerceShipment.update({
-      where: { id: shipmentId },
+    const result = await prisma.commerceShipment.updateMany({
+      where: { id: shipmentId, supplierOrder: { order: { tenantId } } },
       data: { status: status as ShipmentStatus, trackingNumber },
     });
+    if (result.count === 0) return null;
+    return prisma.commerceShipment.findUnique({ where: { id: shipmentId } });
   }
 }
