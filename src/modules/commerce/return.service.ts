@@ -4,6 +4,9 @@ import PaymentService from './payment.service';
 import { requireTenantId } from '../../utils/async-context';
 import { throwResponse } from '../../utils/throw-response';
 import { OrderStatus, Prisma, ReturnStatus } from '@prisma/client';
+import { rabbitmq } from '../../infrastructure/rabbitmq';
+import { ROUTING_KEYS } from '../../events/routing-keys';
+import logger from '../../utils/logger';
 
 export default class ReturnService {
   static async createReturn(input: {
@@ -117,6 +120,37 @@ export default class ReturnService {
     const order = await OrderRepository.findById(tenantId, orderId);
     if (order && new Prisma.Decimal(amount).equals(order.totalAmount)) {
       await OrderRepository.updateStatus(tenantId, orderId, OrderStatus.REFUNDED);
+    }
+
+    // The Stripe side of the refund is done and already committed above —
+    // this is the customer's money moving, and it must not be rolled back
+    // or fail the request just because notifying the supplier had trouble.
+    // The actual supplier-side refund (e.g. filing a CJ dispute) happens
+    // asynchronously in supplier-refund.consumer.ts, per this codebase's
+    // "if it takes time, it goes to RabbitMQ" rule — CJ's dispute chain is
+    // several sequential HTTP calls and CJ's own (unbounded) review time,
+    // nothing an HTTP request should block on.
+    try {
+      const supplierOrders = await OrderRepository.getSupplierOrders(tenantId, orderId);
+      for (const supplierOrder of supplierOrders) {
+        // Never placed with the supplier (no externalId) — nothing to
+        // refund on their end, whether because checkout never got that far
+        // wired up yet or the order was cancelled before placement.
+        if (!supplierOrder.externalId) continue;
+
+        await rabbitmq.publish(ROUTING_KEYS.SUPPLIER_ORDER_REFUND_REQUESTED, {
+          tenantId,
+          supplierOrderId: supplierOrder.id,
+          supplierId: supplierOrder.supplier.name,
+          externalId: supplierOrder.externalId,
+          reason: reason || 'Customer-requested refund',
+        });
+      }
+    } catch (error) {
+      logger.error(
+        `[ReturnService] Failed to publish supplier refund request(s) for order ${orderId}`,
+        error,
+      );
     }
 
     return refund;
