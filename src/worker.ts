@@ -8,6 +8,7 @@ import { redis } from './infrastructure/redis';
 import { startEmailConsumer } from './consumers/email.consumer';
 import { startAiConsumer } from './consumers/ai.consumer';
 import { startProductSyncConsumer } from './consumers/product-sync.consumer';
+import { startSupplierRefundConsumer } from './consumers/supplier-refund.consumer';
 import { workerMetrics } from './utils/worker-metrics';
 import { startScheduler } from './infrastructure/scheduler';
 import { registerSuppliers } from './suppliers';
@@ -71,6 +72,7 @@ const startWorker = async () => {
   await startEmailConsumer();
   await startAiConsumer();
   await startProductSyncConsumer();
+  await startSupplierRefundConsumer();
 
   // Start scheduled jobs (cron)
   startScheduler();

@@ -17,6 +17,12 @@ import {
   CJUpdateSandboxTrackNumberParams,
   CJLogisticsOption,
   CJUpdateLogisticsParams,
+  CJDisputeProduct,
+  CJDisputeConfirmInfo,
+  CJCreateDisputeParams,
+  CJCancelDisputeParams,
+  CJDisputeListParams,
+  CJDispute,
 } from './cj.types';
 import { cleanCjText } from './cj.text.util';
 
@@ -545,5 +551,151 @@ export class CJDropshippingAdapter implements SupplierAdapter {
   async updateLogistics(params: CJUpdateLogisticsParams): Promise<boolean> {
     const res = await this.request<boolean>('/shopping/order/updateLogistics', 'POST', params);
     return Boolean(res?.data);
+  }
+
+  // --- Cancel & Refund ---
+  //
+  // CJ has no single "cancel this order" call that works at every stage.
+  // Two separate mechanisms, depending on how far the order has progressed:
+  //   - cancelOrder (deleteOrder): only while the order is CREATED/IN_CART,
+  //     i.e. before confirmOrder has run. Rejects anything past that.
+  //   - Disputes: the only path once an order is UNPAID or later. A dispute
+  //     is a *request* CJ reviews and approves/rejects — not an instant
+  //     refund. Flow: getDisputeProducts -> getDisputeConfirmInfo (caps the
+  //     refundable amount + valid reasons) -> createDispute -> poll via
+  //     getDisputeDetail/getDisputeList -> optionally cancelDispute to
+  //     withdraw it before CJ rules.
+  // See docs: https://developers.cjdropshipping.cn/en/api/api2/api/dispute.html
+
+  /**
+   * Deletes an order that hasn't progressed past CREATED/IN_CART yet — CJ
+   * rejects this for anything already confirmOrder'd, which in this
+   * adapter's own placeOrder/confirmOrder flow happens almost immediately
+   * after creation. Use the dispute methods below for anything past that
+   * point.
+   */
+  async cancelOrder(orderId: string): Promise<boolean> {
+    const res = await this.request<boolean>(
+      `/shopping/order/deleteOrder?orderId=${encodeURIComponent(orderId)}`,
+      'DELETE',
+    );
+    return Boolean(res?.result);
+  }
+
+  /** Line items on this order CJ will accept a dispute against. Call first — not every item is always eligible. */
+  async getDisputeProducts(orderId: string): Promise<CJDisputeProduct[]> {
+    const res = await this.request<CJDisputeProduct[]>('/disputes/disputeProducts', 'GET', undefined, {
+      orderId,
+    });
+    return Array.isArray(res?.data) ? res.data : [];
+  }
+
+  /**
+   * Returns the max refundable amount and valid dispute reasons for the
+   * chosen line items — call this before createDispute so the amount you
+   * request isn't rejected outright for exceeding what was actually paid.
+   */
+  async getDisputeConfirmInfo(
+    orderId: string,
+    productInfoList: { lineItemId: string; quantity: number; price: number }[],
+  ): Promise<CJDisputeConfirmInfo | null> {
+    const res = await this.request<CJDisputeConfirmInfo>('/disputes/disputeConfirmInfo', 'POST', {
+      orderId,
+      productInfoList,
+    });
+    return res?.data ?? null;
+  }
+
+  /** Files the actual refund/reissue request. Doesn't move any money itself — CJ reviews and decides. */
+  async createDispute(params: CJCreateDisputeParams): Promise<boolean> {
+    const res = await this.request<boolean>('/disputes/create', 'POST', params);
+    return Boolean(res?.data);
+  }
+
+  /** Withdraws a dispute before CJ has ruled on it. */
+  async cancelDispute(params: CJCancelDisputeParams): Promise<boolean> {
+    const res = await this.request<boolean>('/disputes/cancel', 'POST', params);
+    return Boolean(res?.data);
+  }
+
+  /** Paginated dispute list, optionally filtered by order. */
+  async getDisputeList(
+    params: CJDisputeListParams,
+  ): Promise<{ items: CJDispute[]; total: number }> {
+    const res = await this.request<{ list: CJDispute[]; total: number }>(
+      '/disputes/getDisputeList',
+      'GET',
+      undefined,
+      params as Record<string, string | number | undefined>,
+    );
+    return { items: res?.data?.list ?? [], total: res?.data?.total ?? 0 };
+  }
+
+  /** Full detail for one dispute, including the resolved refund breakdown once CJ has ruled. */
+  async getDisputeDetail(disputeId: string): Promise<CJDispute | null> {
+    const res = await this.request<CJDispute>('/disputes/getDisputeDetail', 'GET', undefined, {
+      disputeId,
+    });
+    return res?.data ?? null;
+  }
+
+  /**
+   * SupplierAdapter.requestRefund implementation — orchestrates the full
+   * dispute chain (getDisputeProducts -> getDisputeConfirmInfo ->
+   * createDispute) behind the generic, supplier-agnostic signature callers
+   * use. Always requests a refund of every CJ-eligible line item on the
+   * order for its full paid quantity — this adapter has no way to accept a
+   * partial-item/partial-quantity refund request from the caller yet, since
+   * the generic interface only takes an orderId + reason.
+   *
+   * Picks the FIRST dispute reason CJ returns from getDisputeConfirmInfo —
+   * there's no mapping yet from an app-level refund reason to CJ's specific
+   * disputeReasonId catalog. Fine as a default for now (CJ's review is
+   * manual either way), but revisit if wrong-reason disputes turn out to
+   * get rejected more often than a correctly-reasoned one would.
+   *
+   * Confirmed live (sandbox): CJ rejects disputes on sandbox orders outright
+   * ("Order cannot be disputed", code 9060) via getDisputeProducts returning
+   * an empty list — which this method treats as `requested: false`, not an
+   * error. Real (non-sandbox) orders are unverified — the reason-picking and
+   * createDispute steps have never actually run against a live order.
+   */
+  async requestRefund(params: {
+    orderId: string;
+    reason: string;
+  }): Promise<{ requested: boolean; externalRefundId?: string; raw?: unknown }> {
+    const eligible = await this.getDisputeProducts(params.orderId);
+    if (eligible.length === 0) {
+      return { requested: false, raw: { reason: 'No dispute-eligible line items on this order' } };
+    }
+
+    const productInfoList = eligible.map((p) => ({
+      lineItemId: p.lineItemId,
+      quantity: p.quantity,
+      price: p.price,
+    }));
+
+    const confirmInfo = await this.getDisputeConfirmInfo(params.orderId, productInfoList);
+    const reasonId = confirmInfo?.disputeReasons?.[0]?.id;
+    if (!reasonId) {
+      return { requested: false, raw: confirmInfo };
+    }
+
+    const created = await this.createDispute({
+      orderId: params.orderId,
+      businessDisputeId: `REFUND-${params.orderId}-${Date.now()}`,
+      disputeReasonId: reasonId,
+      expectType: 1, // refund
+      refundType: 1, // balance
+      messageText: params.reason.slice(0, 500),
+      productInfoList,
+    });
+    if (!created) {
+      return { requested: false, raw: confirmInfo };
+    }
+
+    const list = await this.getDisputeList({ orderId: params.orderId });
+    const dispute = list.items[0];
+    return { requested: true, externalRefundId: dispute?.disputeId, raw: dispute };
   }
 }

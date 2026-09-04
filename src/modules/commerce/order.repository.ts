@@ -202,12 +202,35 @@ export default class OrderRepository {
   }
 
   /**
-   * CommerceShipment carries no tenantId of its own — it's scoped through
-   * supplierOrder.order.tenantId, two relations up. `updateMany` (tenant-safe
-   * idiom) + refetch, same as ProductRepository.updateVariant — `tenantId`
-   * was previously accepted here but never used in the `where`, so any
-   * shipment id from any tenant could be updated.
+   * Records the outcome of a supplier-side refund request (SupplierAdapter.
+   * requestRefund) against the CommerceSupplierOrder it was filed for.
+   * Merged into `rawResponse` rather than a dedicated column/status — the
+   * schema's SupplierOrderStatus enum has no REFUNDED/DISPUTED value, and
+   * adding one is a migration this change intentionally avoids. `rawResponse`
+   * already exists for "full supplier order response", so a `refund` key
+   * inside it is a natural fit without a schema change.
    */
+  static async recordSupplierRefundResult(
+    supplierOrderId: string,
+    result: { requested: boolean; externalRefundId?: string; raw?: unknown },
+  ) {
+    const existing = await prisma.commerceSupplierOrder.findUnique({
+      where: { id: supplierOrderId },
+      select: { rawResponse: true },
+    });
+    const rawResponse = (existing?.rawResponse as Prisma.JsonObject | null) ?? {};
+
+    return prisma.commerceSupplierOrder.update({
+      where: { id: supplierOrderId },
+      data: {
+        rawResponse: {
+          ...rawResponse,
+          refund: { ...result, requestedAt: new Date().toISOString() } as Prisma.InputJsonValue,
+        },
+      },
+    });
+  }
+
   static async updateShipment(
     tenantId: string,
     shipmentId: string,
