@@ -85,4 +85,26 @@ export interface SupplierAdapter {
    * Check the status of an already placed order.
    */
   getOrderStatus(externalOrderId: string): Promise<unknown>;
+
+  /**
+   * Cancels an order that hasn't shipped/been fulfilled yet. Optional — not
+   * every supplier's API supports cancellation the same way (or at all);
+   * callers must check for its presence before invoking it.
+   */
+  cancelOrder?(externalOrderId: string): Promise<boolean>;
+
+  /**
+   * Requests a refund for an already-placed order, going through whatever
+   * post-payment mechanism the supplier actually offers (e.g. CJ's dispute
+   * flow) — this is a *request*, not a guaranteed refund; the supplier may
+   * reject it. Optional, and deliberately supplier-agnostic: callers pass an
+   * orderId + a human-readable reason and get back whether the request was
+   * accepted, without needing to know the supplier-specific mechanics
+   * (dispute reasons, line-item eligibility, etc.) — see
+   * CJDropshippingAdapter.requestRefund for what that looks like underneath.
+   */
+  requestRefund?(params: {
+    orderId: string;
+    reason: string;
+  }): Promise<{ requested: boolean; externalRefundId?: string; raw?: unknown }>;
 }

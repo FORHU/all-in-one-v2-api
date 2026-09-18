@@ -140,6 +140,32 @@ export interface CJSimulatePayParams {
   shipmentOrderId?: string;
 }
 
+/**
+ * Params for the real (non-sandbox) POST /shopping/pay/payBalance —
+ * deducts the order's cost from your actual CJ account balance. Same shape
+ * as CJSimulatePayParams by design: triangulated from CJ's docs/search
+ * results (not ground-truthed against a live account the way
+ * CJSimulatePayParams was), and simulatePay's sandbox stand-in takes the
+ * same two fields, so this mirrors it. See
+ * CJDropshippingAdapter.payBalance's doc comment before using this for real.
+ */
+export interface CJPayBalanceParams {
+  /** CJ order ID from createOrderV2/confirmOrder. Provide this or shipmentOrderId. */
+  orderId?: string;
+  /** Parent order ID, for paying a batch of real orders at once (see payBalanceV2, not implemented here). */
+  shipmentOrderId?: string;
+}
+
+/** Result of CJDropshippingAdapter.placeOrder — a resolved id, not the raw CJ payload. */
+export interface CJPlaceOrderResult {
+  /** Extracted via the same orderId/orderNum/id fallback scripts/test-cj-sandbox.ts uses — CJ's real field name is unconfirmed. */
+  orderId: string;
+  /** True if CJ flagged the initial logisticName as invalid (logisticsMiss) and placeOrder() corrected it automatically. */
+  logisticsAutoCorrected: boolean;
+  /** Full createOrderV2 response, for callers that need fields this type doesn't surface. */
+  raw: Record<string, unknown>;
+}
+
 export interface CJUpdateSandboxStatusParams {
   orderId: string;
   targetStatus: CJSandboxTargetStatus;
@@ -218,5 +244,73 @@ export interface CJVariantStock {
   storageNum?: number;
   countryCode?: string;
   areaEn?: string;
+  [key: string]: unknown;
+}
+
+// --- Disputes (post-payment refund/reissue requests) ---
+// Docs: https://developers.cjdropshipping.cn/en/api/api2/api/dispute.html
+// Unconfirmed against a live account — field names follow the docs but
+// haven't been ground-truthed the way e.g. CJLogisticsOption's `id` was.
+
+/** One line item CJ considers eligible to dispute, from GET /disputes/disputeProducts. */
+export interface CJDisputeProduct {
+  lineItemId: string;
+  quantity: number;
+  price: number;
+  [key: string]: unknown;
+}
+
+export interface CJDisputeProductLine {
+  lineItemId: string;
+  quantity: number;
+  price: number;
+}
+
+/** Response of POST /disputes/disputeConfirmInfo — the ceiling for what createDispute can request. */
+export interface CJDisputeConfirmInfo {
+  maxRefundAmount?: number;
+  disputeReasons?: { id: number; name: string }[];
+  [key: string]: unknown;
+}
+
+/** 1 = refund, 2 = reissue (a replacement shipment). */
+export type CJDisputeExpectType = 1 | 2;
+
+/** 1 = balance refund (credited to your CJ account), 2 = platform refund (original payment method). */
+export type CJDisputeRefundType = 1 | 2;
+
+export interface CJCreateDisputeParams {
+  orderId: string;
+  /** Your own idempotency key for this dispute — CJ's docs cap it at 100 chars. */
+  businessDisputeId: string;
+  disputeReasonId: number;
+  expectType: CJDisputeExpectType;
+  refundType: CJDisputeRefundType;
+  /** Max 500 chars. */
+  messageText: string;
+  imageUrl?: string[];
+  videoUrl?: string[];
+  productInfoList: CJDisputeProductLine[];
+}
+
+export interface CJCancelDisputeParams {
+  orderId: string;
+  disputeId: string;
+}
+
+export interface CJDisputeListParams {
+  orderId?: string;
+  disputeId?: number;
+  orderNumber?: string;
+  pageNum?: number;
+  pageSize?: number;
+}
+
+export interface CJDispute {
+  disputeId: string;
+  orderId: string;
+  status: string;
+  disputeReasonId?: number;
+  refundAmount?: number;
   [key: string]: unknown;
 }

@@ -111,4 +111,40 @@ export default class SupplierRepository {
         .map((r) => [r.externalId, r.productId]),
     );
   }
+
+  /** Resolves a supplier's registry name (e.g. 'cj-dropshipping') to its SupplierPartner row. */
+  static async findPartnerByName(name: string) {
+    return prisma.supplierPartner.findUnique({ where: { name } });
+  }
+
+  /**
+   * Batch-resolves CatalogProductVariant ids to this supplier's own external
+   * variant id (e.g. CJ's `vid`), for building a supplier order payload.
+   * Variants never synced from this supplier (no matching SupplierVariant
+   * row, or one whose productVariantId is still unmapped) are simply absent
+   * from the returned map — callers must treat a missing key as "not
+   * sourced from this supplier," not as an error on its own.
+   */
+  static async findVariantMappingsBySupplier(
+    supplierPartnerName: string,
+    productVariantIds: string[],
+  ): Promise<Map<string, string>> {
+    if (productVariantIds.length === 0) return new Map();
+
+    const rows = await prisma.supplierVariant.findMany({
+      where: {
+        productVariantId: { in: productVariantIds },
+        supplierProduct: { supplier: { name: supplierPartnerName } },
+      },
+      select: { productVariantId: true, externalId: true },
+    });
+
+    return new Map(
+      rows
+        .filter(
+          (r): r is { productVariantId: string; externalId: string } => r.productVariantId !== null,
+        )
+        .map((r) => [r.productVariantId, r.externalId]),
+    );
+  }
 }

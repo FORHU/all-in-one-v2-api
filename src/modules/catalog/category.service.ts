@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import CategoryRepository from './category.repository';
 import { throwResponse } from '../../utils/throw-response';
 import { requireTenantId } from '../../utils/async-context';
@@ -79,6 +80,20 @@ export default class CategoryService {
     if (!category) {
       return throwResponse(404, 'Category not found');
     }
-    return CategoryRepository.delete(tenantId, id);
+
+    try {
+      return await CategoryRepository.delete(tenantId, id);
+    } catch (error) {
+      // CatalogProduct.category is onDelete: Restrict (and other tables
+      // reference this category too) — Postgres blocks the delete with a
+      // P2003 foreign key violation rather than silently orphaning them.
+      const isForeignKeyViolation =
+        error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003';
+      if (!isForeignKeyViolation) throw error;
+      return throwResponse(
+        409,
+        'Cannot delete category: it still has products, subcategories, or other records assigned to it. Reassign or remove them first.',
+      );
+    }
   }
 }

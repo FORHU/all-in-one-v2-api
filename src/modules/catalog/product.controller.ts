@@ -10,6 +10,7 @@ const listQuerySchema = Joi.object({
   brand: Joi.string().optional(), // comma-separated
   color: Joi.string().optional(), // comma-separated attribute values
   size: Joi.string().optional(), // comma-separated attribute values
+  season: Joi.string().valid('spring', 'summer', 'fall', 'winter').optional(),
   priceMin: Joi.number().min(0).optional(),
   priceMax: Joi.number().min(0).optional(),
   sort: Joi.string().valid('newest', 'price-asc', 'price-desc', 'popularity').default('newest'),
@@ -59,6 +60,7 @@ export default class ProductController {
         brands: splitCsv(value.brand),
         colorValues: splitCsv(value.color),
         sizeValues: splitCsv(value.size),
+        season: value.season,
         priceMin: value.priceMin,
         priceMax: value.priceMax,
         sort: value.sort,

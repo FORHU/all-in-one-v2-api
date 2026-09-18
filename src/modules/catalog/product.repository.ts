@@ -7,6 +7,8 @@ export interface ProductListingFilters {
   brands?: string[];
   colorValues?: string[];
   sizeValues?: string[];
+  /** Uppercase, e.g. "SPRING" — matched against CatalogCollection.metadata.season. */
+  season?: string;
   priceMin?: number;
   priceMax?: number;
   sort: 'newest' | 'price-asc' | 'price-desc' | 'popularity';
@@ -233,6 +235,21 @@ export default class ProductRepository {
         ...((where.AND as Prisma.CatalogProductWhereInput[]) ?? []),
         { variants: { some: sizeCondition } },
       ];
+    }
+
+    // Season isn't tagged on the product itself — it's curated via
+    // CatalogCollection.metadata.season on the (public, non-deleted) OUTFIT
+    // collections a product appears in (see CatalogCollectionItem).
+    if (filters.season) {
+      where.collectionItems = {
+        some: {
+          collection: {
+            isPublic: true,
+            isDeleted: false,
+            metadata: { path: ['season'], equals: filters.season },
+          },
+        },
+      };
     }
 
     return where;

@@ -104,11 +104,24 @@ export default class CollectionService {
       if (!category) return throwResponse(404, 'Category not found');
     }
 
-    // Guard duplicate slug
+    // Guard duplicate slug. This only catches non-deleted rows — the
+    // (tenantId, slug) unique index still blocks a slug held by a
+    // soft-deleted collection, so the create() below can still throw P2002
+    // even after this check passes.
     const existing = await CollectionRepository.findBySlug(tenantId, data.slug);
     if (existing) return throwResponse(409, `Collection slug '${data.slug}' already in use`);
 
-    return CollectionRepository.create(tenantId, { ...data, metadata: toJsonInput(data.metadata) });
+    try {
+      return await CollectionRepository.create(tenantId, {
+        ...data,
+        metadata: toJsonInput(data.metadata),
+      });
+    } catch (error) {
+      const isDuplicateSlug =
+        error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+      if (!isDuplicateSlug) throw error;
+      return throwResponse(409, `Collection slug '${data.slug}' already in use`);
+    }
   }
 
   static async updateCollection(
@@ -173,10 +186,18 @@ export default class CollectionService {
     }
 
     const previousImageUrl = collection.imageUrl;
-    const updated = await CollectionRepository.update(tenantId, id, {
-      ...data,
-      metadata: toJsonInput(data.metadata),
-    });
+    let updated;
+    try {
+      updated = await CollectionRepository.update(tenantId, id, {
+        ...data,
+        metadata: toJsonInput(data.metadata),
+      });
+    } catch (error) {
+      const isDuplicateSlug =
+        error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+      if (!isDuplicateSlug) throw error;
+      return throwResponse(409, `Collection slug '${data.slug}' already in use`);
+    }
 
     // Replacing (or clearing) the cover image orphans the old S3 object —
     // clean it up now that the new value is confirmed saved. Best-effort:

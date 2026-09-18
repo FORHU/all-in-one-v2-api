@@ -76,6 +76,7 @@ export interface ListProductsQuery {
   brands?: string[];
   colorValues?: string[];
   sizeValues?: string[];
+  season?: string;
   priceMin?: number;
   priceMax?: number;
   sort: 'newest' | 'price-asc' | 'price-desc' | 'popularity';
@@ -103,6 +104,9 @@ export default class ProductService {
       brands: query.brands,
       colorValues: query.colorValues,
       sizeValues: query.sizeValues,
+      // Stored uppercase on CatalogCollection.metadata (e.g. "SPRING") —
+      // the public query param stays lowercase like every other filter.
+      season: query.season?.toUpperCase(),
       priceMin: query.priceMin,
       priceMax: query.priceMax,
       sort: query.sort,
