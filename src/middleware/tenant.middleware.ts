@@ -173,7 +173,7 @@ export const requireTenantRole =
 
       const membership = await TenantRepository.getMembership(ctx.tenantId, req.user.id);
 
-      if (!membership || !roles.includes(membership.role)) {
+      if (!membership || membership.status !== 'ACTIVE' || !roles.includes(membership.role)) {
         return res.status(403).json({ message: 'Insufficient tenant permissions' });
       }
 

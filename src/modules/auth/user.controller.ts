@@ -4,6 +4,7 @@ import { UserRole } from '@prisma/client';
 import UserService from './user.service';
 import { responseSuccess, responseError } from '../../helpers/response.helper';
 import { parsePagination } from '../../helpers/pagination.helper';
+import { getTenantId } from '../../utils/async-context';
 
 // Deliberately narrow — UserService.updateUser otherwise accepts a raw
 // Prisma.AuthUserUpdateInput straight through, which would let this endpoint
@@ -26,7 +27,7 @@ export default class UserController {
       const userId = req.user?.id;
       if (!userId) return responseError(res, 401, 'Unauthorized');
 
-      const user = await UserService.getUser(userId);
+      const user = await UserService.getUser(userId, getTenantId());
       return responseSuccess(res, 200, user);
     } catch (error) {
       next(error);
