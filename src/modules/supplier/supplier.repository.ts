@@ -141,7 +141,9 @@ export default class SupplierRepository {
 
     return new Map(
       rows
-        .filter((r): r is { productVariantId: string; externalId: string } => r.productVariantId !== null)
+        .filter(
+          (r): r is { productVariantId: string; externalId: string } => r.productVariantId !== null,
+        )
         .map((r) => [r.productVariantId, r.externalId]),
     );
   }

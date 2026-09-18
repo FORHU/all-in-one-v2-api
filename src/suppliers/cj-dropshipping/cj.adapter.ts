@@ -552,7 +552,11 @@ export class CJDropshippingAdapter implements SupplierAdapter {
         `[CJDropshippingAdapter:placeAndPayOrder] confirmOrder was rejected for order ` +
           `${placed.orderId} — not attempting payment. The order exists on CJ's side unpaid.`,
       );
-      return { orderId: placed.orderId, paid: false, logisticsAutoCorrected: placed.logisticsAutoCorrected };
+      return {
+        orderId: placed.orderId,
+        paid: false,
+        logisticsAutoCorrected: placed.logisticsAutoCorrected,
+      };
     }
 
     const paid = await this.payBalance({ orderId: placed.orderId });
@@ -747,9 +751,14 @@ export class CJDropshippingAdapter implements SupplierAdapter {
 
   /** Line items on this order CJ will accept a dispute against. Call first — not every item is always eligible. */
   async getDisputeProducts(orderId: string): Promise<CJDisputeProduct[]> {
-    const res = await this.request<CJDisputeProduct[]>('/disputes/disputeProducts', 'GET', undefined, {
-      orderId,
-    });
+    const res = await this.request<CJDisputeProduct[]>(
+      '/disputes/disputeProducts',
+      'GET',
+      undefined,
+      {
+        orderId,
+      },
+    );
     return Array.isArray(res?.data) ? res.data : [];
   }
 

@@ -49,11 +49,7 @@ export default class CJOrderFulfillmentService {
       return throwResponse(500, `Supplier partner '${CJ_SUPPLIER_NAME}' is not configured`);
     }
 
-    const existing = await OrderRepository.findSupplierOrderForOrder(
-      tenantId,
-      orderId,
-      partner.id,
-    );
+    const existing = await OrderRepository.findSupplierOrderForOrder(tenantId, orderId, partner.id);
     if (existing) {
       return throwResponse(
         409,

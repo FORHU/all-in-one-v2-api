@@ -141,7 +141,7 @@ describe('Dropshipping Pipeline & Supplier Adapters', () => {
       expect(normalized!.nameEn).toBe("Women's Summer Dress");
     });
 
-    it('normalizeProductDetail cleans productNameEn and every variant\'s variantNameEn the same way', () => {
+    it("normalizeProductDetail cleans productNameEn and every variant's variantNameEn the same way", () => {
       const rawCjDetail = {
         pid: '2408130123456789012',
         productNameEn: 'Dress Women"s Chiffon Summer',
@@ -387,12 +387,24 @@ describe('Dropshipping Pipeline & Supplier Adapters', () => {
 
     it('placeOrder auto-corrects logistics when CJ flags logisticsMiss', async () => {
       mockRequest(cjAdapter, { orderId: 'CJ-REAL-3', logisticsMiss: true });
-      const logisticsSpy = jest
-        .spyOn(cjAdapter, 'getOrderLogisticsInfo')
-        .mockResolvedValue([
-          { id: '1', orderCode: 'CJ-REAL-3', logisticsName: 'Slow Boat', postage: 20, arrivalTime: '30', hasStock: true },
-          { id: '2', orderCode: 'CJ-REAL-3', logisticsName: 'CJPacket Ordinary', postage: 5, arrivalTime: '15', hasStock: true },
-        ]);
+      const logisticsSpy = jest.spyOn(cjAdapter, 'getOrderLogisticsInfo').mockResolvedValue([
+        {
+          id: '1',
+          orderCode: 'CJ-REAL-3',
+          logisticsName: 'Slow Boat',
+          postage: 20,
+          arrivalTime: '30',
+          hasStock: true,
+        },
+        {
+          id: '2',
+          orderCode: 'CJ-REAL-3',
+          logisticsName: 'CJPacket Ordinary',
+          postage: 5,
+          arrivalTime: '15',
+          hasStock: true,
+        },
+      ]);
       const updateSpy = jest.spyOn(cjAdapter, 'updateLogistics').mockResolvedValue(true);
 
       const result = await cjAdapter.placeOrder(samplePayload);

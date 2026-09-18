@@ -29,7 +29,10 @@
  */
 import { redis } from '../src/infrastructure/redis';
 import { CJDropshippingAdapter } from '../src/suppliers/cj-dropshipping/cj.adapter';
-import type { CJProductListV2Item, CJProductDetail } from '../src/suppliers/cj-dropshipping/cj.types';
+import type {
+  CJProductListV2Item,
+  CJProductDetail,
+} from '../src/suppliers/cj-dropshipping/cj.types';
 
 function readFlag(name: string, fallback: string): string {
   const arg = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -127,10 +130,21 @@ async function placeAndFixLogistics(
 }
 
 /** Run 1: cancel a freshly created, never-confirmed sandbox order. */
-async function testCancel(adapter: CJDropshippingAdapter, vid: string, logisticName: string, fromCountryCode: string) {
+async function testCancel(
+  adapter: CJDropshippingAdapter,
+  vid: string,
+  logisticName: string,
+  fromCountryCode: string,
+) {
   process.stdout.write('\n========== CANCEL TEST ==========\n');
   process.stdout.write('1. Placing sandbox order (will NOT be confirmed)...\n');
-  const orderId = await placeAndFixLogistics(adapter, vid, logisticName, fromCountryCode, 'SANDBOX-CANCEL');
+  const orderId = await placeAndFixLogistics(
+    adapter,
+    vid,
+    logisticName,
+    fromCountryCode,
+    'SANDBOX-CANCEL',
+  );
   if (!orderId) return;
 
   process.stdout.write(`\n2. Order ${orderId} is still CREATED — calling cancelOrder()...\n`);
@@ -149,10 +163,21 @@ async function testCancel(adapter: CJDropshippingAdapter, vid: string, logisticN
 }
 
 /** Run 2: confirm + pay a sandbox order, then attempt the dispute (refund) flow against it. */
-async function testRefund(adapter: CJDropshippingAdapter, vid: string, logisticName: string, fromCountryCode: string) {
+async function testRefund(
+  adapter: CJDropshippingAdapter,
+  vid: string,
+  logisticName: string,
+  fromCountryCode: string,
+) {
   process.stdout.write('\n========== REFUND (DISPUTE) TEST ==========\n');
   process.stdout.write('1. Placing sandbox order...\n');
-  const orderId = await placeAndFixLogistics(adapter, vid, logisticName, fromCountryCode, 'SANDBOX-REFUND');
+  const orderId = await placeAndFixLogistics(
+    adapter,
+    vid,
+    logisticName,
+    fromCountryCode,
+    'SANDBOX-REFUND',
+  );
   if (!orderId) return;
 
   process.stdout.write(`\n2. Confirming order (CREATED -> UNPAID)...\n`);
@@ -247,7 +272,7 @@ async function testRefund(adapter: CJDropshippingAdapter, vid: string, logisticN
 
   process.stdout.write(
     created
-      ? '\nRefund test: createDispute reported success — check getDisputeDetail above for CJ\'s actual status/decision.\n'
+      ? "\nRefund test: createDispute reported success — check getDisputeDetail above for CJ's actual status/decision.\n"
       : '\nRefund test: createDispute reported failure — check the logged responses above for why (a sandbox-order rejection is expected, not a bug).\n',
   );
 }
