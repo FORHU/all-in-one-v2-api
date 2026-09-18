@@ -29,6 +29,12 @@ router.patch(
   OrderController.updateStatus,
 );
 router.post('/:id/cancel', authenticate, requirePermission('orders:write'), OrderController.cancel);
+router.post(
+  '/:id/place-with-supplier',
+  authenticate,
+  requirePermission('orders:write'),
+  OrderController.placeWithSupplier,
+);
 router.get(
   '/:id/supplier-orders',
   authenticate,

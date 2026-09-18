@@ -305,4 +305,179 @@ describe('Dropshipping Pipeline & Supplier Adapters', () => {
       expect(ok).toBe(true);
     });
   });
+
+  describe('CJ Real Order Flow', () => {
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    const samplePayload = {
+      orderId: 'ORD-2001',
+      items: [{ productVariantId: 'p1', supplierVariantExternalId: 'vid-456', quantity: 1 }],
+      shippingAddress: {
+        firstName: 'Demo',
+        lastName: 'Customer',
+        address1: '123 Commerce St',
+        city: 'Manila',
+        state: 'NCR',
+        country: 'PH',
+        zip: '1000',
+      },
+    };
+
+    it('placeOrder sends default logistics fields when none are given', async () => {
+      const requestSpy = mockRequest(cjAdapter, { orderId: 'CJ-REAL-1' });
+
+      const result = await cjAdapter.placeOrder(samplePayload);
+
+      expect(requestSpy).toHaveBeenCalledWith(
+        '/shopping/order/createOrderV2',
+        'POST',
+        expect.objectContaining({ logisticName: 'CJPacket Ordinary', fromCountryCode: 'CN' }),
+      );
+      expect(result).toEqual({
+        orderId: 'CJ-REAL-1',
+        logisticsAutoCorrected: false,
+        raw: { orderId: 'CJ-REAL-1' },
+      });
+    });
+
+    it('placeOrder honors an explicit logisticName/fromCountryCode', async () => {
+      const requestSpy = mockRequest(cjAdapter, { orderId: 'CJ-REAL-2' });
+
+      await cjAdapter.placeOrder(samplePayload, {
+        logisticName: 'DHL',
+        fromCountryCode: 'US',
+      });
+
+      expect(requestSpy).toHaveBeenCalledWith(
+        '/shopping/order/createOrderV2',
+        'POST',
+        expect.objectContaining({ logisticName: 'DHL', fromCountryCode: 'US' }),
+      );
+    });
+
+    it('placeOrder auto-corrects logistics when CJ flags logisticsMiss', async () => {
+      mockRequest(cjAdapter, { orderId: 'CJ-REAL-3', logisticsMiss: true });
+      const logisticsSpy = jest
+        .spyOn(cjAdapter, 'getOrderLogisticsInfo')
+        .mockResolvedValue([
+          { id: '1', orderCode: 'CJ-REAL-3', logisticsName: 'Slow Boat', postage: 20, arrivalTime: '30', hasStock: true },
+          { id: '2', orderCode: 'CJ-REAL-3', logisticsName: 'CJPacket Ordinary', postage: 5, arrivalTime: '15', hasStock: true },
+        ]);
+      const updateSpy = jest.spyOn(cjAdapter, 'updateLogistics').mockResolvedValue(true);
+
+      const result = await cjAdapter.placeOrder(samplePayload);
+
+      expect(logisticsSpy).toHaveBeenCalledWith('CJ-REAL-3');
+      expect(updateSpy).toHaveBeenCalledWith({
+        id: '2',
+        orderCode: 'CJ-REAL-3',
+        logisticName: 'CJPacket Ordinary',
+      });
+      expect(result).toEqual(
+        expect.objectContaining({ orderId: 'CJ-REAL-3', logisticsAutoCorrected: true }),
+      );
+    });
+
+    it('placeOrder returns null when logisticsMiss cannot be auto-corrected', async () => {
+      mockRequest(cjAdapter, { orderId: 'CJ-REAL-4', logisticsMiss: true });
+      jest.spyOn(cjAdapter, 'getOrderLogisticsInfo').mockResolvedValue([]);
+
+      const result = await cjAdapter.placeOrder(samplePayload);
+
+      expect(result).toBeNull();
+    });
+
+    it('placeOrder returns null when no orderId can be extracted from the response', async () => {
+      mockRequest(cjAdapter, { someOtherField: 'nope' });
+
+      const result = await cjAdapter.placeOrder(samplePayload);
+
+      expect(result).toBeNull();
+    });
+
+    it('payBalance rejects when neither orderId nor shipmentOrderId is given', async () => {
+      await expect(cjAdapter.payBalance({})).rejects.toThrow(
+        'payBalance requires orderId or shipmentOrderId',
+      );
+    });
+
+    it('payBalance charges the real order balance via /shopping/pay/payBalance', async () => {
+      const requestSpy = mockRequest(cjAdapter, true);
+
+      const paid = await cjAdapter.payBalance({ orderId: 'CJ-REAL-1' });
+
+      expect(requestSpy).toHaveBeenCalledWith('/shopping/pay/payBalance', 'POST', {
+        orderId: 'CJ-REAL-1',
+      });
+      expect(paid).toBe(true);
+    });
+
+    it('placeAndPayOrder places, confirms, then pays in sequence', async () => {
+      const requestSpy = jest
+        .spyOn(cjAdapter as unknown as WithRequest, 'request')
+        .mockResolvedValueOnce({
+          code: 200,
+          result: true,
+          message: 'Success',
+          data: { orderId: 'CJ-REAL-5' },
+          requestId: 'req-1',
+        })
+        .mockResolvedValueOnce({
+          code: 200,
+          result: true,
+          message: 'Success',
+          data: true,
+          requestId: 'req-2',
+        })
+        .mockResolvedValueOnce({
+          code: 200,
+          result: true,
+          message: 'Success',
+          data: true,
+          requestId: 'req-3',
+        });
+
+      const result = await cjAdapter.placeAndPayOrder(samplePayload);
+
+      expect(requestSpy).toHaveBeenNthCalledWith(
+        1,
+        '/shopping/order/createOrderV2',
+        'POST',
+        expect.objectContaining({ orderNumber: 'ORD-2001' }),
+      );
+      expect(requestSpy).toHaveBeenNthCalledWith(2, '/shopping/order/confirmOrder', 'PATCH', {
+        orderId: 'CJ-REAL-5',
+      });
+      expect(requestSpy).toHaveBeenNthCalledWith(3, '/shopping/pay/payBalance', 'POST', {
+        orderId: 'CJ-REAL-5',
+      });
+      expect(result).toEqual({ orderId: 'CJ-REAL-5', paid: true, logisticsAutoCorrected: false });
+    });
+
+    it('placeAndPayOrder stops without paying when confirmOrder is rejected', async () => {
+      const requestSpy = jest
+        .spyOn(cjAdapter as unknown as WithRequest, 'request')
+        .mockResolvedValueOnce({
+          code: 200,
+          result: true,
+          message: 'Success',
+          data: { orderId: 'CJ-REAL-6' },
+          requestId: 'req-1',
+        })
+        .mockResolvedValueOnce({
+          code: 200,
+          result: true,
+          message: 'Success',
+          data: false,
+          requestId: 'req-2',
+        });
+
+      const result = await cjAdapter.placeAndPayOrder(samplePayload);
+
+      expect(requestSpy).toHaveBeenCalledTimes(2);
+      expect(result).toEqual({ orderId: 'CJ-REAL-6', paid: false, logisticsAutoCorrected: false });
+    });
+  });
 });

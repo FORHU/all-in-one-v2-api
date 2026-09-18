@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import Joi from 'joi';
 import { OrderStatus } from '@prisma/client';
 import OrderService from './order.service';
+import CJOrderFulfillmentService from './cj-order-fulfillment.service';
 import { responseSuccess, responseError } from '../../helpers/response.helper';
 import { parsePagination, pageFromRepo } from '../../helpers/pagination.helper';
 import { resolveCustomerId, resolveOrderViewer } from '../../helpers/requester.helper';
@@ -140,6 +141,21 @@ export default class OrderController {
     try {
       const orders = await OrderService.getSupplierOrders(req.params.id);
       return responseSuccess(res, 200, orders);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/v2/orders/:id/place-with-supplier
+   * Admin-triggered: places this order's items with CJ Dropshipping and
+   * pays for it. Not called from checkout — see CJOrderFulfillmentService's
+   * doc comment.
+   */
+  static async placeWithSupplier(req: Request, res: Response, next: NextFunction) {
+    try {
+      const supplierOrder = await CJOrderFulfillmentService.placeOrder(req.params.id);
+      return responseSuccess(res, 201, supplierOrder, 'Order placed with supplier');
     } catch (error) {
       next(error);
     }

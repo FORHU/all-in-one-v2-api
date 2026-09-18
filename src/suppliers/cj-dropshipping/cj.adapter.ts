@@ -13,6 +13,8 @@ import {
   CJCreateOrderParams,
   CJSandboxTargetStatus,
   CJSimulatePayParams,
+  CJPayBalanceParams,
+  CJPlaceOrderResult,
   CJUpdateSandboxStatusParams,
   CJUpdateSandboxTrackNumberParams,
   CJLogisticsOption,
@@ -45,6 +47,19 @@ function parseJsonPreservingBigInts(text: string): unknown {
 const CACHE_VERSION = 'v1';
 const CJ_ACCESS_TOKEN_KEY = `cj:access_token:${CACHE_VERSION}`;
 const CJ_REFRESH_TOKEN_KEY = `cj:refresh_token:${CACHE_VERSION}`;
+
+/**
+ * Fallback shipping method/origin used when a caller doesn't specify one.
+ * Whether CJ's createOrderV2 even accepts a request with these fields
+ * omitted entirely has never been tested (every confirmed live call,
+ * sandbox included, has sent *some* value) — so placeOrder() always sends
+ * one, then corrects it automatically via getOrderLogisticsInfo/
+ * updateLogistics if CJ flags it invalid for this order (logisticsMiss).
+ * Same values scripts/test-cj-sandbox.ts and test-cj-cancel-refund.ts
+ * already default their --logistic/--fromCountry flags to.
+ */
+const DEFAULT_LOGISTIC_NAME = 'CJPacket Ordinary';
+const DEFAULT_FROM_COUNTRY_CODE = 'CN';
 
 const DEFAULT_ACCESS_TOKEN_TTL = 14 * 24 * 60 * 60; // 14 days
 const DEFAULT_REFRESH_TOKEN_TTL = 170 * 24 * 60 * 60; // 170 days
@@ -361,10 +376,158 @@ export class CJDropshippingAdapter implements SupplierAdapter {
     };
   }
 
-  async placeOrder(payload: PlaceOrderPayload): Promise<unknown> {
-    const cjPayload = this.buildCreateOrderPayload(payload);
+  /**
+   * Creates a REAL order (real balance will be charged once payBalance()
+   * runs, real fulfillment follows) — same createOrderV2 call as
+   * placeSandboxOrder but without isSandbox=1. `options.logisticName`/
+   * `fromCountryCode` are optional: when omitted, DEFAULT_LOGISTIC_NAME/
+   * DEFAULT_FROM_COUNTRY_CODE are sent instead and corrected automatically
+   * (see autoCorrectLogistics) if CJ flags them invalid for this specific
+   * product/destination — the same fix-up scripts/test-cj-sandbox.ts and
+   * test-cj-cancel-refund.ts perform by hand, now centralized here so every
+   * caller gets it for free instead of re-implementing it.
+   *
+   * Returns null (logging why) if CJ's response has no data, or no orderId
+   * could be extracted from it, or the order needed a logistics fix that
+   * failed — in every other case the order exists on CJ's side even if this
+   * returns null, so check getOrderStatus/CJ's dashboard before retrying a
+   * null result, or you risk creating a duplicate order.
+   */
+  async placeOrder(
+    payload: PlaceOrderPayload,
+    options?: { logisticName?: string; fromCountryCode?: string },
+  ): Promise<CJPlaceOrderResult | null> {
+    const cjPayload = this.buildCreateOrderPayload(payload, {
+      logisticName: options?.logisticName ?? DEFAULT_LOGISTIC_NAME,
+      fromCountryCode: options?.fromCountryCode ?? DEFAULT_FROM_COUNTRY_CODE,
+    });
     const res = await this.request('/shopping/order/createOrderV2', 'POST', cjPayload);
-    return res?.data;
+    const raw = res?.data as Record<string, unknown> | undefined;
+    if (!raw) {
+      logger.error('[CJDropshippingAdapter:placeOrder] createOrderV2 returned no data');
+      return null;
+    }
+
+    const orderId = this.extractOrderId(raw);
+    if (!orderId) {
+      logger.error(
+        '[CJDropshippingAdapter:placeOrder] Order may have been created but no orderId ' +
+          `could be extracted from the response (tried orderId/orderNum/id): ${JSON.stringify(raw)}`,
+      );
+      return null;
+    }
+
+    let logisticsAutoCorrected = false;
+    if (raw.logisticsMiss) {
+      logisticsAutoCorrected = await this.autoCorrectLogistics(orderId);
+      if (!logisticsAutoCorrected) {
+        logger.error(
+          `[CJDropshippingAdapter:placeOrder] Order ${orderId} was created but CJ rejected ` +
+            'its logistics method and no in-stock alternative could be applied automatically — ' +
+            'it is unshippable (and therefore unpayable) until fixed via updateLogistics.',
+        );
+        return null;
+      }
+    }
+
+    return { orderId, logisticsAutoCorrected, raw };
+  }
+
+  /**
+   * CJ's actual field name for a created order's id has never been
+   * confirmed against a live account — same fallback
+   * scripts/test-cj-sandbox.ts and test-cj-cancel-refund.ts use.
+   */
+  private extractOrderId(raw: Record<string, unknown>): string | null {
+    const candidate = raw.orderId ?? raw.orderNum ?? raw.id;
+    return typeof candidate === 'string' ? candidate : null;
+  }
+
+  /**
+   * Looks up CJ's actual accepted shipping options for an order that came
+   * back with logisticsMiss=true, and switches to the cheapest in-stock
+   * one — same heuristic the manual test scripts use. Returns false (not a
+   * thrown error) if CJ has no in-stock option to offer, or rejects the
+   * switch — the order still exists in that case, just uncorrected.
+   */
+  private async autoCorrectLogistics(orderId: string): Promise<boolean> {
+    const options = await this.getOrderLogisticsInfo(orderId);
+    const chosen = options.filter((o) => o.hasStock).sort((a, b) => a.postage - b.postage)[0];
+    if (!chosen) return false;
+
+    return this.updateLogistics({
+      id: chosen.id,
+      orderCode: orderId,
+      logisticName: chosen.logisticsName,
+    });
+  }
+
+  /**
+   * Real (non-sandbox) equivalent of simulatePay — actually deducts this
+   * order's cost from your CJ account balance. Requires confirmOrder() to
+   * have already moved the order from CREATED to UNPAID first, same
+   * precondition simulatePay has (CJ rejects a payment attempt on a
+   * CREATED order with code 812).
+   *
+   * The endpoint itself is confirmed to exist — an unauthenticated request
+   * to it returns HTTP 401, not 404 — but its parameter/response shape was
+   * triangulated from CJ's public docs and search results, not
+   * ground-truthed against a live account the way simulatePay's sandbox
+   * flow was (see scripts/test-cj-sandbox.ts). A successful call here
+   * spends real money. Verify it manually against one cheap, real order
+   * before this is wired into any automated flow.
+   *
+   * CJ also documents payBalanceV2 (POST /shopping/pay/payBalanceV2) for
+   * paying a parent order with multiple sub-orders in a single call via
+   * shipmentOrderId — not implemented here; this method's own
+   * shipmentOrderId param covers a single sub-order/parent at a time only.
+   */
+  async payBalance(params: CJPayBalanceParams): Promise<boolean> {
+    if (!params.orderId && !params.shipmentOrderId) {
+      throw new Error('payBalance requires orderId or shipmentOrderId');
+    }
+    const res = await this.request<boolean>('/shopping/pay/payBalance', 'POST', params);
+    return Boolean(res?.data);
+  }
+
+  /**
+   * End-to-end REAL order flow: create (auto-fixing logistics if CJ flags
+   * them) -> confirm (CREATED -> UNPAID) -> pay (UNPAID -> PAID, real
+   * balance charge) — the non-sandbox counterpart to what
+   * scripts/test-cj-sandbox.ts drives by hand for a sandbox order.
+   *
+   * This is the adapter-level building block for a future "place this
+   * order with CJ after checkout" integration. It is deliberately NOT
+   * called from anywhere in src/modules or src/consumers yet — nothing in
+   * the checkout flow invokes this. Wire it in only after verifying
+   * payBalance's real behavior against a live account (see its doc
+   * comment) and deciding how a failed confirm/pay here should reflect
+   * back onto the CommerceOrder/CommerceSupplierOrder it was placed for.
+   */
+  async placeAndPayOrder(
+    payload: PlaceOrderPayload,
+    options?: { logisticName?: string; fromCountryCode?: string },
+  ): Promise<{ orderId: string; paid: boolean; logisticsAutoCorrected: boolean } | null> {
+    const placed = await this.placeOrder(payload, options);
+    if (!placed) return null;
+
+    const confirmed = await this.confirmOrder(placed.orderId);
+    if (!confirmed) {
+      logger.error(
+        `[CJDropshippingAdapter:placeAndPayOrder] confirmOrder was rejected for order ` +
+          `${placed.orderId} — not attempting payment. The order exists on CJ's side unpaid.`,
+      );
+      return { orderId: placed.orderId, paid: false, logisticsAutoCorrected: placed.logisticsAutoCorrected };
+    }
+
+    const paid = await this.payBalance({ orderId: placed.orderId });
+    if (!paid) {
+      logger.error(
+        `[CJDropshippingAdapter:placeAndPayOrder] payBalance was rejected for order ` +
+          `${placed.orderId} — the order exists on CJ's side, confirmed but unpaid.`,
+      );
+    }
+    return { orderId: placed.orderId, paid, logisticsAutoCorrected: placed.logisticsAutoCorrected };
   }
 
   async getOrderStatus(externalOrderId: string): Promise<unknown> {

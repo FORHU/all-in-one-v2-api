@@ -1,4 +1,10 @@
-import { Prisma, OrderStatus, ShipmentStatus, PaymentStatus } from '@prisma/client';
+import {
+  Prisma,
+  OrderStatus,
+  ShipmentStatus,
+  PaymentStatus,
+  SupplierOrderStatus,
+} from '@prisma/client';
 import { prisma } from '../../utils/prisma';
 import { paginate } from '../../helpers/pagination.helper';
 
@@ -240,6 +246,46 @@ export default class OrderRepository {
     return prisma.commerceShipment.update({
       where: { id: shipmentId },
       data: { status: status as ShipmentStatus, trackingNumber },
+    });
+  }
+
+  /** Has this order already been placed with this supplier? Used to refuse a duplicate placement. */
+  static async findSupplierOrderForOrder(tenantId: string, orderId: string, supplierId: string) {
+    return prisma.commerceSupplierOrder.findFirst({
+      where: { orderId, supplierId, order: { tenantId } },
+    });
+  }
+
+  /**
+   * Records a successful supplier placement: creates the CommerceSupplierOrder
+   * and links every given CommerceOrderItem to it, in one transaction — a
+   * partial write here (order row created but items unlinked, or vice versa)
+   * would leave the refund flow (see recordSupplierRefundResult) unable to
+   * find which items belong to this supplier order.
+   */
+  static async createSupplierOrderWithItems(
+    tenantId: string,
+    orderId: string,
+    supplierId: string,
+    externalId: string,
+    status: SupplierOrderStatus,
+    rawResponse: Prisma.InputJsonValue,
+    itemIds: string[],
+  ) {
+    return prisma.$transaction(async (tx) => {
+      const supplierOrder = await tx.commerceSupplierOrder.create({
+        data: { orderId, supplierId, externalId, status, rawResponse },
+      });
+
+      await tx.commerceOrderItem.updateMany({
+        where: { id: { in: itemIds }, orderId, tenantId },
+        data: { supplierOrderId: supplierOrder.id },
+      });
+
+      return tx.commerceSupplierOrder.findUniqueOrThrow({
+        where: { id: supplierOrder.id },
+        include: { supplier: true, shipments: true },
+      });
     });
   }
 }
