@@ -1,7 +1,6 @@
 import { supplierRegistry } from '../../src/suppliers/supplier.registry';
 import { CJDropshippingAdapter } from '../../src/suppliers/cj-dropshipping/cj.adapter';
 import { PrintfulAdapter } from '../../src/suppliers/printful/printful.adapter';
-import type { SupplierAdapter } from '../../src/suppliers/supplier.interface';
 
 /** Bypasses auth/rate-limiting/fetch to unit-test just the sandbox methods' request shaping. */
 type WithRequest = { request: (...args: unknown[]) => Promise<unknown> };
@@ -124,14 +123,43 @@ describe('Dropshipping Pipeline & Supplier Adapters', () => {
       expect(variants[0].variantKey).toBe('Black-S');
     });
 
-    it("CJ's raw shape already matches the shared contract, so it implements neither normalizer", () => {
-      // Guards the fallback path in SupplierService:
-      // `adapter.normalizeSearchResult?.(item) ?? item`. If CJ ever needs a
-      // real implementation, this assertion should start failing — replace
-      // it with real assertions the way the Printful ones above are.
-      const cjAsAdapter: SupplierAdapter = cjAdapter;
-      expect(cjAsAdapter.normalizeSearchResult).toBeUndefined();
-      expect(cjAsAdapter.normalizeProductDetail).toBeUndefined();
+    it("normalizeSearchResult cleans CJ's title-escaping artifacts (doubled '' and stray \" before 's) without touching anything else", () => {
+      const rawCjSearchItem = {
+        id: '2408130123456789012',
+        nameEn: "Women''s Summer Dress",
+        sku: 'CJ-DRESS-001',
+        bigImage: 'https://cf.cjdropshipping.com/dress.jpg',
+        sellPrice: 12.99,
+      };
+
+      const normalized = cjAdapter.normalizeSearchResult?.(rawCjSearchItem);
+      expect(normalized).toBeDefined();
+      // Everything else on the item passes through untouched.
+      expect(normalized!.id).toBe(rawCjSearchItem.id);
+      expect(normalized!.bigImage).toBe(rawCjSearchItem.bigImage);
+      // Only the doubled '' is cleaned, to a single apostrophe.
+      expect(normalized!.nameEn).toBe("Women's Summer Dress");
+    });
+
+    it('normalizeProductDetail cleans productNameEn and every variant\'s variantNameEn the same way', () => {
+      const rawCjDetail = {
+        pid: '2408130123456789012',
+        productNameEn: 'Dress Women"s Chiffon Summer',
+        sku: 'CJ-DRESS-001',
+        variants: [
+          { vid: 'v1', variantNameEn: "Kid''s Size S", variantSellPrice: 12.99 },
+          { vid: 'v2', variantNameEn: 'Adult Size M', variantSellPrice: 14.99 },
+        ],
+      };
+
+      const normalized = cjAdapter.normalizeProductDetail?.(rawCjDetail);
+      expect(normalized).toBeDefined();
+      expect(normalized!.productNameEn).toBe("Dress Women's Chiffon Summer");
+
+      const variants = normalized!.variants as Record<string, unknown>[];
+      expect(variants[0].variantNameEn).toBe("Kid's Size S");
+      // A title with nothing to clean passes through unchanged.
+      expect(variants[1].variantNameEn).toBe('Adult Size M');
     });
 
     it('every registered adapter with a normalizeSearchResult always returns a string id — the exact invariant that broke the frontend Zod parse for Printful', () => {

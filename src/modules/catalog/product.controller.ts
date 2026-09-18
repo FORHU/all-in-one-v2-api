@@ -88,6 +88,12 @@ export default class ProductController {
       const categoryId =
         typeof req.query.categoryId === 'string' ? req.query.categoryId : undefined;
       const brand = typeof req.query.brand === 'string' ? req.query.brand : undefined;
+      const hasPricingRule =
+        req.query.pricingRule === 'assigned'
+          ? true
+          : req.query.pricingRule === 'unassigned'
+            ? false
+            : undefined;
 
       const result = await ProductService.listProductsForAdmin(
         page,
@@ -98,6 +104,7 @@ export default class ProductController {
         status,
         categoryId,
         brand,
+        hasPricingRule,
       );
       return responseSuccess(res, 200, result);
     } catch (err) {

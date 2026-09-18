@@ -4,6 +4,7 @@
 
 enum TenantRole {
   OWNER
+  ADMIN_MANAGER
   ADMIN
   MANAGER
   SELLER

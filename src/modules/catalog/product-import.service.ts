@@ -8,6 +8,7 @@ import PricingRuleRepository from './pricing-rule.repository';
 import CategoryRepository from './category.repository';
 import { supplierRegistry } from '../../suppliers/supplier.registry';
 import { throwResponse } from '../../utils/throw-response';
+import { cleanCjText } from '../../suppliers/cj-dropshipping/cj.text.util';
 
 // Neither CJ nor Printful's catalog (pre-fulfillment) payloads carry a real
 // per-variant stock count — CJ's own getInventory() falls back to this same
@@ -98,7 +99,7 @@ function splitCjVariantKey(
 
 function normalizeCjProduct(data: Record<string, unknown>): NormalizedProduct {
   const externalId = String(data.pid || '');
-  const title = String(data.productNameEn || 'Imported Product');
+  const title = cleanCjText(String(data.productNameEn || 'Imported Product'));
   const description = String(data.description || 'Imported product from supplier');
   const bigImage = typeof data.bigImage === 'string' ? data.bigImage : undefined;
   const imageSet = Array.isArray(data.productImageSet) ? (data.productImageSet as string[]) : [];
@@ -112,12 +113,23 @@ function normalizeCjProduct(data: Record<string, unknown>): NormalizedProduct {
   const variants: NormalizedVariant[] = rawVariants
     .map((v) => {
       const variantKey = typeof v.variantKey === 'string' ? v.variantKey : undefined;
+      const attributes = splitCjVariantKey(productKeyEn, variantKey);
+      const variantNameEn = typeof v.variantNameEn === 'string' ? v.variantNameEn.trim() : '';
+      // CJ sends an explicit `null` for variantNameEn on a chunk of older
+      // products — falling back to the bare variantKey ("Khaki-S") there
+      // reads as a disconnected fragment next to properly named variants of
+      // other products, so compose "<product title> <Color> <Size>" from
+      // the already-parsed attributes instead, when that parse succeeded.
+      const fallbackTitle =
+        attributes && !('variant' in attributes)
+          ? [title, ...Object.values(attributes)].join(' ')
+          : variantKey || title;
       return {
         externalId: String(v.vid || ''),
-        title: String(v.variantNameEn || variantKey || title),
+        title: cleanCjText(variantNameEn || fallbackTitle),
         sku: typeof v.variantSku === 'string' ? v.variantSku : undefined,
         price: toOptionalNumber(v.variantSellPrice),
-        attributes: splitCjVariantKey(productKeyEn, variantKey),
+        attributes,
         images: typeof v.variantImage === 'string' ? [v.variantImage] : [],
       };
     })
@@ -207,9 +219,11 @@ export class ProductImportService {
     supplierName: string,
     externalData: Record<string, unknown>,
     // Admin's explicit category choice from the import UI. `undefined` (param
-    // omitted) preserves today's auto-create-from-supplier-label behavior —
-    // this is also what the unattended resync consumer relies on, since
-    // there's no admin present there to make a choice. `null` means the
+    // omitted — what the unattended resync consumer always passes, since
+    // there's no admin present to make a choice) auto-derives a category
+    // from the supplier's label on a brand-new product, but leaves an
+    // already-catalogued product's category untouched on resync — see the
+    // categoryId branch inside the transaction below. `null` means the
     // admin explicitly chose "No category".
     categoryId?: string | null,
   ) {
@@ -274,18 +288,37 @@ export class ProductImportService {
 
     const importedProduct = await prisma.$transaction(
       async (tx) => {
+        // Needed up front to tell a genuinely new import apart from a
+        // resync of a product that's already in the catalog — see the
+        // categoryId branch below.
+        const existingProduct = await tx.catalogProduct.findUnique({
+          where: { tenantId_slug: { tenantId, slug } },
+          select: { id: true },
+        });
+
         // Three-way: an explicit categoryId (string) is the admin's real
         // choice from the import UI and is used as-is; `null` is the admin's
-        // explicit "No category"; `undefined` (param omitted, e.g. the
+        // explicit "No category". `undefined` (param omitted, e.g. the
         // unattended resync consumer) falls back to matching/creating a
         // tenant CatalogCategory from the supplier's own category label —
-        // re-imports of the same product name-match onto the same category
-        // (or a renamed one) rather than creating dupes.
-        let category: { id: string } | null;
+        // but only for a brand-new product. For a product that already
+        // exists, `undefined` instead leaves its category alone: CJ's
+        // categoryName is a raw, unstable breadcrumb string (separators and
+        // capitalization vary release to release — "Women's Clothing > X"
+        // vs "Womens Clothing/X" have both been seen for the same real
+        // category), so recomputing it on every resync silently knocked
+        // products out of whatever category an admin had filed them under
+        // and into a freshly auto-created, unslugified-looking one.
+        // `category === undefined` here is intentional, not an oversight —
+        // it makes `categoryId: category?.id` below a no-op key for Prisma's
+        // update (undefined values are skipped), leaving the column as-is.
+        let category: { id: string } | null | undefined;
         if (categoryId === undefined) {
-          category = normalized.categoryName
-            ? await CategoryRepository.findOrCreateByName(tenantId, normalized.categoryName, tx)
-            : null;
+          category = existingProduct
+            ? undefined
+            : normalized.categoryName
+              ? await CategoryRepository.findOrCreateByName(tenantId, normalized.categoryName, tx)
+              : null;
         } else if (categoryId === null) {
           category = null;
         } else {

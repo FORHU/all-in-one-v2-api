@@ -10,5 +10,7 @@ router.get('/me', authenticate, UserController.getMe);
 // POST /api/v2/auth/register, which hashes passwords and issues tokens.
 router.get('/', authenticate, requirePermission('platform:manage'), UserController.index);
 router.post('/', authenticate, requirePermission('platform:manage'), UserController.create);
+router.patch('/:id', authenticate, requirePermission('platform:manage'), UserController.update);
+router.delete('/:id', authenticate, requirePermission('platform:manage'), UserController.remove);
 
 export default router;

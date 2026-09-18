@@ -74,19 +74,20 @@ export default class AttributeRepository {
     });
   }
 
-  /** Update attribute metadata */
-  static async update(tenantId: string, id: string, data: Prisma.CatalogAttributeUpdateInput) {
-    return prisma.catalogAttribute.update({
-      where: { id },
-      data,
-      include: { values: true },
-    });
+  /** Update attribute metadata — `tenantId` scopes the write even though the service already checked ownership, same defense-in-depth idiom as ProductRepository.updateVariant. */
+  static async update(
+    tenantId: string,
+    id: string,
+    data: Prisma.CatalogAttributeUncheckedUpdateManyInput,
+  ) {
+    await prisma.catalogAttribute.updateMany({ where: { id, tenantId }, data });
+    return this.findById(tenantId, id);
   }
 
   /** Delete attribute and associated values */
   static async delete(tenantId: string, id: string) {
-    return prisma.catalogAttribute.delete({
-      where: { id },
+    return prisma.catalogAttribute.deleteMany({
+      where: { id, tenantId },
     });
   }
 
@@ -100,6 +101,13 @@ export default class AttributeRepository {
         attributeId,
         ...data,
       },
+    });
+  }
+
+  /** Tenant-scoped lookup for a value via its parent attribute — used to verify ownership before delete, since CatalogAttributeValue carries no tenantId of its own. */
+  static async findValueById(tenantId: string, valueId: string) {
+    return prisma.catalogAttributeValue.findFirst({
+      where: { id: valueId, attribute: { tenantId } },
     });
   }
 
