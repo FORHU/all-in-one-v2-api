@@ -437,10 +437,17 @@ export default class OrderService {
   }
 
   /**
-   * Cancels an order that hasn't been paid for yet. Once a payment has been
-   * captured (PAID), cancelling here would silently strand the charge — the
-   * admin has to go through the Returns workflow instead, which issues a
-   * real Stripe refund (see ReturnService.issueRefund).
+   * Cancels an order that hasn't been paid for yet, and hasn't already been
+   * placed with a supplier. Once a payment has been captured (PAID),
+   * cancelling here would silently strand the charge — the admin has to go
+   * through the Returns workflow instead, which issues a real Stripe refund
+   * (see ReturnService.issueRefund). Once a CommerceSupplierOrder exists
+   * (see CJOrderFulfillmentService.placeOrder), real money has already been
+   * spent placing/paying for it with the supplier — cancelling the
+   * CommerceOrder here wouldn't tell the supplier to stop, and wouldn't get
+   * that money back, so the same "go through Returns instead" rule applies
+   * even if the customer's own payment happens to not be PAID yet (e.g.
+   * cash-on-delivery).
    */
   static async cancelOrder(orderId: string) {
     const tenantId = requireTenantId();
@@ -452,6 +459,13 @@ export default class OrderService {
     const hasCapturedPayment = order.payments?.some((p) => p.status === PaymentStatus.PAID);
     if (hasCapturedPayment) {
       return throwResponse(409, 'Order has a captured payment — issue a refund instead');
+    }
+
+    if (order.supplierOrders?.length > 0) {
+      return throwResponse(
+        409,
+        'Order has already been placed with a supplier — issue a refund instead',
+      );
     }
 
     return OrderRepository.updateStatus(tenantId, orderId, OrderStatus.CANCELLED);
