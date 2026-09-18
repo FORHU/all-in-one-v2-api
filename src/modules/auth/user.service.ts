@@ -2,17 +2,25 @@ import { Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { UserRepository } from './user.repository';
 import { throwResponse } from '../../utils/throw-response';
+import TenantRepository from '../tenant/tenant.repository';
 
 export class UserService {
-  static async getUserProfile(userId: string) {
+  static async getUserProfile(userId: string, tenantId?: string) {
     const user = await UserRepository.findById(userId);
     if (!user) return throwResponse(404, 'User not found');
     const { password: _password, ...rest } = user;
-    return rest;
+
+    if (!tenantId) return rest;
+
+    const membership = await TenantRepository.getMembership(tenantId, userId);
+    return {
+      ...rest,
+      tenantMembership: membership ? { role: membership.role, status: membership.status } : null,
+    };
   }
 
-  static async getUser(userId: string) {
-    return this.getUserProfile(userId);
+  static async getUser(userId: string, tenantId?: string) {
+    return this.getUserProfile(userId, tenantId);
   }
 
   static async createUser(data: Prisma.AuthUserCreateInput) {

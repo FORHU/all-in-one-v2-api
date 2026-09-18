@@ -17,6 +17,9 @@ export type Permission =
   // Settings
   | 'tenant_settings:read'
   | 'tenant_settings:write'
+  // Staff
+  | 'tenant_staff:read'
+  | 'tenant_staff:manage'
   // Platform
   | 'platform:manage';
 
@@ -34,6 +37,8 @@ export const PLATFORM_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'analytics:read',
     'tenant_settings:read',
     'tenant_settings:write',
+    'tenant_staff:read',
+    'tenant_staff:manage',
   ],
   [UserRole.DEVELOPER]: [
     'platform:manage',
@@ -48,6 +53,8 @@ export const PLATFORM_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'analytics:read',
     'tenant_settings:read',
     'tenant_settings:write',
+    'tenant_staff:read',
+    'tenant_staff:manage',
   ],
   [UserRole.USER]: [],
 };
@@ -65,6 +72,23 @@ export const TENANT_ROLE_PERMISSIONS: Record<TenantRole, Permission[]> = {
     'analytics:read',
     'tenant_settings:read',
     'tenant_settings:write',
+    'tenant_staff:read',
+    'tenant_staff:manage',
+  ],
+  [TenantRole.ADMIN_MANAGER]: [
+    'catalog:read',
+    'catalog:write',
+    'catalog:delete',
+    'orders:read',
+    'orders:write',
+    'orders:refund',
+    'customers:read',
+    'customers:write',
+    'analytics:read',
+    'tenant_settings:read',
+    'tenant_settings:write',
+    'tenant_staff:read',
+    'tenant_staff:manage',
   ],
   [TenantRole.ADMIN]: [
     'catalog:read',
@@ -78,6 +102,10 @@ export const TENANT_ROLE_PERMISSIONS: Record<TenantRole, Permission[]> = {
     'analytics:read',
     'tenant_settings:read',
     'tenant_settings:write',
+    // Can see the store's roster but not grant/edit/revoke — see
+    // membership.route.ts, where GET / only requires this, while
+    // POST/PATCH/DELETE still require the stricter tenant_staff:manage.
+    'tenant_staff:read',
   ],
   [TenantRole.MANAGER]: [
     'catalog:read',
