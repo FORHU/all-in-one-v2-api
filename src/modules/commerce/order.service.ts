@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import OrderRepository from './order.repository';
 import CartRepository from './cart.repository';
 import CustomerRepository from './customer.repository';
@@ -7,11 +8,58 @@ import PromotionRepository from '../promotion/promotion.repository';
 import PromotionEngine, { PromotionLineItem } from '../promotion/promotion.engine';
 import InventoryRepository from '../inventory/inventory.repository';
 import NotificationRepository from '../system/notification.repository';
+import SupplierRepository from '../supplier/supplier.repository';
+import { CJDropshippingAdapter } from '../../suppliers/cj-dropshipping/cj.adapter';
 import { OrderStatus, PaymentStatus, Prisma, Coupon } from '@prisma/client';
 import { throwResponse } from '../../utils/throw-response';
 import { requireTenantId } from '../../utils/async-context';
 import { prisma } from '../../utils/prisma';
+import CacheUtil from '../../utils/cache.util';
 import logger from '../../utils/logger';
+
+const CJ_SUPPLIER_NAME = 'cj-dropshipping';
+const SHIPPING_QUOTE_TTL_SECONDS = 900; // 15 min — long enough to cover checkout, short enough that a stale price never survives to a much-later retry.
+const DEFAULT_FREIGHT_ORIGIN_COUNTRY = 'CN'; // Matches CJDropshippingAdapter's own DEFAULT_FROM_COUNTRY_CODE.
+const MAX_DEFAULT_DELIVERY_DAYS = 14; // ~2 weeks — the slowest a *default-selected* option may be; slower ones still show up, just not pre-picked.
+
+/**
+ * Pulls the slower end of a CJ `aging` string (e.g. "6-9", "12-50") — the
+ * number that matters for "will this actually arrive within N days" is the
+ * upper bound, not the optimistic one. Returns null for anything
+ * unparseable (including the fallback option, which has no aging at all),
+ * so it never accidentally qualifies as fast.
+ */
+function parseMaxDeliveryDays(aging?: string): number | null {
+  if (!aging) return null;
+  const match = aging.match(/(\d+)(?:\D+(\d+))?/);
+  if (!match) return null;
+  return Number(match[2] ?? match[1]);
+}
+
+/** One shipping method a customer can choose at checkout, with its real price. */
+export interface ShippingQuoteOption {
+  logisticName: string;
+  price: number;
+  aging?: string;
+}
+
+export interface ShippingQuoteResult {
+  quoteId: string | null;
+  options: ShippingQuoteOption[];
+  /** 'cj-dropshipping' when every item was live-quoted; 'fallback' when some/all items aren't sourced from a supplier this can quote yet (see getShippingQuote's doc comment). */
+  source: 'cj-dropshipping' | 'fallback';
+}
+
+/**
+ * Flat placeholder used only when a cart can't be live-quoted (see
+ * getShippingQuote) — e.g. a first-party item, or one not yet mapped to a
+ * supplier. Better than blocking checkout entirely; worth revisiting once
+ * non-CJ catalog items are common enough for this to matter.
+ */
+const FALLBACK_SHIPPING_OPTION: ShippingQuoteOption = {
+  logisticName: 'Standard Shipping',
+  price: 9.99,
+};
 
 /**
  * Who is asking to see an order: a signed-in customer, a guest holding the
@@ -99,6 +147,8 @@ export default class OrderService {
     couponCode?: string;
     promotionCode?: string;
     currency?: string;
+    shippingQuoteId?: string;
+    shippingLogisticName?: string;
   }) {
     const {
       customerId,
@@ -107,6 +157,8 @@ export default class OrderService {
       couponCode,
       promotionCode,
       currency = 'USD',
+      shippingQuoteId,
+      shippingLogisticName,
     } = params;
 
     if (!customerId && !sessionId) {
@@ -134,6 +186,8 @@ export default class OrderService {
       couponCode,
       promotionCode,
       currency,
+      shippingQuoteId,
+      shippingLogisticName,
       afterCreate: async (tx) => {
         // Clear the cart we actually read from inside the transaction.
         // Stock has been reserved above (Optimistic locking is available in InventoryRepository).
@@ -160,6 +214,8 @@ export default class OrderService {
     couponCode?: string;
     promotionCode?: string;
     currency?: string;
+    shippingQuoteId?: string;
+    shippingLogisticName?: string;
   }) {
     const {
       customerId,
@@ -169,6 +225,8 @@ export default class OrderService {
       couponCode,
       promotionCode,
       currency = 'USD',
+      shippingQuoteId,
+      shippingLogisticName,
     } = params;
 
     if (!items || items.length === 0) {
@@ -185,6 +243,8 @@ export default class OrderService {
       couponCode,
       promotionCode,
       currency,
+      shippingQuoteId,
+      shippingLogisticName,
     });
 
     // Best-effort: the order is already committed at this point, so a
@@ -279,6 +339,125 @@ export default class OrderService {
   }
 
   /**
+   * Live shipping quote for a would-be checkoutDirect cart — called from the
+   * checkout page once a destination is known, before the customer pays.
+   * Resolves each {productId,size,color} to a real variant (same matching
+   * checkoutDirect itself uses), maps those variants to CJ Dropshipping's
+   * own variant ids, and asks CJ for real prices via calculateFreight.
+   *
+   * Deliberately CJ-only for this first pass, same simplification
+   * CJOrderFulfillmentService already makes for placing the supplier order
+   * itself: if any item in the cart isn't CJ-sourced (unmapped — e.g.
+   * first-party stock, or a supplier integration added later), there's no
+   * live rate to ask for, so this falls back to FALLBACK_SHIPPING_OPTION
+   * rather than blocking checkout. Splitting a mixed-supplier cart's
+   * shipping into multiple quotes is future work, same as fulfillment.
+   *
+   * The returned quoteId must be round-tripped back into checkoutDirect
+   * (as shippingQuoteId) to actually charge this price — see
+   * resolveQuotedShipping. Options are cached server-side specifically so
+   * checkout never has to trust a price the client sends back.
+   */
+  static async getShippingQuote(params: {
+    items: { productId: string; size?: string; color?: string; quantity: number }[];
+    countryCode: string;
+    zip?: string;
+  }): Promise<ShippingQuoteResult> {
+    const tenantId = requireTenantId();
+    const resolvedItems = await this.resolveDirectCheckoutItems(tenantId, params.items);
+
+    const variantIds = resolvedItems.map((item) => item.productVariantId);
+    const vidByVariantId = await SupplierRepository.findVariantMappingsBySupplier(
+      CJ_SUPPLIER_NAME,
+      variantIds,
+    );
+
+    const allMapped = resolvedItems.every((item) => vidByVariantId.has(item.productVariantId));
+
+    let options: ShippingQuoteOption[];
+    let source: ShippingQuoteResult['source'];
+
+    if (!allMapped) {
+      logger.warn(
+        '[OrderService:getShippingQuote] One or more items are not sourced from ' +
+          `${CJ_SUPPLIER_NAME} — falling back to a flat shipping rate for this quote.`,
+      );
+      options = [FALLBACK_SHIPPING_OPTION];
+      source = 'fallback';
+    } else {
+      const cjAdapter = new CJDropshippingAdapter();
+      const freightOptions = await cjAdapter.calculateFreight({
+        startCountryCode: DEFAULT_FREIGHT_ORIGIN_COUNTRY,
+        endCountryCode: params.countryCode,
+        zip: params.zip,
+        products: resolvedItems.map((item) => ({
+          vid: vidByVariantId.get(item.productVariantId) as string,
+          quantity: item.quantity,
+        })),
+      });
+
+      if (freightOptions.length === 0) {
+        logger.warn(
+          '[OrderService:getShippingQuote] CJ returned no freight options — falling back to a flat rate.',
+        );
+        options = [FALLBACK_SHIPPING_OPTION];
+        source = 'fallback';
+      } else {
+        // options[0] is what checkout pre-selects (see resolveQuotedShipping
+        // and CheckoutPage.tsx), so this ordering *is* the default-pick
+        // rule: cheapest among methods that arrive within
+        // MAX_DEFAULT_DELIVERY_DAYS, falling back to cheapest overall only
+        // when nothing qualifies. Slower/unparseable options aren't
+        // dropped — they still show up in the "Change" list, just ranked
+        // after the ones that qualify.
+        options = freightOptions
+          .map((o) => ({
+            logisticName: o.logisticName,
+            price: Number(o.logisticPrice),
+            aging: o.logisticAging,
+          }))
+          .sort((a, b) => {
+            const aDays = parseMaxDeliveryDays(a.aging);
+            const bDays = parseMaxDeliveryDays(b.aging);
+            const aQualifies = aDays !== null && aDays <= MAX_DEFAULT_DELIVERY_DAYS;
+            const bQualifies = bDays !== null && bDays <= MAX_DEFAULT_DELIVERY_DAYS;
+            if (aQualifies !== bQualifies) return aQualifies ? -1 : 1;
+            return a.price - b.price;
+          });
+        source = 'cj-dropshipping';
+      }
+    }
+
+    const quoteId = randomUUID();
+    await CacheUtil.set(`shipping:quote:${tenantId}:${quoteId}`, { options }, SHIPPING_QUOTE_TTL_SECONDS);
+
+    return { quoteId, options, source };
+  }
+
+  /**
+   * Re-reads a quote produced by getShippingQuote and picks the option the
+   * customer selected — the price actually charged always comes from here,
+   * never from anything the client sends directly, same principle as the
+   * Stripe PaymentIntent amount always being derived server-side. Returns
+   * null when the quote has expired or `logisticName` doesn't match any
+   * cached option, so the caller can ask the customer to recalculate rather
+   * than silently charging the wrong (or no) shipping fee.
+   */
+  private static async resolveQuotedShipping(
+    quoteId: string,
+    logisticName?: string,
+  ): Promise<ShippingQuoteOption | null> {
+    const tenantId = requireTenantId();
+    const cached = await CacheUtil.get<{ options: ShippingQuoteOption[] }>(
+      `shipping:quote:${tenantId}:${quoteId}`,
+    );
+    if (!cached || cached.options.length === 0) return null;
+
+    if (!logisticName) return cached.options[0];
+    return cached.options.find((o) => o.logisticName === logisticName) ?? null;
+  }
+
+  /**
    * Shared by checkoutFromCart and checkoutDirect: subtotal/coupon/discount
    * math, stock reservation, and the CommerceOrder-creation transaction.
    * `afterCreate` runs inside the same transaction as order creation (used
@@ -295,6 +474,8 @@ export default class OrderService {
       couponCode?: string;
       promotionCode?: string;
       currency?: string;
+      shippingQuoteId?: string;
+      shippingLogisticName?: string;
       afterCreate?: (tx: Prisma.TransactionClient) => Promise<void>;
     },
   ) {
@@ -306,6 +487,8 @@ export default class OrderService {
       couponCode,
       promotionCode,
       currency = 'USD',
+      shippingQuoteId,
+      shippingLogisticName,
     } = params;
 
     if (shippingAddressId) {
@@ -367,12 +550,28 @@ export default class OrderService {
     let discountAmount = couponDiscount.plus(promoEvaluation.discountAmount);
     if (discountAmount.greaterThan(subtotal)) discountAmount = subtotal;
 
-    // Tax and shipping are stored per order but not yet calculated. Once
-    // shipping is real, `promoEvaluation.freeShipping` zeroes it here.
+    // Tax isn't calculated yet — still a real gap, unrelated to shipping.
     const taxAmount = new Prisma.Decimal(0);
-    const shippingAmount = promoEvaluation.freeShipping
-      ? new Prisma.Decimal(0)
-      : new Prisma.Decimal(0);
+
+    // Shipping comes from a quote produced by getShippingQuote and cached
+    // server-side under its quoteId — never from a raw price the client
+    // sends, for the same reason the Stripe PaymentIntent amount is always
+    // derived server-side. No quoteId at all (e.g. an older client, or
+    // checkoutFromCart's guest flow before it's wired into a quote step)
+    // means "no real shipping charge yet," same as before this existed.
+    let shippingAmount = new Prisma.Decimal(0);
+    if (shippingQuoteId) {
+      const quoted = await this.resolveQuotedShipping(shippingQuoteId, shippingLogisticName);
+      if (!quoted) {
+        return throwResponse(
+          400,
+          'Shipping quote has expired or is no longer valid — please recalculate shipping and try again',
+        );
+      }
+      shippingAmount = new Prisma.Decimal(quoted.price);
+    }
+    if (promoEvaluation.freeShipping) shippingAmount = new Prisma.Decimal(0);
+
     const totalAmount = subtotal.minus(discountAmount).plus(taxAmount).plus(shippingAmount);
 
     // Reserve stock. Dropship/print-on-demand variants (no InventoryLocation

@@ -19,6 +19,8 @@ import {
   CJUpdateSandboxTrackNumberParams,
   CJLogisticsOption,
   CJUpdateLogisticsParams,
+  CJFreightCalculateParams,
+  CJFreightOption,
   CJDisputeProduct,
   CJDisputeConfirmInfo,
   CJCreateDisputeParams,
@@ -675,6 +677,32 @@ export class CJDropshippingAdapter implements SupplierAdapter {
   }
 
   // --- Logistics ---
+
+  /**
+   * Quotes real shipping methods + prices for a destination *before* any
+   * order exists — unlike getOrderLogisticsInfo below, which only works on
+   * an order CJ has already created. This is what lets checkout show the
+   * customer a real price instead of the flat placeholder rate. Prices in
+   * the response are ordinary numbers (not CJ's 19-digit ids), so the
+   * shared request() helper's plain JSON parsing is fine here — no need for
+   * getOrderLogisticsInfo's big-integer-preserving parse.
+   */
+  async calculateFreight(params: CJFreightCalculateParams): Promise<CJFreightOption[]> {
+    const res = await this.request<CJFreightOption[]>(
+      '/logistic/freightCalculate',
+      'POST',
+      params,
+    );
+
+    if (!res?.result || res.code !== 200) {
+      logger.error(
+        '[CJDropshippingAdapter] API error for /logistic/freightCalculate:',
+        res?.message,
+      );
+      return [];
+    }
+    return Array.isArray(res.data) ? res.data : [];
+  }
 
   /**
    * Real shipping methods CJ will accept for an already-created order. Call

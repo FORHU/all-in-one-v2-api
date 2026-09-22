@@ -106,6 +106,39 @@ export interface CJOrderItem {
   quantity: number;
 }
 
+/**
+ * Params for POST /logistic/freightCalculate — quotes real shipping methods
+ * and prices for a set of variants + destination *before* any order exists
+ * (unlike getOrderLogisticsInfo, which only works on an already-created
+ * order). `startCountryCode` is CJ's shipping origin (same default as
+ * placeOrder's DEFAULT_FROM_COUNTRY_CODE, 'CN', unless the item ships from
+ * a different warehouse); `zip` is optional but improves accuracy for
+ * countries where duties/remote-area surcharges depend on it.
+ */
+export interface CJFreightCalculateParams {
+  startCountryCode: string;
+  endCountryCode: string;
+  zip?: string;
+  products: { vid: string; quantity: number }[];
+}
+
+/**
+ * Row shape of POST /logistic/freightCalculate's response — one shipping
+ * method CJ can offer for the given products+destination, with its price.
+ * Not ground-truthed against a live account (unlike CJLogisticsOption);
+ * field names follow CJ's published docs.
+ */
+export interface CJFreightOption {
+  logisticName: string;
+  logisticPrice: number;
+  logisticPriceCn?: number;
+  logisticAging: string;
+  taxesFee?: number;
+  clearanceOperationFee?: number;
+  totalPostageFee?: number;
+  [key: string]: unknown;
+}
+
 export interface CJCreateOrderParams {
   orderNumber: string;
   shippingCountryCode: string;

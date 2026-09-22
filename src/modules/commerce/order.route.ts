@@ -11,6 +11,9 @@ const router = express.Router();
 // Listing orders is an admin operation, same as GET /api/v2/customers.
 router.get('/', authenticate, requirePermission('orders:read'), OrderController.index);
 
+// Public — a shopper should see a real shipping fee before signing in.
+router.post('/shipping-quote', optionalAuthenticate, OrderController.shippingQuote);
+
 // Guests may check out with an x-session-id cart, so auth is optional here.
 router.post('/checkout', optionalAuthenticate, OrderController.checkout);
 
