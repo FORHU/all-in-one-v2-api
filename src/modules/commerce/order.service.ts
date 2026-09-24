@@ -9,6 +9,13 @@ import PromotionEngine, { PromotionLineItem } from '../promotion/promotion.engin
 import InventoryRepository from '../inventory/inventory.repository';
 import NotificationRepository from '../system/notification.repository';
 import SupplierRepository from '../supplier/supplier.repository';
+import ReturnRepository from './return.repository';
+// Deferred: PaymentService imports OrderService, so this is a real circular
+// dependency. Only referenced inside rejectOrder's method body below (never
+// at module-evaluation time), which is safe under CommonJS circular
+// requires — by the time a request actually calls rejectOrder, both
+// modules have finished loading and PaymentService.default is populated.
+import PaymentService from './payment.service';
 import { CJDropshippingAdapter } from '../../suppliers/cj-dropshipping/cj.adapter';
 import { OrderStatus, PaymentStatus, Prisma, Coupon } from '@prisma/client';
 import { throwResponse } from '../../utils/throw-response';
@@ -718,15 +725,19 @@ export default class OrderService {
       return throwResponse(400, `Invalid order status '${status}'`);
     }
 
-    // CANCELLED/REFUNDED carry real financial consequences (voiding or
-    // returning a captured payment) that this generic endpoint has no way
+    // CANCELLED/REFUNDED/REJECTED carry real financial consequences (voiding
+    // or returning a captured payment) that this generic endpoint has no way
     // to check — it would just relabel the order and fake-sync the payment
-    // row without ever touching Stripe. Route those two through the
-    // dedicated, guarded paths instead.
-    if (status === OrderStatus.CANCELLED || status === OrderStatus.REFUNDED) {
+    // row without ever touching Stripe. Route those through the dedicated,
+    // guarded paths instead.
+    if (
+      status === OrderStatus.CANCELLED ||
+      status === OrderStatus.REFUNDED ||
+      status === OrderStatus.REJECTED
+    ) {
       return throwResponse(
         400,
-        'Use POST /orders/:id/cancel to cancel an order, or the Returns workflow to refund one',
+        'Use POST /orders/:id/cancel to cancel an order, POST /orders/:id/reject to reject a paid one, or the Returns workflow to refund one',
       );
     }
 
@@ -772,6 +783,81 @@ export default class OrderService {
     }
 
     return OrderRepository.updateStatus(tenantId, orderId, OrderStatus.CANCELLED);
+  }
+
+  /**
+   * Declines to fulfill a PAID order before it's ever placed with a
+   * supplier — the "no" counterpart to CJOrderFulfillmentService.placeOrder
+   * on the admin side. Unlike cancelOrder (blocked once a payment is
+   * captured), this is specifically FOR a captured payment: it issues a
+   * real refund for the full order total immediately
+   * (PaymentService.refundPayment) and records it as a Refund row, same
+   * "don't wait for the webhook" pattern ReturnService.issueRefund already
+   * uses — just without a Return behind it, since nothing was shipped back.
+   */
+  static async rejectOrder(orderId: string, reason?: string) {
+    const tenantId = requireTenantId();
+    const order = await OrderRepository.findById(tenantId, orderId);
+    if (!order) {
+      return throwResponse(404, 'Order not found');
+    }
+
+    if (order.status !== OrderStatus.PROCESSING) {
+      return throwResponse(
+        409,
+        `Only a paid, not-yet-fulfilled order can be rejected (current status: ${order.status})`,
+      );
+    }
+
+    if (order.supplierOrders?.length > 0) {
+      return throwResponse(
+        409,
+        'Order has already been placed with a supplier — use the Returns workflow instead',
+      );
+    }
+
+    const paidPayment = order.payments?.find((p) => p.status === PaymentStatus.PAID);
+    if (!paidPayment) {
+      return throwResponse(409, 'Order has no paid payment to refund');
+    }
+
+    const { transactionId } = await PaymentService.refundPayment(
+      orderId,
+      order.totalAmount.toNumber(),
+    );
+    // No returnId — this refund didn't come through the Returns workflow.
+    await ReturnRepository.createRefund(
+      tenantId,
+      orderId,
+      undefined,
+      order.totalAmount.toNumber(),
+      transactionId,
+      reason,
+    );
+
+    const rejected = await OrderRepository.updateStatus(tenantId, orderId, OrderStatus.REJECTED);
+
+    // Best-effort, same reasoning as checkoutDirect's own notification: a
+    // notification hiccup shouldn't turn a successful rejection+refund into
+    // a failed request. Guest orders (no linked user) have nothing to notify.
+    if (order.customer?.userId) {
+      try {
+        await NotificationRepository.createNotification(tenantId, {
+          user: { connect: { id: order.customer.userId } },
+          type: 'ORDER_STATUS',
+          channel: 'IN_APP',
+          title: 'Order Rejected',
+          message: `Your order ${order.orderNumber} was rejected${
+            reason ? `: ${reason}` : ''
+          }. A full refund has been issued.`,
+          data: { orderId: order.id, orderNumber: order.orderNumber },
+        });
+      } catch (err) {
+        logger.warn(`Failed to create order-rejected notification for order ${order.id}: ${err}`);
+      }
+    }
+
+    return rejected;
   }
 
   static async getSupplierOrders(orderId: string) {

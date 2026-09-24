@@ -52,6 +52,10 @@ const shippingQuoteSchema = Joi.object({
   zip: Joi.string().trim().optional(),
 });
 
+const rejectOrderSchema = Joi.object({
+  reason: Joi.string().trim().max(500).optional(),
+});
+
 export default class OrderController {
   /**
    * GET /api/v2/orders
@@ -199,6 +203,23 @@ export default class OrderController {
       return responseSuccess(res, 200, order, 'Order cancelled');
     } catch (error) {
       next(error);
+    }
+  }
+
+  /**
+   * POST /api/v2/orders/:id/reject
+   * Admin declines to fulfill a paid order — issues a full refund and marks
+   * it REJECTED. See OrderService.rejectOrder's doc comment.
+   */
+  static async reject(req: Request, res: Response, next: NextFunction) {
+    const { error, value } = rejectOrderSchema.validate(req.body);
+    if (error) return responseError(res, 400, error.message);
+
+    try {
+      const order = await OrderService.rejectOrder(req.params.id, value.reason);
+      return responseSuccess(res, 200, order, 'Order rejected and refunded');
+    } catch (err) {
+      next(err);
     }
   }
 
