@@ -688,11 +688,7 @@ export class CJDropshippingAdapter implements SupplierAdapter {
    * getOrderLogisticsInfo's big-integer-preserving parse.
    */
   async calculateFreight(params: CJFreightCalculateParams): Promise<CJFreightOption[]> {
-    const res = await this.request<CJFreightOption[]>(
-      '/logistic/freightCalculate',
-      'POST',
-      params,
-    );
+    const res = await this.request<CJFreightOption[]>('/logistic/freightCalculate', 'POST', params);
 
     if (!res?.result || res.code !== 200) {
       logger.error(

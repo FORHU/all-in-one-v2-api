@@ -436,7 +436,11 @@ export default class OrderService {
     }
 
     const quoteId = randomUUID();
-    await CacheUtil.set(`shipping:quote:${tenantId}:${quoteId}`, { options }, SHIPPING_QUOTE_TTL_SECONDS);
+    await CacheUtil.set(
+      `shipping:quote:${tenantId}:${quoteId}`,
+      { options },
+      SHIPPING_QUOTE_TTL_SECONDS,
+    );
 
     return { quoteId, options, source };
   }
