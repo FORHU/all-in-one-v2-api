@@ -10,6 +10,13 @@ enum OrderStatus {
   FULFILLED
   CANCELLED
   REFUNDED
+  /// Admin declined to fulfill a paid order before placing it with a supplier
+  /// (see OrderService.rejectOrder) — distinct from CANCELLED (pre-payment,
+  /// no refund involved) and from REFUNDED (set once a Returns-flow refund's
+  /// webhook confirms the money moved). rejectOrder issues the refund itself
+  /// and sets this status immediately, same "don't wait for the webhook"
+  /// tradeoff ReturnService.issueRefund already makes.
+  REJECTED
 }
 
 enum SupplierOrderStatus {
@@ -27,6 +34,13 @@ enum PaymentStatus {
   PENDING
   PROCESSING
   WAITING_CONFIRMATION
+  /// Stripe manual-capture PaymentIntent has authorized (held) the funds but
+  /// not yet captured them — set on the `payment_intent.amount_capturable_updated`
+  /// webhook. An admin "Accept order" action (OrderService.acceptOrder)
+  /// captures it, which flips this to PAID via the existing
+  /// `payment_intent.succeeded` handling; "Cancel order" on a still-AUTHORIZED
+  /// payment releases the hold instead (PaymentService.cancelAuthorization).
+  AUTHORIZED
   PAID
   FAILED
   CANCELLED

@@ -23,6 +23,8 @@ const checkoutDirectSchema = Joi.object({
   couponCode: Joi.string().trim().optional(),
   promotionCode: Joi.string().trim().optional(),
   currency: Joi.string().optional(),
+  shippingQuoteId: Joi.string().optional(),
+  shippingLogisticName: Joi.string().optional(),
 });
 
 const checkoutSchema = Joi.object({
@@ -30,6 +32,28 @@ const checkoutSchema = Joi.object({
   couponCode: Joi.string().trim().optional(),
   promotionCode: Joi.string().trim().optional(),
   currency: Joi.string().optional(),
+  shippingQuoteId: Joi.string().optional(),
+  shippingLogisticName: Joi.string().optional(),
+});
+
+const shippingQuoteSchema = Joi.object({
+  items: Joi.array()
+    .items(
+      Joi.object({
+        productId: Joi.string().required(),
+        size: Joi.string().optional(),
+        color: Joi.string().optional(),
+        quantity: Joi.number().integer().min(1).required(),
+      }),
+    )
+    .min(1)
+    .required(),
+  countryCode: Joi.string().trim().uppercase().length(2).required(),
+  zip: Joi.string().trim().optional(),
+});
+
+const rejectOrderSchema = Joi.object({
+  reason: Joi.string().trim().max(500).optional(),
 });
 
 export default class OrderController {
@@ -69,6 +93,8 @@ export default class OrderController {
         couponCode: value.couponCode,
         promotionCode: value.promotionCode,
         currency: value.currency,
+        shippingQuoteId: value.shippingQuoteId,
+        shippingLogisticName: value.shippingLogisticName,
       });
 
       return responseSuccess(res, 201, order, 'Order placed successfully');
@@ -99,9 +125,37 @@ export default class OrderController {
         couponCode: value.couponCode,
         promotionCode: value.promotionCode,
         currency: value.currency,
+        shippingQuoteId: value.shippingQuoteId,
+        shippingLogisticName: value.shippingLogisticName,
       });
 
       return responseSuccess(res, 201, order, 'Order placed successfully');
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * POST /api/v2/orders/shipping-quote
+   * Real, live shipping options + prices for a would-be cart, given a
+   * destination — call this before "Place Order" so checkout can show a
+   * real fee instead of a guess. Public (optionalAuthenticate): a shopper
+   * should see real shipping costs before being forced to sign in.
+   * See OrderService.getShippingQuote's doc comment for how the quote is
+   * produced and why it must be round-tripped back via shippingQuoteId.
+   */
+  static async shippingQuote(req: Request, res: Response, next: NextFunction) {
+    const { error, value } = shippingQuoteSchema.validate(req.body);
+    if (error) return responseError(res, 400, error.message);
+
+    try {
+      const quote = await OrderService.getShippingQuote({
+        items: value.items,
+        countryCode: value.countryCode,
+        zip: value.zip,
+      });
+
+      return responseSuccess(res, 200, quote);
     } catch (err) {
       next(err);
     }
@@ -149,6 +203,23 @@ export default class OrderController {
       return responseSuccess(res, 200, order, 'Order cancelled');
     } catch (error) {
       next(error);
+    }
+  }
+
+  /**
+   * POST /api/v2/orders/:id/reject
+   * Admin declines to fulfill a paid order — issues a full refund and marks
+   * it REJECTED. See OrderService.rejectOrder's doc comment.
+   */
+  static async reject(req: Request, res: Response, next: NextFunction) {
+    const { error, value } = rejectOrderSchema.validate(req.body);
+    if (error) return responseError(res, 400, error.message);
+
+    try {
+      const order = await OrderService.rejectOrder(req.params.id, value.reason);
+      return responseSuccess(res, 200, order, 'Order rejected and refunded');
+    } catch (err) {
+      next(err);
     }
   }
 

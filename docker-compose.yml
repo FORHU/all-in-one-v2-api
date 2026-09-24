@@ -51,6 +51,17 @@ services:
     # for local dev. Start it explicitly (`docker compose up app`) when you
     # actually want the containerized API instead of the local dev server.
     restart: 'no'
+    # `restart: 'no'` alone isn't enough — it only stops Docker's own
+    # crash-recovery from reviving this container, not a bare
+    # `docker compose up`/`up -d` (run to bring up db/redis/rabbitmq for
+    # `npm run dev`), which starts every service in this file by default,
+    # `app` included, and has repeatedly shadowed the local dev server on
+    # the same port. A profile makes that opt-in instead of the default: a
+    # plain `docker compose up` now skips `app` entirely; run
+    # `docker compose --profile containerized-api up -d app` when you
+    # actually want the containerized API.
+    profiles:
+      - containerized-api
     ports:
       - '${PORT:-3002}:${PORT:-3002}'
     env_file:

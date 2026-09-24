@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import OrderRepository from './order.repository';
 import CartRepository from './cart.repository';
 import CustomerRepository from './customer.repository';
@@ -7,11 +8,65 @@ import PromotionRepository from '../promotion/promotion.repository';
 import PromotionEngine, { PromotionLineItem } from '../promotion/promotion.engine';
 import InventoryRepository from '../inventory/inventory.repository';
 import NotificationRepository from '../system/notification.repository';
+import SupplierRepository from '../supplier/supplier.repository';
+import ReturnRepository from './return.repository';
+// Deferred: PaymentService imports OrderService, so this is a real circular
+// dependency. Only referenced inside rejectOrder's method body below (never
+// at module-evaluation time), which is safe under CommonJS circular
+// requires — by the time a request actually calls rejectOrder, both
+// modules have finished loading and PaymentService.default is populated.
+import PaymentService from './payment.service';
+import { CJDropshippingAdapter } from '../../suppliers/cj-dropshipping/cj.adapter';
 import { OrderStatus, PaymentStatus, Prisma, Coupon } from '@prisma/client';
 import { throwResponse } from '../../utils/throw-response';
 import { requireTenantId } from '../../utils/async-context';
 import { prisma } from '../../utils/prisma';
+import CacheUtil from '../../utils/cache.util';
 import logger from '../../utils/logger';
+
+const CJ_SUPPLIER_NAME = 'cj-dropshipping';
+const SHIPPING_QUOTE_TTL_SECONDS = 900; // 15 min — long enough to cover checkout, short enough that a stale price never survives to a much-later retry.
+const DEFAULT_FREIGHT_ORIGIN_COUNTRY = 'CN'; // Matches CJDropshippingAdapter's own DEFAULT_FROM_COUNTRY_CODE.
+const MAX_DEFAULT_DELIVERY_DAYS = 14; // ~2 weeks — the slowest a *default-selected* option may be; slower ones still show up, just not pre-picked.
+
+/**
+ * Pulls the slower end of a CJ `aging` string (e.g. "6-9", "12-50") — the
+ * number that matters for "will this actually arrive within N days" is the
+ * upper bound, not the optimistic one. Returns null for anything
+ * unparseable (including the fallback option, which has no aging at all),
+ * so it never accidentally qualifies as fast.
+ */
+function parseMaxDeliveryDays(aging?: string): number | null {
+  if (!aging) return null;
+  const match = aging.match(/(\d+)(?:\D+(\d+))?/);
+  if (!match) return null;
+  return Number(match[2] ?? match[1]);
+}
+
+/** One shipping method a customer can choose at checkout, with its real price. */
+export interface ShippingQuoteOption {
+  logisticName: string;
+  price: number;
+  aging?: string;
+}
+
+export interface ShippingQuoteResult {
+  quoteId: string | null;
+  options: ShippingQuoteOption[];
+  /** 'cj-dropshipping' when every item was live-quoted; 'fallback' when some/all items aren't sourced from a supplier this can quote yet (see getShippingQuote's doc comment). */
+  source: 'cj-dropshipping' | 'fallback';
+}
+
+/**
+ * Flat placeholder used only when a cart can't be live-quoted (see
+ * getShippingQuote) — e.g. a first-party item, or one not yet mapped to a
+ * supplier. Better than blocking checkout entirely; worth revisiting once
+ * non-CJ catalog items are common enough for this to matter.
+ */
+const FALLBACK_SHIPPING_OPTION: ShippingQuoteOption = {
+  logisticName: 'Standard Shipping',
+  price: 9.99,
+};
 
 /**
  * Who is asking to see an order: a signed-in customer, a guest holding the
@@ -99,6 +154,8 @@ export default class OrderService {
     couponCode?: string;
     promotionCode?: string;
     currency?: string;
+    shippingQuoteId?: string;
+    shippingLogisticName?: string;
   }) {
     const {
       customerId,
@@ -107,6 +164,8 @@ export default class OrderService {
       couponCode,
       promotionCode,
       currency = 'USD',
+      shippingQuoteId,
+      shippingLogisticName,
     } = params;
 
     if (!customerId && !sessionId) {
@@ -134,6 +193,8 @@ export default class OrderService {
       couponCode,
       promotionCode,
       currency,
+      shippingQuoteId,
+      shippingLogisticName,
       afterCreate: async (tx) => {
         // Clear the cart we actually read from inside the transaction.
         // Stock has been reserved above (Optimistic locking is available in InventoryRepository).
@@ -160,6 +221,8 @@ export default class OrderService {
     couponCode?: string;
     promotionCode?: string;
     currency?: string;
+    shippingQuoteId?: string;
+    shippingLogisticName?: string;
   }) {
     const {
       customerId,
@@ -169,6 +232,8 @@ export default class OrderService {
       couponCode,
       promotionCode,
       currency = 'USD',
+      shippingQuoteId,
+      shippingLogisticName,
     } = params;
 
     if (!items || items.length === 0) {
@@ -185,6 +250,8 @@ export default class OrderService {
       couponCode,
       promotionCode,
       currency,
+      shippingQuoteId,
+      shippingLogisticName,
     });
 
     // Best-effort: the order is already committed at this point, so a
@@ -279,6 +346,129 @@ export default class OrderService {
   }
 
   /**
+   * Live shipping quote for a would-be checkoutDirect cart — called from the
+   * checkout page once a destination is known, before the customer pays.
+   * Resolves each {productId,size,color} to a real variant (same matching
+   * checkoutDirect itself uses), maps those variants to CJ Dropshipping's
+   * own variant ids, and asks CJ for real prices via calculateFreight.
+   *
+   * Deliberately CJ-only for this first pass, same simplification
+   * CJOrderFulfillmentService already makes for placing the supplier order
+   * itself: if any item in the cart isn't CJ-sourced (unmapped — e.g.
+   * first-party stock, or a supplier integration added later), there's no
+   * live rate to ask for, so this falls back to FALLBACK_SHIPPING_OPTION
+   * rather than blocking checkout. Splitting a mixed-supplier cart's
+   * shipping into multiple quotes is future work, same as fulfillment.
+   *
+   * The returned quoteId must be round-tripped back into checkoutDirect
+   * (as shippingQuoteId) to actually charge this price — see
+   * resolveQuotedShipping. Options are cached server-side specifically so
+   * checkout never has to trust a price the client sends back.
+   */
+  static async getShippingQuote(params: {
+    items: { productId: string; size?: string; color?: string; quantity: number }[];
+    countryCode: string;
+    zip?: string;
+  }): Promise<ShippingQuoteResult> {
+    const tenantId = requireTenantId();
+    const resolvedItems = await this.resolveDirectCheckoutItems(tenantId, params.items);
+
+    const variantIds = resolvedItems.map((item) => item.productVariantId);
+    const vidByVariantId = await SupplierRepository.findVariantMappingsBySupplier(
+      CJ_SUPPLIER_NAME,
+      variantIds,
+    );
+
+    const allMapped = resolvedItems.every((item) => vidByVariantId.has(item.productVariantId));
+
+    let options: ShippingQuoteOption[];
+    let source: ShippingQuoteResult['source'];
+
+    if (!allMapped) {
+      logger.warn(
+        '[OrderService:getShippingQuote] One or more items are not sourced from ' +
+          `${CJ_SUPPLIER_NAME} — falling back to a flat shipping rate for this quote.`,
+      );
+      options = [FALLBACK_SHIPPING_OPTION];
+      source = 'fallback';
+    } else {
+      const cjAdapter = new CJDropshippingAdapter();
+      const freightOptions = await cjAdapter.calculateFreight({
+        startCountryCode: DEFAULT_FREIGHT_ORIGIN_COUNTRY,
+        endCountryCode: params.countryCode,
+        zip: params.zip,
+        products: resolvedItems.map((item) => ({
+          vid: vidByVariantId.get(item.productVariantId) as string,
+          quantity: item.quantity,
+        })),
+      });
+
+      if (freightOptions.length === 0) {
+        logger.warn(
+          '[OrderService:getShippingQuote] CJ returned no freight options — falling back to a flat rate.',
+        );
+        options = [FALLBACK_SHIPPING_OPTION];
+        source = 'fallback';
+      } else {
+        // options[0] is what checkout pre-selects (see resolveQuotedShipping
+        // and CheckoutPage.tsx), so this ordering *is* the default-pick
+        // rule: cheapest among methods that arrive within
+        // MAX_DEFAULT_DELIVERY_DAYS, falling back to cheapest overall only
+        // when nothing qualifies. Slower/unparseable options aren't
+        // dropped — they still show up in the "Change" list, just ranked
+        // after the ones that qualify.
+        options = freightOptions
+          .map((o) => ({
+            logisticName: o.logisticName,
+            price: Number(o.logisticPrice),
+            aging: o.logisticAging,
+          }))
+          .sort((a, b) => {
+            const aDays = parseMaxDeliveryDays(a.aging);
+            const bDays = parseMaxDeliveryDays(b.aging);
+            const aQualifies = aDays !== null && aDays <= MAX_DEFAULT_DELIVERY_DAYS;
+            const bQualifies = bDays !== null && bDays <= MAX_DEFAULT_DELIVERY_DAYS;
+            if (aQualifies !== bQualifies) return aQualifies ? -1 : 1;
+            return a.price - b.price;
+          });
+        source = 'cj-dropshipping';
+      }
+    }
+
+    const quoteId = randomUUID();
+    await CacheUtil.set(
+      `shipping:quote:${tenantId}:${quoteId}`,
+      { options },
+      SHIPPING_QUOTE_TTL_SECONDS,
+    );
+
+    return { quoteId, options, source };
+  }
+
+  /**
+   * Re-reads a quote produced by getShippingQuote and picks the option the
+   * customer selected — the price actually charged always comes from here,
+   * never from anything the client sends directly, same principle as the
+   * Stripe PaymentIntent amount always being derived server-side. Returns
+   * null when the quote has expired or `logisticName` doesn't match any
+   * cached option, so the caller can ask the customer to recalculate rather
+   * than silently charging the wrong (or no) shipping fee.
+   */
+  private static async resolveQuotedShipping(
+    quoteId: string,
+    logisticName?: string,
+  ): Promise<ShippingQuoteOption | null> {
+    const tenantId = requireTenantId();
+    const cached = await CacheUtil.get<{ options: ShippingQuoteOption[] }>(
+      `shipping:quote:${tenantId}:${quoteId}`,
+    );
+    if (!cached || cached.options.length === 0) return null;
+
+    if (!logisticName) return cached.options[0];
+    return cached.options.find((o) => o.logisticName === logisticName) ?? null;
+  }
+
+  /**
    * Shared by checkoutFromCart and checkoutDirect: subtotal/coupon/discount
    * math, stock reservation, and the CommerceOrder-creation transaction.
    * `afterCreate` runs inside the same transaction as order creation (used
@@ -295,6 +485,8 @@ export default class OrderService {
       couponCode?: string;
       promotionCode?: string;
       currency?: string;
+      shippingQuoteId?: string;
+      shippingLogisticName?: string;
       afterCreate?: (tx: Prisma.TransactionClient) => Promise<void>;
     },
   ) {
@@ -306,6 +498,8 @@ export default class OrderService {
       couponCode,
       promotionCode,
       currency = 'USD',
+      shippingQuoteId,
+      shippingLogisticName,
     } = params;
 
     if (shippingAddressId) {
@@ -367,12 +561,28 @@ export default class OrderService {
     let discountAmount = couponDiscount.plus(promoEvaluation.discountAmount);
     if (discountAmount.greaterThan(subtotal)) discountAmount = subtotal;
 
-    // Tax and shipping are stored per order but not yet calculated. Once
-    // shipping is real, `promoEvaluation.freeShipping` zeroes it here.
+    // Tax isn't calculated yet — still a real gap, unrelated to shipping.
     const taxAmount = new Prisma.Decimal(0);
-    const shippingAmount = promoEvaluation.freeShipping
-      ? new Prisma.Decimal(0)
-      : new Prisma.Decimal(0);
+
+    // Shipping comes from a quote produced by getShippingQuote and cached
+    // server-side under its quoteId — never from a raw price the client
+    // sends, for the same reason the Stripe PaymentIntent amount is always
+    // derived server-side. No quoteId at all (e.g. an older client, or
+    // checkoutFromCart's guest flow before it's wired into a quote step)
+    // means "no real shipping charge yet," same as before this existed.
+    let shippingAmount = new Prisma.Decimal(0);
+    if (shippingQuoteId) {
+      const quoted = await this.resolveQuotedShipping(shippingQuoteId, shippingLogisticName);
+      if (!quoted) {
+        return throwResponse(
+          400,
+          'Shipping quote has expired or is no longer valid — please recalculate shipping and try again',
+        );
+      }
+      shippingAmount = new Prisma.Decimal(quoted.price);
+    }
+    if (promoEvaluation.freeShipping) shippingAmount = new Prisma.Decimal(0);
+
     const totalAmount = subtotal.minus(discountAmount).plus(taxAmount).plus(shippingAmount);
 
     // Reserve stock. Dropship/print-on-demand variants (no InventoryLocation
@@ -519,15 +729,19 @@ export default class OrderService {
       return throwResponse(400, `Invalid order status '${status}'`);
     }
 
-    // CANCELLED/REFUNDED carry real financial consequences (voiding or
-    // returning a captured payment) that this generic endpoint has no way
+    // CANCELLED/REFUNDED/REJECTED carry real financial consequences (voiding
+    // or returning a captured payment) that this generic endpoint has no way
     // to check — it would just relabel the order and fake-sync the payment
-    // row without ever touching Stripe. Route those two through the
-    // dedicated, guarded paths instead.
-    if (status === OrderStatus.CANCELLED || status === OrderStatus.REFUNDED) {
+    // row without ever touching Stripe. Route those through the dedicated,
+    // guarded paths instead.
+    if (
+      status === OrderStatus.CANCELLED ||
+      status === OrderStatus.REFUNDED ||
+      status === OrderStatus.REJECTED
+    ) {
       return throwResponse(
         400,
-        'Use POST /orders/:id/cancel to cancel an order, or the Returns workflow to refund one',
+        'Use POST /orders/:id/cancel to cancel an order, POST /orders/:id/reject to reject a paid one, or the Returns workflow to refund one',
       );
     }
 
@@ -573,6 +787,81 @@ export default class OrderService {
     }
 
     return OrderRepository.updateStatus(tenantId, orderId, OrderStatus.CANCELLED);
+  }
+
+  /**
+   * Declines to fulfill a PAID order before it's ever placed with a
+   * supplier — the "no" counterpart to CJOrderFulfillmentService.placeOrder
+   * on the admin side. Unlike cancelOrder (blocked once a payment is
+   * captured), this is specifically FOR a captured payment: it issues a
+   * real refund for the full order total immediately
+   * (PaymentService.refundPayment) and records it as a Refund row, same
+   * "don't wait for the webhook" pattern ReturnService.issueRefund already
+   * uses — just without a Return behind it, since nothing was shipped back.
+   */
+  static async rejectOrder(orderId: string, reason?: string) {
+    const tenantId = requireTenantId();
+    const order = await OrderRepository.findById(tenantId, orderId);
+    if (!order) {
+      return throwResponse(404, 'Order not found');
+    }
+
+    if (order.status !== OrderStatus.PROCESSING) {
+      return throwResponse(
+        409,
+        `Only a paid, not-yet-fulfilled order can be rejected (current status: ${order.status})`,
+      );
+    }
+
+    if (order.supplierOrders?.length > 0) {
+      return throwResponse(
+        409,
+        'Order has already been placed with a supplier — use the Returns workflow instead',
+      );
+    }
+
+    const paidPayment = order.payments?.find((p) => p.status === PaymentStatus.PAID);
+    if (!paidPayment) {
+      return throwResponse(409, 'Order has no paid payment to refund');
+    }
+
+    const { transactionId } = await PaymentService.refundPayment(
+      orderId,
+      order.totalAmount.toNumber(),
+    );
+    // No returnId — this refund didn't come through the Returns workflow.
+    await ReturnRepository.createRefund(
+      tenantId,
+      orderId,
+      undefined,
+      order.totalAmount.toNumber(),
+      transactionId,
+      reason,
+    );
+
+    const rejected = await OrderRepository.updateStatus(tenantId, orderId, OrderStatus.REJECTED);
+
+    // Best-effort, same reasoning as checkoutDirect's own notification: a
+    // notification hiccup shouldn't turn a successful rejection+refund into
+    // a failed request. Guest orders (no linked user) have nothing to notify.
+    if (order.customer?.userId) {
+      try {
+        await NotificationRepository.createNotification(tenantId, {
+          user: { connect: { id: order.customer.userId } },
+          type: 'ORDER_STATUS',
+          channel: 'IN_APP',
+          title: 'Order Rejected',
+          message: `Your order ${order.orderNumber} was rejected${
+            reason ? `: ${reason}` : ''
+          }. A full refund has been issued.`,
+          data: { orderId: order.id, orderNumber: order.orderNumber },
+        });
+      } catch (err) {
+        logger.warn(`Failed to create order-rejected notification for order ${order.id}: ${err}`);
+      }
+    }
+
+    return rejected;
   }
 
   static async getSupplierOrders(orderId: string) {

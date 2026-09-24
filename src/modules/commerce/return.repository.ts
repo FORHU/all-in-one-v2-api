@@ -94,10 +94,15 @@ export default class ReturnRepository {
     });
   }
 
+  /**
+   * `returnId` is optional — a Refund isn't always tied to a Return; e.g.
+   * OrderService.rejectOrder issues one directly, with no return involved.
+   * The column itself is already nullable (`Refund.returnId String?`).
+   */
   static async createRefund(
     tenantId: string,
     orderId: string,
-    returnId: string,
+    returnId: string | undefined,
     amount: number,
     transactionId?: string,
     reason?: string,
@@ -106,9 +111,9 @@ export default class ReturnRepository {
       data: {
         tenantId,
         orderId,
-        returnId,
         amount,
         status: RefundStatus.PENDING,
+        ...(returnId ? { returnId } : {}),
         ...(transactionId ? { transactionId } : {}),
         ...(reason ? { reason } : {}),
       },
