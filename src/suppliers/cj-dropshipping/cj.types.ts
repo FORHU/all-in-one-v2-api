@@ -247,10 +247,25 @@ export interface CJUpdateLogisticsParams {
   logisticName: string;
 }
 
-export interface CJOrder {
+/**
+ * Row shape of GET /shopping/order/getOrderDetail — used by
+ * CJDropshippingAdapter.getOrderStatus for real-time order/tracking lookup.
+ * Field names follow CJ's published docs (developers.cjdropshipping.cn/en/api/api2/api/shopping.html);
+ * not ground-truthed against a live account the way e.g. CJLogisticsOption's
+ * `id` field was — `orderStatus`/`subStatus`'s exact possible string values
+ * in particular are undocumented in detail, so treat them as opaque
+ * display text rather than a closed enum until confirmed live.
+ */
+export interface CJOrderDetail {
   orderId: string;
   orderNum: string;
+  platformOrderId?: string;
   orderStatus: string;
+  subStatus?: string;
+  orderAmount?: number;
+  productAmount?: number;
+  postageAmount?: number;
+  orderWeight?: number;
   shippingCountryCode: string;
   shippingCountry: string;
   shippingProvince: string;
@@ -259,10 +274,16 @@ export interface CJOrder {
   shippingCustomerName: string;
   shippingZip: string;
   shippingPhone: string;
+  remark?: string;
+  fromCountryCode?: string;
+  storageId?: string;
   createDate: string;
   paymentDate?: string;
+  isComplete?: boolean;
   trackNumber?: string;
   logisticName?: string;
+  trackingProvider?: string;
+  [key: string]: unknown;
 }
 
 /**

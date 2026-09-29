@@ -25,6 +25,8 @@ router.get('/my-orders', authenticate, OrderController.getMyOrders);
 // Guests can view an order they placed by presenting the same x-session-id.
 // Ownership is enforced in the service, which 404s for everyone else.
 router.get('/:id', optionalAuthenticate, OrderController.getOrder);
+// Same ownership rule as above — live CJ tracking lookup for the order's own customer.
+router.get('/:id/tracking', optionalAuthenticate, OrderController.getOrderTracking);
 router.patch(
   '/:id/status',
   authenticate,

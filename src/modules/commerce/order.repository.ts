@@ -272,6 +272,53 @@ export default class OrderRepository {
   static async findSupplierOrderForOrder(tenantId: string, orderId: string, supplierId: string) {
     return prisma.commerceSupplierOrder.findFirst({
       where: { orderId, supplierId, order: { tenantId } },
+      include: { shipments: true },
+    });
+  }
+
+  /**
+   * Records a live tracking lookup against a supplier order — creates the
+   * one CommerceShipment row for it if this is the first time (no shipment
+   * exists per supplier order yet in this codebase; CJ's model is one
+   * tracking number per order, not per line item), or updates it in place
+   * on every later refresh. `status` is a best-effort mapping (see
+   * OrderService.getOrderTracking) since the supplier's own status string
+   * isn't a confirmed closed enum — `details` keeps the full raw response
+   * regardless, so nothing is lost even when the mapping undershoots.
+   */
+  static async upsertShipmentFromTracking(
+    supplierOrderId: string,
+    data: {
+      status: ShipmentStatus;
+      trackingNumber?: string;
+      carrier?: string;
+      details: Prisma.InputJsonValue;
+    },
+  ) {
+    const existing = await prisma.commerceShipment.findFirst({
+      where: { supplierOrderId },
+    });
+
+    if (existing) {
+      return prisma.commerceShipment.update({
+        where: { id: existing.id },
+        data: {
+          status: data.status,
+          trackingNumber: data.trackingNumber,
+          carrier: data.carrier,
+          details: data.details,
+        },
+      });
+    }
+
+    return prisma.commerceShipment.create({
+      data: {
+        supplierOrderId,
+        status: data.status,
+        trackingNumber: data.trackingNumber,
+        carrier: data.carrier,
+        details: data.details,
+      },
     });
   }
 

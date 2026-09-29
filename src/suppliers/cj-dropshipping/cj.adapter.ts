@@ -21,6 +21,7 @@ import {
   CJUpdateLogisticsParams,
   CJFreightCalculateParams,
   CJFreightOption,
+  CJOrderDetail,
   CJDisputeProduct,
   CJDisputeConfirmInfo,
   CJCreateDisputeParams,
@@ -571,11 +572,26 @@ export class CJDropshippingAdapter implements SupplierAdapter {
     return { orderId: placed.orderId, paid, logisticsAutoCorrected: placed.logisticsAutoCorrected };
   }
 
-  async getOrderStatus(externalOrderId: string): Promise<unknown> {
-    const res = await this.request('/shopping/order/getOrderDetail', 'GET', undefined, {
+  /**
+   * Real-time order/tracking lookup — used for customer-facing tracking
+   * (OrderService.getOrderTracking) as well as anything else that needs
+   * this order's current state directly from CJ rather than our own
+   * last-known CommerceSupplierOrder/CommerceShipment rows. Declared here
+   * as CJOrderDetail (narrower than the SupplierAdapter interface's generic
+   * `Promise<unknown>`, which TS allows for an interface implementation).
+   */
+  async getOrderStatus(externalOrderId: string): Promise<CJOrderDetail | null> {
+    const res = await this.request<CJOrderDetail>('/shopping/order/getOrderDetail', 'GET', undefined, {
       orderId: externalOrderId,
     });
-    return res?.data;
+    if (!res?.result || res.code !== 200) {
+      logger.error(
+        '[CJDropshippingAdapter] API error for /shopping/order/getOrderDetail:',
+        res?.message,
+      );
+      return null;
+    }
+    return res.data ?? null;
   }
 
   /**

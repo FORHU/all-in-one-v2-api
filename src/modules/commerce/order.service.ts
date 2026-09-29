@@ -17,7 +17,7 @@ import ReturnRepository from './return.repository';
 // modules have finished loading and PaymentService.default is populated.
 import PaymentService from './payment.service';
 import { CJDropshippingAdapter } from '../../suppliers/cj-dropshipping/cj.adapter';
-import { OrderStatus, PaymentStatus, Prisma, Coupon } from '@prisma/client';
+import { OrderStatus, PaymentStatus, ShipmentStatus, Prisma, Coupon } from '@prisma/client';
 import { throwResponse } from '../../utils/throw-response';
 import { requireTenantId } from '../../utils/async-context';
 import { prisma } from '../../utils/prisma';
@@ -877,5 +877,75 @@ export default class OrderService {
     );
     if (!shipment) return throwResponse(404, 'Shipment not found');
     return shipment;
+  }
+
+  /**
+   * Live tracking lookup, callable by the order's own customer (or an
+   * admin) — same ownership rule as getOrderDetails. Only meaningful once
+   * the order's been placed with a supplier; before that there's nothing
+   * on the supplier's side to check. Refreshes CommerceShipment from CJ's
+   * real getOrderDetail on every call (there's no background sync job
+   * keeping it current on its own), and falls back to whatever's already
+   * stored if the live call fails rather than erroring the whole request.
+   *
+   * `rawStatus` is CJ's own orderStatus string passed through as-is for
+   * display — see CJOrderDetail's doc comment for why this isn't mapped to
+   * a closed enum. `shipmentStatus` is a best-effort mapping onto our own
+   * ShipmentStatus (currently just "has a tracking number or not" — no
+   * confirmed CJ field distinguishes IN_TRANSIT/OUT_FOR_DELIVERY/DELIVERED
+   * from this codebase's current knowledge of the API).
+   */
+  static async getOrderTracking(orderId: string, viewer: OrderViewer) {
+    const tenantId = requireTenantId();
+    const order = await OrderRepository.findById(tenantId, orderId);
+    if (!order) {
+      return throwResponse(404, 'Order not found');
+    }
+    if (!viewer.isAdmin && !this.isOrderOwner(order, viewer)) {
+      return throwResponse(404, 'Order not found');
+    }
+
+    const supplierOrder = order.supplierOrders?.find(
+      (so) => so.supplier?.name === CJ_SUPPLIER_NAME,
+    );
+    if (!supplierOrder?.externalId) {
+      return { hasSupplierOrder: false as const };
+    }
+
+    const existingShipment = supplierOrder.shipments?.[0];
+    const cjAdapter = new CJDropshippingAdapter();
+    const detail = await cjAdapter.getOrderStatus(supplierOrder.externalId);
+
+    if (!detail) {
+      // CJ lookup failed (rate-limited, transient error, etc.) — fall back
+      // to whatever's already stored rather than failing the request.
+      return {
+        hasSupplierOrder: true as const,
+        externalOrderId: supplierOrder.externalId,
+        rawStatus: null,
+        trackingNumber: existingShipment?.trackingNumber ?? null,
+        carrier: existingShipment?.carrier ?? null,
+        shipmentStatus: existingShipment?.status ?? null,
+        stale: true,
+      };
+    }
+
+    const shipmentStatus = detail.trackNumber ? ShipmentStatus.IN_TRANSIT : ShipmentStatus.PENDING;
+    const shipment = await OrderRepository.upsertShipmentFromTracking(supplierOrder.id, {
+      status: shipmentStatus,
+      trackingNumber: detail.trackNumber,
+      carrier: detail.logisticName ?? detail.trackingProvider,
+      details: detail as Prisma.InputJsonValue,
+    });
+
+    return {
+      hasSupplierOrder: true as const,
+      externalOrderId: supplierOrder.externalId,
+      rawStatus: detail.orderStatus ?? null,
+      trackingNumber: shipment.trackingNumber,
+      carrier: shipment.carrier,
+      shipmentStatus: shipment.status,
+      stale: false,
+    };
   }
 }
