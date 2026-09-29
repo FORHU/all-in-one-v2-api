@@ -1,9 +1,18 @@
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { v4 as uuidv4 } from 'uuid';
-import { AWS_REGION, AWS_S3_BUCKET } from '../config';
+import { AWS_REGION, AWS_S3_BUCKET, S3_ENDPOINT, S3_PUBLIC_URL } from '../config';
 import { throwResponse } from './throw-response';
 
-const s3Client = new S3Client({ region: AWS_REGION });
+const s3Client = new S3Client({
+  region: AWS_REGION,
+  // MinIO (and most S3-compatible servers) need a custom endpoint + path-style URLs.
+  ...(S3_ENDPOINT ? { endpoint: S3_ENDPOINT, forcePathStyle: true } : {}),
+});
+
+/** Public URL prefix for objects: MinIO path-style locally, virtual-hosted AWS otherwise. */
+const OBJECT_URL_PREFIX = S3_ENDPOINT
+  ? `${S3_PUBLIC_URL}/${AWS_S3_BUCKET}/`
+  : `https://${AWS_S3_BUCKET}.s3.${AWS_REGION}.amazonaws.com/`;
 
 const EXTENSION_BY_MIMETYPE: Record<string, string> = {
   'image/jpeg': '.jpg',
@@ -55,11 +64,11 @@ export async function uploadToS3(params: {
     }),
   );
 
-  return `https://${AWS_S3_BUCKET}.s3.${AWS_REGION}.amazonaws.com/${key}`;
+  return `${OBJECT_URL_PREFIX}${key}`;
 }
 
 function keyOwnedByUs(url: string): string | null {
-  const prefix = `https://${AWS_S3_BUCKET}.s3.${AWS_REGION}.amazonaws.com/`;
+  const prefix = OBJECT_URL_PREFIX;
   // Never attempt to delete a URL we didn't generate ourselves — e.g. a
   // pasted external product-photo URL used as a collection cover.
   if (!AWS_S3_BUCKET || !url.startsWith(prefix)) return null;

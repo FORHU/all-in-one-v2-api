@@ -81,3 +81,9 @@ export const AWS_REGION = process.env.AWS_REGION || 'ap-southeast-1';
 // read here — they're the SDK's own standard env var names, so the S3 client
 // picks them up itself via its default credential provider chain.
 export const AWS_S3_BUCKET = process.env.AWS_S3_BUCKET_NAME || process.env.S3_BUCKET || '';
+// Set S3_ENDPOINT (e.g. http://localhost:9000) to use an S3-compatible server
+// such as MinIO in local dev. Leave unset for real AWS S3.
+export const S3_ENDPOINT = process.env.S3_ENDPOINT || '';
+// Base URL browsers use to load uploaded objects (path-style: `<base>/<bucket>/<key>`).
+// Defaults to S3_ENDPOINT; only needed if the two differ (e.g. inside Docker).
+export const S3_PUBLIC_URL = (process.env.S3_PUBLIC_URL || S3_ENDPOINT).replace(/\/+$/, '');
