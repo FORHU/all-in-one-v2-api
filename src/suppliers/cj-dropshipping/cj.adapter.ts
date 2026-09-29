@@ -581,9 +581,14 @@ export class CJDropshippingAdapter implements SupplierAdapter {
    * `Promise<unknown>`, which TS allows for an interface implementation).
    */
   async getOrderStatus(externalOrderId: string): Promise<CJOrderDetail | null> {
-    const res = await this.request<CJOrderDetail>('/shopping/order/getOrderDetail', 'GET', undefined, {
-      orderId: externalOrderId,
-    });
+    const res = await this.request<CJOrderDetail>(
+      '/shopping/order/getOrderDetail',
+      'GET',
+      undefined,
+      {
+        orderId: externalOrderId,
+      },
+    );
     if (!res?.result || res.code !== 200) {
       logger.error(
         '[CJDropshippingAdapter] API error for /shopping/order/getOrderDetail:',
