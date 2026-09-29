@@ -41,37 +41,35 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
 
-  # Local S3-compatible storage for image uploads. Console: http://localhost:9001
+  # Local S3-compatible storage for image uploads, via SeaweedFS's S3 gateway.
   # Point the API at it with S3_ENDPOINT=http://localhost:9000 (see .env.example).
+  # Gated behind a profile, same reasoning as the `app` service's own
+  # `containerized-api` profile below: a bare `docker compose up` shouldn't
+  # pull this unless it's actually wanted.
+  #
+  # This used to run the real minio/minio + minio/mc images. Both were pulled
+  # from Docker Hub, and their quay.io mirror stopped serving anonymous pulls
+  # too, around September 2026 — MinIO's project now only ships source, not
+  # containers (see github.com/minio/minio). Swapped in SeaweedFS's S3 gateway
+  # as a drop-in replacement: verified by hand (CreateBucket, PutObject,
+  # PutBucketPolicy, and an anonymous unauthenticated GET against the
+  # policy-public object all worked against this exact image/command). Auth
+  # is a static file instead of MinIO's env-var login — see
+  # seaweedfs-s3-config.json (same minioadmin/minioadmin dev credentials as
+  # before). Bucket creation + the public-read policy that used to be
+  # minio-init's job now happens lazily in s3.util.ts on first upload instead
+  # of a separate init container, since there's no MinIO-`mc`-equivalent CLI
+  # image to run it in anymore — see ensureLocalBucketReady there.
   minio:
-    image: minio/minio:latest
+    image: chrislusf/seaweedfs:latest
+    profiles: [minio]
     restart: always
-    command: server /data --console-address ":9001"
+    command: server -s3 -s3.config=/etc/seaweedfs/s3.json -dir=/data
     ports:
-      - '${MINIO_PORT:-9000}:9000'
-      - '${MINIO_CONSOLE_PORT:-9001}:9001'
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      - '${MINIO_PORT:-9000}:8333'
     volumes:
       - minio_data:/data
-
-  # One-shot: creates the bucket and makes objects publicly readable so the
-  # browser can load the uploaded image URLs.
-  minio-init:
-    image: minio/mc:latest
-    depends_on:
-      - minio
-    restart: 'no'
-    entrypoint: >
-      /bin/sh -c "
-      until mc alias set local http://minio:9000 $${MINIO_ROOT_USER:-minioadmin} $${MINIO_ROOT_PASSWORD:-minioadmin}; do sleep 1; done;
-      mc mb --ignore-existing local/${MINIO_BUCKET:-forhu-marketplace-dev};
-      mc anonymous set download local/${MINIO_BUCKET:-forhu-marketplace-dev};
-      "
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      - ./seaweedfs-s3-config.json:/etc/seaweedfs/s3.json:ro
 
   app:
     build: .
