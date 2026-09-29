@@ -173,6 +173,24 @@ export default class OrderController {
     }
   }
 
+  /**
+   * GET /api/v2/orders/:id/tracking
+   * Live CJ Dropshipping tracking lookup — same ownership rule as getOrder
+   * (guest-by-session or the signed-in owner, or an admin). See
+   * OrderService.getOrderTracking's doc comment for the response shape.
+   */
+  static async getOrderTracking(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tracking = await OrderService.getOrderTracking(
+        req.params.id,
+        await resolveOrderViewer(req),
+      );
+      return responseSuccess(res, 200, tracking);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async getMyOrders(req: Request, res: Response, next: NextFunction) {
     try {
       const customerId = await resolveCustomerId(req);

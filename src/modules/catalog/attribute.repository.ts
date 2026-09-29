@@ -7,6 +7,75 @@ function capitalize(value: string): string {
   return value.length ? value[0].toUpperCase() + value.slice(1) : value;
 }
 
+/**
+ * Common apparel color names -> hex, so a color attribute value created
+ * during a live supplier import (see upsertVariantAttributesFromLabels)
+ * gets a real swatch instead of always coming back `swatchColor: null` the
+ * way the import path did before this map existed. Same color set/hex
+ * values as prisma/seeders/attributes.seeder.ts's manually-curated
+ * products, kept in sync deliberately — extend both together. Anything not
+ * in this list still imports fine, just without a swatch (the storefront's
+ * ProductDetailPage falls back to a plain labeled chip for those).
+ */
+const COMMON_COLOR_SWATCHES: Record<string, string> = {
+  black: '#000000',
+  white: '#FFFFFF',
+  ivory: '#FFFFF0',
+  cream: '#FFFDD0',
+  beige: '#F5F5DC',
+  khaki: '#C3B091',
+  camel: '#C19A6B',
+  brown: '#5C4033',
+  walnut: '#5C4033',
+  tan: '#D2B48C',
+  gray: '#808080',
+  grey: '#808080',
+  charcoal: '#36454F',
+  silver: '#C0C0C0',
+  navy: '#000080',
+  blue: '#1E3A8A',
+  'sky-blue': '#87CEEB',
+  'electric-blue': '#7DF9FF',
+  teal: '#008080',
+  turquoise: '#40E0D0',
+  green: '#228B22',
+  'forest-green': '#228B22',
+  olive: '#708238',
+  'sage-green': '#9CAF88',
+  mint: '#98FF98',
+  yellow: '#FFD700',
+  mustard: '#FFDB58',
+  orange: '#FFA500',
+  coral: '#FF7F50',
+  red: '#DC143C',
+  crimson: '#DC143C',
+  wine: '#722F37',
+  burgundy: '#800020',
+  maroon: '#800000',
+  pink: '#FFC0CB',
+  'hot-pink': '#FF69B4',
+  rose: '#FF007F',
+  purple: '#800080',
+  lavender: '#E6E6FA',
+  violet: '#8A2BE2',
+  gold: '#D4AF37',
+  graphite: '#41424C',
+  multicolor: '#B0B0B0',
+};
+
+/** Normalizes "Wine Red", "wine_red", " Wine-Red " etc. to "wine-red" for the lookup above. */
+function normalizeColorKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, '-');
+}
+
+function resolveSwatchColor(attributeCode: string, value: string): string | undefined {
+  if (attributeCode !== 'color' && attributeCode !== 'colour') return undefined;
+  return COMMON_COLOR_SWATCHES[normalizeColorKey(value)];
+}
+
 export default class AttributeRepository {
   /** Find all attributes for a tenant, including value options */
   static async findAll(tenantId: string) {
@@ -213,10 +282,21 @@ export default class AttributeRepository {
         },
       });
 
+      // Resolved once and reused for both branches below — a value already
+      // in the DB with no swatch (created before this map existed, or for a
+      // color name not in it) gets backfilled the next time an import
+      // touches it, rather than needing a separate one-off migration.
+      const swatchColor = resolveSwatchColor(code, value);
+
       const attributeValue = await client.catalogAttributeValue.upsert({
         where: { attributeId_value: { attributeId: attribute.id, value } },
-        update: {},
-        create: { attributeId: attribute.id, value, label: capitalize(value) },
+        update: swatchColor ? { swatchColor } : {},
+        create: {
+          attributeId: attribute.id,
+          value,
+          label: capitalize(value),
+          ...(swatchColor ? { swatchColor } : {}),
+        },
       });
 
       cache?.set(cacheKey, attributeValue.id);
