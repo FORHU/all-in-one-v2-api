@@ -41,6 +41,36 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
 
+  # Local S3-compatible storage for image uploads, via SeaweedFS's S3 gateway.
+  # Point the API at it with S3_ENDPOINT=http://localhost:9000 (see .env.example).
+  # Gated behind a profile, same reasoning as the `app` service's own
+  # `containerized-api` profile below: a bare `docker compose up` shouldn't
+  # pull this unless it's actually wanted.
+  #
+  # This used to run the real minio/minio + minio/mc images. Both were pulled
+  # from Docker Hub, and their quay.io mirror stopped serving anonymous pulls
+  # too, around September 2026 — MinIO's project now only ships source, not
+  # containers (see github.com/minio/minio). Swapped in SeaweedFS's S3 gateway
+  # as a drop-in replacement: verified by hand (CreateBucket, PutObject,
+  # PutBucketPolicy, and an anonymous unauthenticated GET against the
+  # policy-public object all worked against this exact image/command). Auth
+  # is a static file instead of MinIO's env-var login — see
+  # seaweedfs-s3-config.json (same minioadmin/minioadmin dev credentials as
+  # before). Bucket creation + the public-read policy that used to be
+  # minio-init's job now happens lazily in s3.util.ts on first upload instead
+  # of a separate init container, since there's no MinIO-`mc`-equivalent CLI
+  # image to run it in anymore — see ensureLocalBucketReady there.
+  minio:
+    image: chrislusf/seaweedfs:latest
+    profiles: [minio]
+    restart: always
+    command: server -s3 -s3.config=/etc/seaweedfs/s3.json -dir=/data
+    ports:
+      - '${MINIO_PORT:-9000}:8333'
+    volumes:
+      - minio_data:/data
+      - ./seaweedfs-s3-config.json:/etc/seaweedfs/s3.json:ro
+
   app:
     build: .
     # Not "always" like the other services here — this container competes
@@ -83,3 +113,4 @@ volumes:
   redis_data:
   redis-insight_data:
   rabbitmq_data:
+  minio_data:
