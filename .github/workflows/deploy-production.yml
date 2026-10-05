@@ -20,7 +20,7 @@ env:
   EC2_IAM_ROLE_NAME: forhu-production-style-os-mirror-role
   CONTAINER_NAME: all-in-one-v2-api
   APP_PORT: 5002
-  DEPLOY_ARTIFACTS_BUCKET: ${{ secrets.DEPLOY_ARTIFACTS_BUCKET || 'forhu-deploy-artifacts' }}
+  ENV_PARAM: /all-in-one-v2-api/production/api-env
 
 jobs:
   deploy:
@@ -38,11 +38,10 @@ jobs:
         with:
           ref: ${{ github.event.inputs.ref }}
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY || secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Grant EC2 role ECR pull access
@@ -54,21 +53,6 @@ jobs:
             --policy-name all-in-one-api-ecr-pull \
             --policy-document file://infra/ec2-ecr-pull-policy.json || echo "Warning: Could not attach inline policy."
 
-      - name: Grant EC2 role deploy-artifact access
-        run: |
-          aws iam put-role-policy \
-            --role-name "${{ env.EC2_IAM_ROLE_NAME }}" \
-            --policy-name all-in-one-api-deploy-artifacts \
-            --policy-document '{
-              "Version": "2012-10-17",
-              "Statement": [{
-                "Sid": "DeployEnvFileAccess",
-                "Effect": "Allow",
-                "Action": ["s3:GetObject", "s3:DeleteObject"],
-                "Resource": "arn:aws:s3:::${{ env.DEPLOY_ARTIFACTS_BUCKET }}/deploy/${{ env.NODE_ENV }}/${{ env.CONTAINER_NAME }}/*"
-              }]
-            }' || echo "Warning: Could not attach inline policy."
-
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
@@ -79,6 +63,17 @@ jobs:
           docker build -t "$ECR:${{ env.IMAGE_TAG }}" -t "$ECR:latest" .
           docker push "$ECR:${{ env.IMAGE_TAG }}"
           docker push "$ECR:latest"
+
+      # Fail here rather than halfway through the SSM deploy, after the running
+      # container has already been removed.
+      - name: Verify the image exists
+        run: |
+          set -euo pipefail
+          aws ecr describe-images \
+            --repository-name "${{ env.ECR_REPOSITORY }}" \
+            --image-ids imageTag="${{ env.IMAGE_TAG }}" \
+            --query 'imageDetails[0].[imageTags[0],imagePushedAt]' --output text \
+            || { echo "::error::no such tag in ECR: ${{ env.IMAGE_TAG }}"; exit 1; }
 
       - name: Write env file
         env:
@@ -178,11 +173,16 @@ jobs:
           STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
           EOF
 
-      - name: Upload env file to S3
+      # Encrypted SecureString; Intelligent-Tiering upgrades to Advanced (8 KB)
+      # only if the env file outgrows the 4 KB standard limit.
+      - name: Store env file in Parameter Store
         run: |
-          S3_ENV_KEY="deploy/${{ env.NODE_ENV }}/${{ env.CONTAINER_NAME }}/${{ github.run_id }}-${{ github.run_attempt }}/api.env"
-          echo "S3_ENV_KEY=$S3_ENV_KEY" >> "$GITHUB_ENV"
-          aws s3 cp ${{ github.workspace }}/api.env "s3://${{ env.DEPLOY_ARTIFACTS_BUCKET }}/$S3_ENV_KEY" --sse AES256
+          set -euo pipefail
+          aws ssm put-parameter \
+            --name "${{ env.ENV_PARAM }}" \
+            --type SecureString --tier Intelligent-Tiering --overwrite \
+            --value "file://${{ github.workspace }}/api.env" > /dev/null
+          rm -f "${{ github.workspace }}/api.env"
 
       - name: Deploy via SSM
         env:
@@ -192,13 +192,18 @@ jobs:
 
           SCRIPT=$(cat << 'SCRIPT_EOF'
           set -e
-          aws s3 cp "s3://${{ env.DEPLOY_ARTIFACTS_BUCKET }}/${{ env.S3_ENV_KEY }}" /home/ec2-user/api.env
-          aws s3 rm "s3://${{ env.DEPLOY_ARTIFACTS_BUCKET }}/${{ env.S3_ENV_KEY }}"
+          aws ssm get-parameter --name ${{ env.ENV_PARAM }} --with-decryption --region ${{ env.AWS_REGION }} --query Parameter.Value --output text > /home/ec2-user/api.env
           chmod 600 /home/ec2-user/api.env
           set -a
           source /home/ec2-user/api.env
           set +a
           aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
+
+          # Reclaim space BEFORE pulling. Every image is tagged :<sha>, so a plain
+          # `image prune -f` (dangling only) frees nothing and the disk fills up.
+          # -a drops images not backing a running container; all are re-pullable from ECR.
+          docker container prune -f || true
+          docker image prune -af || true
           docker pull ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
 
           # Run migrations before swapping the container.
@@ -252,8 +257,6 @@ jobs:
             docker logs ${{ env.CONTAINER_NAME }} --tail 50
             exit 1
           fi
-
-          docker image prune -f
           SCRIPT_EOF
           )
 
