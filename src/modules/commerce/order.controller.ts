@@ -225,6 +225,23 @@ export default class OrderController {
   }
 
   /**
+   * POST /api/v2/orders/my/:id/cancel
+   * Customer self-service cancel — same rules as the admin cancel above
+   * (OrderService.cancelOrder: only while PENDING, no captured payment or
+   * supplier order yet), just with ownership enforced via resolveOrderViewer
+   * instead of requirePermission, since a plain customer account has no
+   * orders:write grant to gate on.
+   */
+  static async cancelMyOrder(req: Request, res: Response, next: NextFunction) {
+    try {
+      const order = await OrderService.cancelOrder(req.params.id, await resolveOrderViewer(req));
+      return responseSuccess(res, 200, order, 'Order cancelled');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * POST /api/v2/orders/:id/reject
    * Admin declines to fulfill a paid order — issues a full refund and marks
    * it REJECTED. See OrderService.rejectOrder's doc comment.

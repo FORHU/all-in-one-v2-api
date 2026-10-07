@@ -94,12 +94,25 @@ enum DiscountType {
   FREE_SHIPPING
 }
 
+/// Full refund/return/replacement request lifecycle — see
+/// return-status.util.ts's ALLOWED_RETURN_TRANSITIONS for which moves are
+/// legal from which state. Supersedes the old 5-value enum; RECEIVED is
+/// dropped in favor of RETURN_PROCESSING (see the migration's backfill).
 enum ReturnStatus {
   PENDING
+  UNDER_REVIEW
+  EVIDENCE_REQUIRED
   APPROVED
   REJECTED
-  RECEIVED
+  CJ_DISPUTE_SUBMITTED
+  CJ_DISPUTE_UNDER_REVIEW
+  CJ_APPROVED
+  CJ_REJECTED
+  REFUND_PROCESSING
+  REPLACEMENT_PROCESSING
+  RETURN_PROCESSING
   COMPLETED
+  CANCELLED
 }
 
 enum RefundStatus {
@@ -107,6 +120,42 @@ enum RefundStatus {
   PROCESSING
   COMPLETED
   FAILED
+}
+
+enum ReturnRequestType {
+  REFUND
+  REPLACEMENT
+  RETURN
+}
+
+/// Only meaningful when requestType = RETURN — which outcome the customer
+/// wants once the physical item is back with the supplier.
+enum ReturnPreferredResolution {
+  REFUND
+  REPLACEMENT
+}
+
+enum ReturnDisputeStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  CANCELLED
+  /// CJ's API call itself failed/was unavailable — see ReturnService.fileCjDispute.
+  /// Never set on a real CJ rejection; that's REJECTED.
+  FAILED_TO_SUBMIT
+}
+
+enum CostCoveredBy {
+  CJ
+  ADDICTSTYLE
+  CUSTOMER_NOT_REFUNDED
+  SPLIT
+}
+
+enum EvidenceUploaderRole {
+  CUSTOMER
+  ADMIN
 }
 
 model CommerceCustomer {
@@ -152,8 +201,9 @@ model CommerceShippingAddress {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  customer CommerceCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  orders   CommerceOrder[]
+  customer                  CommerceCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  orders                    CommerceOrder[]
+  returnsWithUpdatedAddress Return[]
 
   @@index([customerId])
   @@map("commerce_shipping_addresses")
@@ -217,14 +267,19 @@ model CommerceOrder {
   shippingAmount Decimal @default(0) @db.Decimal(18, 4)
   totalAmount    Decimal @db.Decimal(18, 4)
 
-  currency          String   @default("USD")
-  customerId        String?
-  sessionId         String?
-  shippingAddressId String?
-  couponId          String?
-  promotionId       String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  currency              String   @default("USD")
+  customerId            String?
+  sessionId             String?
+  shippingAddressId     String?
+  couponId              String?
+  promotionId           String?
+  /// Set when this order was created by ReturnResolutionService.createReplacementOrder
+  /// as an AddictStyle-funded resend for a refund/replacement request — never set
+  /// for a normal checkout order. See CommerceOrder's `replacementOrders` and
+  /// Return's `replacementOrder`.
+  replacementForOrderId String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   /// Set the moment this order's revenue was folded into the analytics rollups.
   /// The rollups are += aggregates with no memory of which orders fed them, so
@@ -233,16 +288,19 @@ model CommerceOrder {
   /// a replayed job claims nothing and returns.
   analyticsRecordedAt DateTime?
 
-  tenant          Tenant                   @relation(fields: [tenantId], references: [id])
-  customer        CommerceCustomer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  shippingAddress CommerceShippingAddress? @relation(fields: [shippingAddressId], references: [id], onDelete: SetNull)
-  coupon          Coupon?                  @relation(fields: [couponId], references: [id], onDelete: SetNull)
-  promotion       Promotion?               @relation(fields: [promotionId], references: [id], onDelete: SetNull)
-  items           CommerceOrderItem[]
-  supplierOrders  CommerceSupplierOrder[] // 1 order -> N supplier fulfillments
-  payments        CommercePayment[]
-  returns         Return[]
-  refunds         Refund[]
+  tenant               Tenant                   @relation(fields: [tenantId], references: [id])
+  customer             CommerceCustomer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  shippingAddress      CommerceShippingAddress? @relation(fields: [shippingAddressId], references: [id], onDelete: SetNull)
+  coupon               Coupon?                  @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  promotion            Promotion?               @relation(fields: [promotionId], references: [id], onDelete: SetNull)
+  items                CommerceOrderItem[]
+  supplierOrders       CommerceSupplierOrder[] // 1 order -> N supplier fulfillments
+  payments             CommercePayment[]
+  returns              Return[]
+  refunds              Refund[]
+  replacementForOrder  CommerceOrder?           @relation("OrderReplacement", fields: [replacementForOrderId], references: [id], onDelete: SetNull)
+  replacementOrders    CommerceOrder[]          @relation("OrderReplacement")
+  returnReplacementFor Return?                  @relation("ReturnReplacementOrder")
 
   @@unique([tenantId, id])
   @@unique([tenantId, orderNumber])
@@ -253,6 +311,7 @@ model CommerceOrder {
   @@index([promotionId])
   @@index([tenantId, status])
   @@index([tenantId, createdAt])
+  @@index([replacementForOrderId])
   @@map("commerce_orders")
 }
 
@@ -278,6 +337,7 @@ model CommerceOrderItem {
   order          CommerceOrder          @relation(fields: [orderId], references: [id])
   productVariant CatalogProductVariant  @relation(fields: [tenantId, productVariantId], references: [tenantId, id], onDelete: Restrict)
   supplierOrder  CommerceSupplierOrder? @relation(fields: [supplierOrderId], references: [id], onDelete: SetNull)
+  returnItems    ReturnItem[]
 
   @@index([tenantId])
   @@index([orderId])
@@ -443,15 +503,191 @@ model Return {
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
 
+  requestType              ReturnRequestType          @default(REFUND)
+  /// Long-form customer explanation — `reason` stays a short reason code/label
+  /// (matches admin's existing RETURN_REASON_OPTIONS), this is the free text.
+  description              String?
+  preferredResolution      ReturnPreferredResolution?
+  updatedShippingAddressId String?
+  /// "Don't require physical returns by default" — set true only when CJ's
+  /// dispute resolution (or an admin) explicitly requires the item back.
+  requiresPhysicalReturn   Boolean                    @default(false)
+  /// Set once ReturnResolutionService.createReplacementOrder (Branch B) places
+  /// a real, AddictStyle-funded replacement order. Never set for Branch A
+  /// (CJ-funded resend) — see return-resolution.service.ts.
+  replacementOrderId       String?                    @unique
+
   tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   order    CommerceOrder    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   customer CommerceCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   refund   Refund?
 
+  items                  ReturnItem[]
+  evidence               ReturnEvidence[]
+  disputes               ReturnDispute[]
+  statusHistory          ReturnStatusHistory[]
+  financials             ReturnFinancials?
+  physicalShipment       ReturnPhysicalShipment?
+  updatedShippingAddress CommerceShippingAddress? @relation(fields: [updatedShippingAddressId], references: [id], onDelete: SetNull)
+  replacementOrder       CommerceOrder?           @relation("ReturnReplacementOrder", fields: [replacementOrderId], references: [id], onDelete: SetNull)
+
   @@index([tenantId])
   @@index([orderId])
   @@index([customerId])
+  @@index([updatedShippingAddressId])
   @@map("returns")
+}
+
+/// Which specific order line item(s) this request covers, and how many units
+/// — needed because CJ's dispute API (getDisputeProducts/createDispute) is
+/// scoped per line item, and because "prevent duplicate active requests per
+/// order item" can't be enforced at the whole-order level. Price/cost are
+/// snapshotted at request time, same "immutable historical snapshot"
+/// convention CommerceOrderItem itself already uses.
+model ReturnItem {
+  id                   String   @id @default(uuid())
+  tenantId             String
+  returnId             String
+  orderItemId          String
+  quantity             Int
+  unitPriceSnapshot    Decimal  @db.Decimal(18, 4)
+  supplierCostSnapshot Decimal? @db.Decimal(18, 4)
+  createdAt            DateTime @default(now())
+
+  return    Return            @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  orderItem CommerceOrderItem @relation(fields: [orderItemId], references: [id])
+
+  @@unique([returnId, orderItemId])
+  @@index([tenantId])
+  @@index([orderItemId])
+  @@map("return_items")
+}
+
+/// Customer- or admin-uploaded photo/video attached to a request. Plain-url
+/// shape mirrors ReviewImage rather than the polymorphic AuthFile table —
+/// same "N photos on a parent record" precedent, simpler for this use case.
+model ReturnEvidence {
+  id             String               @id @default(uuid())
+  returnId       String
+  url            String
+  mimeType       String?
+  uploadedByRole EvidenceUploaderRole @default(CUSTOMER)
+  createdAt      DateTime             @default(now())
+
+  return Return @relation(fields: [returnId], references: [id], onDelete: Cascade)
+
+  @@index([returnId])
+  @@map("return_evidence")
+}
+
+/// One row per CJ dispute filing attempt — a request can be disputed, have it
+/// rejected, and be re-filed, which a set of flat columns on Return can't
+/// represent without losing history the audit trail needs. The service
+/// always treats the latest row (by createdAt) as "the active dispute."
+model ReturnDispute {
+  id                        String              @id @default(uuid())
+  returnId                  String
+  /// CJ's own order id for the underlying CommerceSupplierOrder — denormalized
+  /// here since a dispute always targets a specific supplier order, not the
+  /// whole (possibly multi-supplier-order) CommerceOrder.
+  cjOrderExternalId         String
+  /// Populated once CJ's response actually confirms one exists — null while
+  /// SUBMITTED, or permanently for FAILED_TO_SUBMIT.
+  cjDisputeId               String?
+  /// Our own idempotency key sent to CJ (max 100 chars per CJ's API).
+  businessDisputeId         String
+  /// 1 = refund, 2 = reissue/replacement — CJDisputeExpectType.
+  expectType                Int
+  /// 1 = balance refund (credited to CJ account), 2 = platform refund.
+  refundType                Int?
+  disputeReasonId           Int?
+  status                    ReturnDisputeStatus @default(SUBMITTED)
+  /// CJ's raw status string, stored verbatim — unverified against a live
+  /// account, so the service never auto-parses this into our own enum. An
+  /// admin reads it and calls confirmCjOutcome explicitly.
+  cjRawStatus               String?
+  cjRefundAmount            Decimal?            @db.Decimal(18, 4)
+  cjRawResponse             Json?
+  /// Manually transcribed if CJ funds a reissue and surfaces tracking outside
+  /// this API (e.g. by email) — see ReturnService's Branch A handling.
+  replacementTrackingNumber String?
+  replacementCarrier        String?
+  submittedAt               DateTime?
+  resolvedAt                DateTime?
+  /// Admin notes — especially the reason for a FAILED_TO_SUBMIT fallback.
+  notes                     String?
+  createdAt                 DateTime            @default(now())
+  updatedAt                 DateTime            @updatedAt
+
+  return Return @relation(fields: [returnId], references: [id], onDelete: Cascade)
+
+  @@index([returnId])
+  @@map("return_disputes")
+}
+
+/// Deliberately separate from both Return (would bloat every list-query row
+/// with nullable money columns) and Refund (a narrow "one real Stripe
+/// transaction" record also used outside this feature by
+/// OrderService.rejectOrder). Keeping customer-refund and CJ-reimbursement
+/// accounting as distinct named columns here is the literal expression of
+/// "keep these two separate."
+model ReturnFinancials {
+  id                      String         @id @default(uuid())
+  returnId                String         @unique
+  tenantId                String
+  originalProductCost     Decimal?       @db.Decimal(18, 4)
+  customerRefundAmount    Decimal?       @db.Decimal(18, 4)
+  cjReimbursementAmount   Decimal?       @db.Decimal(18, 4)
+  replacementProductCost  Decimal?       @db.Decimal(18, 4)
+  replacementShippingCost Decimal?       @db.Decimal(18, 4)
+  costCoveredBy           CostCoveredBy?
+  outcomeNotes            String?
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+
+  return Return @relation(fields: [returnId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("return_financials")
+}
+
+/// Only created when CJ (or an admin) requires the physical item back before
+/// resolving — "don't require physical returns by default" means most
+/// requests never get one of these rows at all.
+model ReturnPhysicalShipment {
+  id                     String    @id @default(uuid())
+  returnId               String    @unique
+  carrier                String?
+  trackingNumber         String?
+  instructions           String?
+  shippedAt              DateTime?
+  receivedAt             DateTime?
+  receivedConditionNotes String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  return Return @relation(fields: [returnId], references: [id], onDelete: Cascade)
+
+  @@map("return_physical_shipments")
+}
+
+/// Audit trail of every status transition — inserted in the same transaction
+/// as the status change itself (see return.repository.ts's transitionStatus).
+model ReturnStatusHistory {
+  id          String        @id @default(uuid())
+  returnId    String
+  fromStatus  ReturnStatus?
+  toStatus    ReturnStatus
+  actorUserId String?
+  /// Snapshot, not a live join — "CUSTOMER" | "ADMIN" | "SYSTEM".
+  actorRole   String?
+  note        String?
+  createdAt   DateTime      @default(now())
+
+  return Return @relation(fields: [returnId], references: [id], onDelete: Cascade)
+
+  @@index([returnId])
+  @@map("return_status_history")
 }
 
 model Refund {

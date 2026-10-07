@@ -8,6 +8,7 @@ import {
   PaymentStatus,
   SyncStatus,
   OrderStatus,
+  ReturnStatus,
   PaymentGateway,
   PaymentChannel,
   PaymentInstrument,
@@ -17,6 +18,7 @@ import { requireTenantId } from '../../utils/async-context';
 import { deriveWebhookEventId } from '../../utils/webhook-identity';
 import AnalyticsRollupService from '../system/analytics-rollup.service';
 import NotificationRepository from '../system/notification.repository';
+import logger from '../../utils/logger';
 import Stripe from 'stripe';
 
 const stripe = new Stripe((process.env.STRIPE_SECRET_KEY as string) || 'sk_test_123', {
@@ -455,7 +457,51 @@ export default class PaymentService {
             // issued (see ReturnService.issueRefund) — a refund issued
             // directly from the Stripe Dashboard has no such row, which is
             // fine; there's nothing further to reconcile for it here.
-            await ReturnRepository.markMostRecentPendingRefundCompleted(payment.orderId);
+            const completedRefund = await ReturnRepository.markMostRecentPendingRefundCompleted(
+              payment.orderId,
+            );
+
+            // The new request lifecycle's processRefund puts the Return at
+            // REFUND_PROCESSING and waits for this exact webhook to confirm
+            // the money actually moved before calling it COMPLETED — this is
+            // the "doesn't wait for confirmation" tradeoff finally resolved
+            // for that one field, same as the Refund row itself already was.
+            // Guarded on REFUND_PROCESSING specifically so this never fires
+            // for the older issueRefund path, which already sets COMPLETED
+            // itself synchronously and would otherwise hit an invalid
+            // REFUND_PROCESSING -> COMPLETED... -> COMPLETED double-transition.
+            if (completedRefund?.returnId) {
+              const returnRow = await ReturnRepository.findById(
+                payment.order.tenantId,
+                completedRefund.returnId,
+              );
+              if (returnRow?.status === ReturnStatus.REFUND_PROCESSING) {
+                await ReturnRepository.transitionStatus(
+                  payment.order.tenantId,
+                  completedRefund.returnId,
+                  ReturnStatus.COMPLETED,
+                  { role: 'SYSTEM' },
+                  'Refund confirmed by Stripe webhook',
+                );
+                if (payment.order.customer?.userId) {
+                  try {
+                    await NotificationRepository.createNotification(payment.order.tenantId, {
+                      user: { connect: { id: payment.order.customer.userId } },
+                      type: 'RETURN_REQUEST_STATUS',
+                      channel: 'IN_APP',
+                      title: 'Refund complete',
+                      message: `Your refund for order ${payment.order.orderNumber} has been completed.`,
+                      data: { returnId: completedRefund.returnId },
+                    });
+                  } catch (error) {
+                    logger.error(
+                      `[PaymentService] Failed to send refund-completed notification for return ${completedRefund.returnId}`,
+                      error,
+                    );
+                  }
+                }
+              }
+            }
 
             // A full refund is a real order-status change — reuse
             // OrderRepository.updateStatus so Payment gets synced to
