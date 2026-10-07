@@ -12,8 +12,13 @@ name: Deploy Dev
 # BEFORE THE FIRST RUN
 #   1. Repository variable:
 #        AWS_DEV_DEPLOY_ROLE_ARN = arn:aws:iam::617163942417:role/forhu-deploy
-#   2. Put this project's secrets in the `dev` environment (see the publish
-#      step). DATABASE_URL, REDIS_URL, REDIS_HOST/PORT and RABBITMQ_URL come
+#   2. This uses the existing `staging` environment rather than a new `dev`
+#      one, so the 36 secrets already there are reused as-is. Every lookup is
+#      `vars.X || secrets.X`, so a value can live in either bucket and a
+#      variable wins where both exist — set the handful that need dev-specific
+#      values (ROOT_DOMAIN, AWS_S3_BUCKET_NAME, WEBSUB_CALLBACK_URL) as
+#      variables to override the staging secret without touching it.
+#      DATABASE_URL, REDIS_URL, REDIS_HOST/PORT and RABBITMQ_URL come
 #      from the host's own credentials file — do NOT set them here. The old
 #      workflow defaulted them to localhost, which cannot resolve from inside a
 #      container, and to RabbitMQ's `guest`, which only accepts local
@@ -60,7 +65,7 @@ jobs:
     # "exec format error". Do not cross-build under QEMU — Node and Prisma
     # builds take hours and look hung.
     runs-on: ubuntu-24.04-arm
-    environment: dev
+    environment: staging
 
     permissions:
       id-token: write
@@ -75,7 +80,7 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.AWS_DEV_DEPLOY_ROLE_ARN }}
+          role-to-assume: ${{ vars.AWS_DEV_DEPLOY_ROLE_ARN || 'arn:aws:iam::617163942417:role/forhu-deploy' }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Resolve image tag
@@ -110,37 +115,37 @@ jobs:
         env:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
-          JWT_EXPIRY: ${{ vars.JWT_EXPIRY }}
-          ROOT_DOMAIN: ${{ vars.ROOT_DOMAIN }}
-          DEFAULT_TENANT_SLUG: ${{ vars.DEFAULT_TENANT_SLUG }}
-          CHAT_WONDER_API_URL: ${{ vars.CHAT_WONDER_API_URL }}
-          MAILER_TRANSPORT_HOST: ${{ vars.MAILER_TRANSPORT_HOST }}
-          MAILER_TRANSPORT_PORT: ${{ vars.MAILER_TRANSPORT_PORT }}
-          MAILER_TRANSPORT_SECURE: ${{ vars.MAILER_TRANSPORT_SECURE }}
+          JWT_EXPIRY: ${{ vars.JWT_EXPIRY || secrets.JWT_EXPIRY }}
+          ROOT_DOMAIN: ${{ vars.ROOT_DOMAIN || secrets.ROOT_DOMAIN }}
+          DEFAULT_TENANT_SLUG: ${{ vars.DEFAULT_TENANT_SLUG || secrets.DEFAULT_TENANT_SLUG }}
+          CHAT_WONDER_API_URL: ${{ vars.CHAT_WONDER_API_URL || secrets.CHAT_WONDER_API_URL }}
+          MAILER_TRANSPORT_HOST: ${{ vars.MAILER_TRANSPORT_HOST || secrets.MAILER_TRANSPORT_HOST }}
+          MAILER_TRANSPORT_PORT: ${{ vars.MAILER_TRANSPORT_PORT || secrets.MAILER_TRANSPORT_PORT }}
+          MAILER_TRANSPORT_SECURE: ${{ vars.MAILER_TRANSPORT_SECURE || secrets.MAILER_TRANSPORT_SECURE }}
           MAILER_EMAIL: ${{ secrets.MAILER_EMAIL }}
           MAILER_PASSWORD: ${{ secrets.MAILER_PASSWORD }}
-          REDIS_TTL_SECONDS: ${{ vars.REDIS_TTL_SECONDS }}
-          REDIS_TLS: ${{ vars.REDIS_TLS }}
-          METRICS_INTERVAL_MS: ${{ vars.METRICS_INTERVAL_MS }}
-          AWS_S3_BUCKET_NAME: ${{ vars.AWS_S3_BUCKET_NAME }}
-          S3_CDN_URL: ${{ vars.S3_CDN_URL }}
-          RABBITMQ_EXCHANGE: ${{ vars.RABBITMQ_EXCHANGE }}
-          RABBITMQ_QUEUE_PREFIX: ${{ vars.RABBITMQ_QUEUE_PREFIX }}
-          INGESTION_QUEUE_NAME: ${{ vars.INGESTION_QUEUE_NAME }}
+          REDIS_TTL_SECONDS: ${{ vars.REDIS_TTL_SECONDS || secrets.REDIS_TTL_SECONDS }}
+          REDIS_TLS: ${{ vars.REDIS_TLS || secrets.REDIS_TLS }}
+          METRICS_INTERVAL_MS: ${{ vars.METRICS_INTERVAL_MS || secrets.METRICS_INTERVAL_MS }}
+          AWS_S3_BUCKET_NAME: ${{ vars.AWS_S3_BUCKET_NAME || secrets.AWS_S3_BUCKET_NAME }}
+          S3_CDN_URL: ${{ vars.S3_CDN_URL || secrets.S3_CDN_URL }}
+          RABBITMQ_EXCHANGE: ${{ vars.RABBITMQ_EXCHANGE || secrets.RABBITMQ_EXCHANGE }}
+          RABBITMQ_QUEUE_PREFIX: ${{ vars.RABBITMQ_QUEUE_PREFIX || secrets.RABBITMQ_QUEUE_PREFIX }}
+          INGESTION_QUEUE_NAME: ${{ vars.INGESTION_QUEUE_NAME || secrets.INGESTION_QUEUE_NAME }}
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID || secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_ANDROID_CLIENT_ID: ${{ vars.GOOGLE_ANDROID_CLIENT_ID || secrets.GOOGLE_ANDROID_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          WEBSUB_CALLBACK_URL: ${{ vars.WEBSUB_CALLBACK_URL }}
+          WEBSUB_CALLBACK_URL: ${{ vars.WEBSUB_CALLBACK_URL || secrets.WEBSUB_CALLBACK_URL }}
           WEBSUB_SECRET: ${{ secrets.WEBSUB_SECRET }}
-          CJ_BASE_URL: ${{ vars.CJ_BASE_URL }}
+          CJ_BASE_URL: ${{ vars.CJ_BASE_URL || secrets.CJ_BASE_URL }}
           CJ_API_KEY: ${{ secrets.CJ_API_KEY }}
-          CJ_RATE_LIMIT_MS: ${{ vars.CJ_RATE_LIMIT_MS }}
-          CJ_SUPPLIER_CACHE_TTL: ${{ vars.CJ_SUPPLIER_CACHE_TTL }}
-          PRINTFUL_BASE_URL: ${{ vars.PRINTFUL_BASE_URL }}
+          CJ_RATE_LIMIT_MS: ${{ vars.CJ_RATE_LIMIT_MS || secrets.CJ_RATE_LIMIT_MS }}
+          CJ_SUPPLIER_CACHE_TTL: ${{ vars.CJ_SUPPLIER_CACHE_TTL || secrets.CJ_SUPPLIER_CACHE_TTL }}
+          PRINTFUL_BASE_URL: ${{ vars.PRINTFUL_BASE_URL || secrets.PRINTFUL_BASE_URL }}
           PRINTFUL_API_KEY: ${{ secrets.PRINTFUL_API_KEY }}
-          PRINTFUL_STORE_ID: ${{ vars.PRINTFUL_STORE_ID }}
-          PRINTFUL_RATE_LIMIT_MS: ${{ vars.PRINTFUL_RATE_LIMIT_MS }}
+          PRINTFUL_STORE_ID: ${{ vars.PRINTFUL_STORE_ID || secrets.PRINTFUL_STORE_ID }}
+          PRINTFUL_RATE_LIMIT_MS: ${{ vars.PRINTFUL_RATE_LIMIT_MS || secrets.PRINTFUL_RATE_LIMIT_MS }}
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
           STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
