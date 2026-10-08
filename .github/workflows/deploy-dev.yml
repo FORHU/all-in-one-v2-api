@@ -13,7 +13,7 @@ name: Deploy Dev
 #   1. Repository variable:
 #        AWS_DEV_DEPLOY_ROLE_ARN = arn:aws:iam::617163942417:role/forhu-deploy
 #   2. This uses the existing `staging` environment rather than a new `dev`
-#      one, so the 36 secrets already there are reused as-is. Every lookup is
+#      one, so the 36 secrets already there are reused as-is. Every lookup iss
 #      `vars.X || secrets.X`, so a value can live in either bucket and a
 #      variable wins where both exist — set the handful that need dev-specific
 #      values (ROOT_DOMAIN, AWS_S3_BUCKET_NAME, WEBSUB_CALLBACK_URL) as
@@ -33,7 +33,7 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Branch, tag or SHA to deploy"
+        description: 'Branch, tag or SHA to deploy'
         required: true
         default: main
 
@@ -43,16 +43,16 @@ concurrency:
 
 env:
   AWS_REGION: ap-southeast-1
-  ACCOUNT_ID: "617163942417"
+  ACCOUNT_ID: '617163942417'
   INSTANCE_ID: i-0f95a93145ea25e7a
   ECR_REPOSITORY: all-in-one-v2-api
   CONTAINER: all-in-one-api
   WORKER: all-in-one-api-worker
   NETWORK: forhu-dev
-  HOST_PORT: "4071"
-  APP_PORT: "5002"
-  WORKER_HOST_PORT: "4072"
-  WORKER_PORT: "8080"
+  HOST_PORT: '4071'
+  APP_PORT: '5002'
+  WORKER_HOST_PORT: '4072'
+  WORKER_PORT: '8080'
   ENV_PARAM: /forhu-dev/all-in-one-api/env
   SHARED_ENV: /opt/forhu-dev/credentials/all-in-one.env
   MERGED_ENV: /opt/forhu-dev/all-in-one-api.env
