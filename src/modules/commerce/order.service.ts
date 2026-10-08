@@ -767,10 +767,17 @@ export default class OrderService {
    * even if the customer's own payment happens to not be PAID yet (e.g.
    * cash-on-delivery).
    */
-  static async cancelOrder(orderId: string) {
+  static async cancelOrder(orderId: string, viewer?: OrderViewer) {
     const tenantId = requireTenantId();
     const order = await OrderRepository.findById(tenantId, orderId);
     if (!order) {
+      return throwResponse(404, 'Order not found');
+    }
+
+    // Only the customer self-service route passes a viewer — the admin
+    // route calls this with none, same as before, so staff behavior is
+    // unchanged. Same "404 instead of 403" ownership rule as getOrderDetails.
+    if (viewer && !viewer.isAdmin && !this.isOrderOwner(order, viewer)) {
       return throwResponse(404, 'Order not found');
     }
 

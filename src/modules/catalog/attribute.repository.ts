@@ -27,7 +27,9 @@ const COMMON_COLOR_SWATCHES: Record<string, string> = {
   camel: '#C19A6B',
   brown: '#5C4033',
   walnut: '#5C4033',
+  coffee: '#6F4E37',
   tan: '#D2B48C',
+  apricot: '#FBCEB1',
   gray: '#808080',
   grey: '#808080',
   charcoal: '#36454F',
@@ -41,6 +43,7 @@ const COMMON_COLOR_SWATCHES: Record<string, string> = {
   green: '#228B22',
   'forest-green': '#228B22',
   olive: '#708238',
+  'army-green': '#4B5320',
   'sage-green': '#9CAF88',
   mint: '#98FF98',
   yellow: '#FFD700',
@@ -48,6 +51,7 @@ const COMMON_COLOR_SWATCHES: Record<string, string> = {
   orange: '#FFA500',
   coral: '#FF7F50',
   red: '#DC143C',
+  'dark-red': '#8B0000',
   crimson: '#DC143C',
   wine: '#722F37',
   burgundy: '#800020',
@@ -74,6 +78,26 @@ function normalizeColorKey(value: string): string {
 function resolveSwatchColor(attributeCode: string, value: string): string | undefined {
   if (attributeCode !== 'color' && attributeCode !== 'colour') return undefined;
   return COMMON_COLOR_SWATCHES[normalizeColorKey(value)];
+}
+
+// CJ (and presumably other suppliers) sometimes prefix a color's raw variant
+// value with its own internal SKU-like code — e.g. "ESCB019 Coffee",
+// "ESCB001 White" — which is meaningless to a shopper and shouldn't be shown
+// as the color name. Matches a short letters+digits token at the very start
+// followed by whitespace; real color names don't start that way, so this
+// shouldn't false-positive on a legitimate name.
+const SKU_CODE_PREFIX = /^[A-Za-z]{2,6}\d{2,5}\s+/;
+
+/**
+ * Display label for a color value — same value if there's no SKU-code prefix
+ * to strip, otherwise the cleaned-up remainder (capitalized). `value` itself
+ * is left untouched: it's the unique key variant selection matches against,
+ * so it has to keep matching whatever the supplier's own data says.
+ */
+function resolveDisplayLabel(attributeCode: string, value: string): string {
+  if (attributeCode !== 'color' && attributeCode !== 'colour') return capitalize(value);
+  const stripped = value.replace(SKU_CODE_PREFIX, '').trim();
+  return stripped ? capitalize(stripped) : capitalize(value);
 }
 
 export default class AttributeRepository {
@@ -287,14 +311,23 @@ export default class AttributeRepository {
       // color name not in it) gets backfilled the next time an import
       // touches it, rather than needing a separate one-off migration.
       const swatchColor = resolveSwatchColor(code, value);
+      const label = resolveDisplayLabel(code, value);
+      // Only ever overwrite an existing value's label when `value` itself
+      // still carries a SKU-code prefix to clean up — never touches a
+      // normal, already-clean label an admin may have hand-edited via the
+      // attribute management UI.
+      const hasSkuPrefix = SKU_CODE_PREFIX.test(value);
 
       const attributeValue = await client.catalogAttributeValue.upsert({
         where: { attributeId_value: { attributeId: attribute.id, value } },
-        update: swatchColor ? { swatchColor } : {},
+        update: {
+          ...(hasSkuPrefix ? { label } : {}),
+          ...(swatchColor ? { swatchColor } : {}),
+        },
         create: {
           attributeId: attribute.id,
           value,
-          label: capitalize(value),
+          label,
           ...(swatchColor ? { swatchColor } : {}),
         },
       });

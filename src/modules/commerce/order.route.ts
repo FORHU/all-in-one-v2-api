@@ -34,6 +34,10 @@ router.patch(
   OrderController.updateStatus,
 );
 router.post('/:id/cancel', authenticate, requirePermission('orders:write'), OrderController.cancel);
+// Customer self-service cancel — ownership enforced in the service (see
+// OrderController.cancelMyOrder), not requirePermission, since a plain
+// customer account has no orders:write grant.
+router.post('/my/:id/cancel', authenticate, OrderController.cancelMyOrder);
 router.post('/:id/reject', authenticate, requirePermission('orders:write'), OrderController.reject);
 router.post(
   '/:id/place-with-supplier',
