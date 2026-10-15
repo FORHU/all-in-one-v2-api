@@ -5,6 +5,9 @@ const config: Config = {
   testEnvironment: 'node',
   roots: ['<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
+  setupFiles: ['<rootDir>/tests/setup-env.ts'],
+  // Need a running LocalStack — run with `npm run test:localstack` instead.
+  testPathIgnorePatterns: ['/node_modules/', '<rootDir>/tests/localstack/'],
   // uuid v14+ ships ESM only — transform it through ts-jest
   transformIgnorePatterns: ['node_modules/(?!(uuid)/)'],
   transform: {

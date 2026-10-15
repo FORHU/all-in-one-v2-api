@@ -48,7 +48,7 @@ export class ProductSyncController {
         { supplierId, externalIds, total: externalIds.length, successCount: 0, failCount: 0 },
       );
 
-      // 2. Publish to RabbitMQ
+      // 2. Queue it on SQS for the worker
       await JobQueueService.publishProductSyncJob(job.id, supplierId, { externalIds });
 
       // 3. Immediately return 202 Accepted

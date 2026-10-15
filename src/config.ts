@@ -51,7 +51,28 @@ export const REDIS_TTL_SECONDS = parseInt(process.env.REDIS_TTL_SECONDS || '3600
 export const REDIS_TLS = process.env.REDIS_TLS === 'true';
 export const WORKER_HEALTH_PORT = parseInt(process.env.WORKER_HEALTH_PORT || '8080');
 
-export const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672';
+// ── Amazon SQS (background jobs) ────────────────────────────────────────────
+// Set AWS_SQS_ENDPOINT (e.g. http://localhost:4566) to use LocalStack in local
+// dev. Leave it unset in deployed environments so the SDK reaches real SQS.
+// Only the SQS client reads it — S3 keeps its own S3_ENDPOINT.
+export const AWS_SQS_ENDPOINT = process.env.AWS_SQS_ENDPOINT || '';
+export const PRODUCT_SYNC_QUEUE_URL = process.env.PRODUCT_SYNC_QUEUE_URL || '';
+export const SUPPLIER_REFUND_QUEUE_URL = process.env.SUPPLIER_REFUND_QUEUE_URL || '';
+// Must match the maxReceiveCount in each queue's redrive policy (the LocalStack
+// init script reads the same variable). The worker uses it to know when an
+// attempt is the last one before SQS moves the message to its DLQ.
+export const SQS_MAX_RECEIVE_COUNT = parseInt(process.env.SQS_MAX_RECEIVE_COUNT || '3');
+// How long a received message stays hidden from other workers. The consumer
+// renews it every third of this while a job runs, so it only needs to cover a
+// heartbeat gap, not the whole job.
+export const SQS_VISIBILITY_TIMEOUT_SECONDS = parseInt(
+  process.env.SQS_VISIBILITY_TIMEOUT_SECONDS || '300',
+);
+export const SQS_RETRY_DELAY_SECONDS = parseInt(process.env.SQS_RETRY_DELAY_SECONDS || '30');
+// Jobs each worker process runs at once per queue (also the receive batch size,
+// so SQS caps it at 10). 1 matches the old RabbitMQ prefetch(1).
+export const PRODUCT_SYNC_CONCURRENCY = parseInt(process.env.PRODUCT_SYNC_CONCURRENCY || '1');
+export const SUPPLIER_REFUND_CONCURRENCY = parseInt(process.env.SUPPLIER_REFUND_CONCURRENCY || '1');
 
 // Accepts either naming: MAILER_* (used by this project's .env and
 // docker-compose) or SMTP_* (used by most hosting providers).

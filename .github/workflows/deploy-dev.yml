@@ -18,16 +18,20 @@ name: Deploy Dev
 #      variable wins where both exist — set the handful that need dev-specific
 #      values (ROOT_DOMAIN, AWS_S3_BUCKET_NAME, WEBSUB_CALLBACK_URL) as
 #      variables to override the staging secret without touching it.
-#      DATABASE_URL, REDIS_URL, REDIS_HOST/PORT and RABBITMQ_URL come
-#      from the host's own credentials file — do NOT set them here. The old
-#      workflow defaulted them to localhost, which cannot resolve from inside a
-#      container, and to RabbitMQ's `guest`, which only accepts local
-#      connections.
+#      DATABASE_URL, REDIS_URL and REDIS_HOST/PORT come from the host's own
+#      credentials file — do NOT set them here. The old workflow defaulted them
+#      to localhost, which cannot resolve from inside a container. (That file
+#      may still hold a RABBITMQ_URL; nothing reads it since the SQS migration.)
 #   3. No AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY. The instance role grants
 #      S3, so static keys no longer ride in the env file and land on disk. That
 #      role is scoped to buckets named dev-*, *-dev or *-development, so
 #      AWS_S3_BUCKET_NAME must match one of those patterns or every object call
 #      returns AccessDenied.
+#   4. SQS background jobs. Create two standard queues, each with its own DLQ
+#      (redrive maxReceiveCount 3, matching SQS_MAX_RECEIVE_COUNT), and set
+#      PRODUCT_SYNC_QUEUE_URL and SUPPLIER_REFUND_QUEUE_URL as variables. The
+#      instance role also needs infra/sqs-app-policy.json's permissions on
+#      them. See docs/background-jobs-sqs.md. AWS_SQS_ENDPOINT stays unset.
 
 on:
   workflow_dispatch:
@@ -129,9 +133,9 @@ jobs:
           METRICS_INTERVAL_MS: ${{ vars.METRICS_INTERVAL_MS || secrets.METRICS_INTERVAL_MS }}
           AWS_S3_BUCKET_NAME: ${{ vars.AWS_S3_BUCKET_NAME || secrets.AWS_S3_BUCKET_NAME }}
           S3_CDN_URL: ${{ vars.S3_CDN_URL || secrets.S3_CDN_URL }}
-          RABBITMQ_EXCHANGE: ${{ vars.RABBITMQ_EXCHANGE || secrets.RABBITMQ_EXCHANGE }}
-          RABBITMQ_QUEUE_PREFIX: ${{ vars.RABBITMQ_QUEUE_PREFIX || secrets.RABBITMQ_QUEUE_PREFIX }}
-          INGESTION_QUEUE_NAME: ${{ vars.INGESTION_QUEUE_NAME || secrets.INGESTION_QUEUE_NAME }}
+          PRODUCT_SYNC_QUEUE_URL: ${{ vars.PRODUCT_SYNC_QUEUE_URL || secrets.PRODUCT_SYNC_QUEUE_URL }}
+          SUPPLIER_REFUND_QUEUE_URL: ${{ vars.SUPPLIER_REFUND_QUEUE_URL || secrets.SUPPLIER_REFUND_QUEUE_URL }}
+          SQS_MAX_RECEIVE_COUNT: ${{ vars.SQS_MAX_RECEIVE_COUNT || secrets.SQS_MAX_RECEIVE_COUNT }}
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID || secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_ANDROID_CLIENT_ID: ${{ vars.GOOGLE_ANDROID_CLIENT_ID || secrets.GOOGLE_ANDROID_CLIENT_ID }}
@@ -163,8 +167,8 @@ jobs:
                    MAILER_TRANSPORT_HOST MAILER_TRANSPORT_PORT \
                    MAILER_TRANSPORT_SECURE MAILER_EMAIL MAILER_PASSWORD \
                    REDIS_TTL_SECONDS REDIS_TLS METRICS_INTERVAL_MS \
-                   AWS_S3_BUCKET_NAME S3_CDN_URL RABBITMQ_EXCHANGE \
-                   RABBITMQ_QUEUE_PREFIX INGESTION_QUEUE_NAME YOUTUBE_API_KEY \
+                   AWS_S3_BUCKET_NAME S3_CDN_URL PRODUCT_SYNC_QUEUE_URL \
+                   SUPPLIER_REFUND_QUEUE_URL SQS_MAX_RECEIVE_COUNT YOUTUBE_API_KEY \
                    GOOGLE_CLIENT_ID GOOGLE_ANDROID_CLIENT_ID GOOGLE_CLIENT_SECRET \
                    WEBSUB_CALLBACK_URL WEBSUB_SECRET CJ_BASE_URL CJ_API_KEY \
                    CJ_RATE_LIMIT_MS CJ_SUPPLIER_CACHE_TTL PRINTFUL_BASE_URL \
@@ -209,6 +213,7 @@ jobs:
             "docker run --rm --platform linux/arm64 --network ${{ env.NETWORK }} --env-file ${{ env.MERGED_ENV }} --entrypoint npx ${IMAGE} prisma migrate deploy"
             "docker rm -f ${{ env.CONTAINER }} 2>/dev/null || true"
             "docker run -d --name ${{ env.CONTAINER }} --restart unless-stopped --platform linux/arm64 --network ${{ env.NETWORK }} --env-file ${{ env.MERGED_ENV }} -p 127.0.0.1:${{ env.HOST_PORT }}:${{ env.APP_PORT }} --log-opt max-size=10m --log-opt max-file=3 ${IMAGE}"
+            "docker stop -t 90 ${{ env.WORKER }} 2>/dev/null || true"
             "docker rm -f ${{ env.WORKER }} 2>/dev/null || true"
             "docker run -d --name ${{ env.WORKER }} --restart unless-stopped --platform linux/arm64 --network ${{ env.NETWORK }} --env-file ${{ env.MERGED_ENV }} -p 127.0.0.1:${{ env.WORKER_HOST_PORT }}:${{ env.WORKER_PORT }} --log-opt max-size=10m --log-opt max-file=3 ${IMAGE} node ./dist/src/worker.js"
             "ok=0; for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do if curl -sf http://127.0.0.1:${{ env.HOST_PORT }}/api/health/live >/dev/null; then ok=1; echo 'api healthy'; break; fi; sleep 3; done; if [ \$ok = 0 ]; then echo 'api did NOT come up'; docker logs --tail 60 ${{ env.CONTAINER }}; exit 1; fi"

@@ -5,7 +5,7 @@ import app from '../../src/app';
  * Integration tests for the health endpoints.
  *
  * NOTE: These tests mock infrastructure connections so they run without
- * a live database, Redis, or RabbitMQ instance in CI.
+ * a live database, Redis, or SQS queue in CI.
  */
 jest.mock('../../src/utils/prisma', () => ({
   prisma: {
@@ -28,13 +28,14 @@ jest.mock('../../src/infrastructure/redis', () => ({
   },
 }));
 
-jest.mock('../../src/infrastructure/rabbitmq', () => ({
-  rabbitmq: {
-    connect: jest.fn().mockResolvedValue(undefined),
-    close: jest.fn().mockResolvedValue(undefined),
-    isReady: jest.fn().mockReturnValue(true),
-    publish: jest.fn().mockResolvedValue(true),
-    consume: jest.fn().mockResolvedValue(undefined),
+const mockSqsIsReady = jest.fn().mockResolvedValue(true);
+
+jest.mock('../../src/infrastructure/sqs', () => ({
+  ...jest.requireActual('../../src/infrastructure/sqs'),
+  sqs: {
+    enqueue: jest.fn().mockResolvedValue('message-id'),
+    consume: jest.fn(),
+    isReady: () => mockSqsIsReady(),
   },
 }));
 
@@ -56,7 +57,15 @@ describe('Health Endpoints', () => {
       expect(res.body.status).toBe('ready');
       expect(res.body.services.database).toBe('up');
       expect(res.body.services.redis).toBe('up');
-      expect(res.body.services.rabbitmq).toBe('up');
+      expect(res.body.services.sqs).toBe('up');
+    });
+
+    it('should return 503 degraded when SQS is unreachable', async () => {
+      mockSqsIsReady.mockResolvedValueOnce(false);
+      const res = await request(app).get('/api/health/ready');
+      expect(res.status).toBe(503);
+      expect(res.body.status).toBe('degraded');
+      expect(res.body.services.sqs).toBe('down');
     });
   });
 

@@ -6,7 +6,7 @@ import { ProductImportService } from './product-import.service';
 import { throwResponse } from '../../utils/throw-response';
 import logger from '../../utils/logger';
 
-// Keeps each RabbitMQ payload small and each product-sync.consumer.ts job
+// Keeps each SQS message small and each product-sync.consumer.ts job
 // finishing in a reasonable time, same rationale as the scheduler's original
 // (broken) chunking.
 const CHUNK_SIZE = 50;
@@ -81,7 +81,7 @@ export class ProductSyncService {
   }
 
   /**
-   * Refreshes one already-imported product synchronously — no RabbitMQ/
+   * Refreshes one already-imported product synchronously — no queue/
    * worker involved, so the caller gets the real result (or a real error)
    * immediately, same path POST /products/import already uses for new
    * imports. Meant for a per-row "Refresh" action where waiting on a queued

@@ -14,8 +14,9 @@ import {
   ReturnPreferredResolution,
   CostCoveredBy,
 } from '@prisma/client';
-import { rabbitmq } from '../../infrastructure/rabbitmq';
+import { sqs, QUEUES } from '../../infrastructure/sqs';
 import { ROUTING_KEYS } from '../../events/routing-keys';
+import type { SupplierRefundPayload } from '../../consumers/supplier-refund.consumer';
 import logger from '../../utils/logger';
 
 export default class ReturnService {
@@ -871,7 +872,7 @@ export default class ReturnService {
     // or fail the request just because notifying the supplier had trouble.
     // The actual supplier-side refund (e.g. filing a CJ dispute) happens
     // asynchronously in supplier-refund.consumer.ts, per this codebase's
-    // "if it takes time, it goes to RabbitMQ" rule — CJ's dispute chain is
+    // "if it takes time, it goes on a queue" rule — CJ's dispute chain is
     // several sequential HTTP calls and CJ's own (unbounded) review time,
     // nothing an HTTP request should block on.
     try {
@@ -882,13 +883,22 @@ export default class ReturnService {
         // wired up yet or the order was cancelled before placement.
         if (!supplierOrder.externalId) continue;
 
-        await rabbitmq.publish(ROUTING_KEYS.SUPPLIER_ORDER_REFUND_REQUESTED, {
+        const message: SupplierRefundPayload = {
           tenantId,
+          // The worker's idempotency key: an order can be refunded more than
+          // once (one Refund per return), but each Refund must reach the
+          // supplier at most once even if SQS delivers its message twice.
+          refundId: refund.id,
           supplierOrderId: supplierOrder.id,
           supplierId: supplierOrder.supplier.name,
           externalId: supplierOrder.externalId,
           reason: reason || 'Customer-requested refund',
-        });
+        };
+        await sqs.enqueue(
+          QUEUES.SUPPLIER_REFUND,
+          ROUTING_KEYS.SUPPLIER_ORDER_REFUND_REQUESTED,
+          message,
+        );
       }
     } catch (error) {
       logger.error(
