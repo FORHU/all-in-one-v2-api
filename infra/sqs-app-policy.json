@@ -1,0 +1,23 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllInOneApiEnqueue",
+      "Effect": "Allow",
+      "Action": ["sqs:SendMessage", "sqs:GetQueueAttributes"],
+      "Resource": [
+        "arn:aws:sqs:ap-southeast-1:617163942417:all-in-one-*-product-sync",
+        "arn:aws:sqs:ap-southeast-1:617163942417:all-in-one-*-supplier-refund"
+      ]
+    },
+    {
+      "Sid": "AllInOneWorkerConsume",
+      "Effect": "Allow",
+      "Action": ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:ChangeMessageVisibility"],
+      "Resource": [
+        "arn:aws:sqs:ap-southeast-1:617163942417:all-in-one-*-product-sync",
+        "arn:aws:sqs:ap-southeast-1:617163942417:all-in-one-*-supplier-refund"
+      ]
+    }
+  ]
+}

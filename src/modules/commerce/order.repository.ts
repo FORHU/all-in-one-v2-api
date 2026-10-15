@@ -229,22 +229,92 @@ export default class OrderRepository {
   static async recordSupplierRefundResult(
     supplierOrderId: string,
     result: { requested: boolean; externalRefundId?: string; raw?: unknown },
+    refundId?: string,
   ) {
-    const existing = await prisma.commerceSupplierOrder.findUnique({
-      where: { id: supplierOrderId },
-      select: { rawResponse: true },
-    });
-    const rawResponse = (existing?.rawResponse as Prisma.JsonObject | null) ?? {};
+    const rawResponse = await this.getSupplierOrderRawResponse(supplierOrderId);
+    const requestedAt = new Date().toISOString();
 
     return prisma.commerceSupplierOrder.update({
       where: { id: supplierOrderId },
       data: {
         rawResponse: {
           ...rawResponse,
-          refund: { ...result, requestedAt: new Date().toISOString() } as Prisma.InputJsonValue,
+          // `refund` keeps holding the latest outcome, as before.
+          refund: { ...result, requestedAt } as Prisma.InputJsonValue,
+          ...(refundId
+            ? {
+                supplierRefundRequests: {
+                  ...this.readSupplierRefundRequests(rawResponse),
+                  [refundId]: { state: 'DONE', requested: result.requested, requestedAt },
+                },
+              }
+            : {}),
         },
       },
     });
+  }
+
+  /**
+   * Per-Refund progress of the supplier-side refund request, keyed by Refund
+   * id inside `rawResponse.supplierRefundRequests` (same no-migration
+   * reasoning as recordSupplierRefundResult). This is what makes the
+   * supplier-refund worker idempotent under SQS's at-least-once delivery:
+   *   undefined     → never attempted
+   *   'IN_PROGRESS' → an attempt started and never recorded an outcome
+   *                   (the worker died mid-call, or recording the result failed)
+   *   'DONE'        → outcome recorded; never call the supplier again
+   */
+  static async getSupplierRefundRequestState(
+    supplierOrderId: string,
+    refundId: string,
+  ): Promise<'IN_PROGRESS' | 'DONE' | undefined> {
+    const rawResponse = await this.getSupplierOrderRawResponse(supplierOrderId);
+    const entry = this.readSupplierRefundRequests(rawResponse)[refundId] as
+      | { state?: 'IN_PROGRESS' | 'DONE' }
+      | undefined;
+    return entry?.state;
+  }
+
+  /** Marks a Refund's supplier request as started, or clears the marker with `false`. */
+  static async setSupplierRefundRequestInProgress(
+    supplierOrderId: string,
+    refundId: string,
+    inProgress: boolean,
+  ) {
+    const rawResponse = await this.getSupplierOrderRawResponse(supplierOrderId);
+    const { [refundId]: _previous, ...others } = this.readSupplierRefundRequests(rawResponse);
+
+    return prisma.commerceSupplierOrder.update({
+      where: { id: supplierOrderId },
+      data: {
+        rawResponse: {
+          ...rawResponse,
+          supplierRefundRequests: inProgress
+            ? {
+                ...others,
+                [refundId]: { state: 'IN_PROGRESS', startedAt: new Date().toISOString() },
+              }
+            : others,
+        } as Prisma.InputJsonValue,
+      },
+    });
+  }
+
+  private static async getSupplierOrderRawResponse(
+    supplierOrderId: string,
+  ): Promise<Prisma.JsonObject> {
+    const existing = await prisma.commerceSupplierOrder.findUnique({
+      where: { id: supplierOrderId },
+      select: { rawResponse: true },
+    });
+    return (existing?.rawResponse as Prisma.JsonObject | null) ?? {};
+  }
+
+  private static readSupplierRefundRequests(rawResponse: Prisma.JsonObject): Prisma.JsonObject {
+    const requests = rawResponse.supplierRefundRequests;
+    return requests && typeof requests === 'object' && !Array.isArray(requests)
+      ? (requests as Prisma.JsonObject)
+      : {};
   }
 
   /**

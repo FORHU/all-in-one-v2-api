@@ -3,15 +3,14 @@ dotenv.config();
 
 import os from 'os';
 import http from 'http';
-import { rabbitmq } from './infrastructure/rabbitmq';
 import { redis } from './infrastructure/redis';
-import { startEmailConsumer } from './consumers/email.consumer';
-import { startAiConsumer } from './consumers/ai.consumer';
+import type { Consumer } from './infrastructure/sqs';
 import { startProductSyncConsumer } from './consumers/product-sync.consumer';
 import { startSupplierRefundConsumer } from './consumers/supplier-refund.consumer';
 import { workerMetrics } from './utils/worker-metrics';
-import { startScheduler } from './infrastructure/scheduler';
+import { startScheduler, stopScheduler } from './infrastructure/scheduler';
 import { registerSuppliers } from './suppliers';
+import { prisma } from './utils/prisma';
 import logger from './utils/logger';
 
 const WORKER_HEALTH_PORT = Number(process.env.WORKER_HEALTH_PORT || 8080);
@@ -19,6 +18,8 @@ const cpuCount = os.cpus().length;
 
 // Track readiness state — 503 until all consumers are up
 let isReady = false;
+
+let consumers: Consumer[] = [];
 
 /**
  * Lightweight health HTTP server — runs on a separate port from the API.
@@ -58,8 +59,8 @@ const startWorker = async () => {
     logger.warn(`[Worker] Only ${cpuCount} CPU core(s) available — consider scaling.`);
   }
 
-  // Connect to all infrastructure
-  await rabbitmq.connect();
+  // Redis backs worker metrics and the scheduler's lock. SQS needs no
+  // connection — it's plain HTTPS per call.
   await redis.connect();
 
   // Populate supplierRegistry (CJ/AliExpress/Printful adapters) — the
@@ -68,11 +69,9 @@ const startWorker = async () => {
   // server.ts's setup() does for the API process.
   registerSuppliers();
 
-  // Register all consumers
-  await startEmailConsumer();
-  await startAiConsumer();
-  await startProductSyncConsumer();
-  await startSupplierRefundConsumer();
+  // Start polling. Throws (failing startup) if a queue URL isn't configured —
+  // a worker with nothing to consume shouldn't report healthy.
+  consumers = [startProductSyncConsumer(), startSupplierRefundConsumer()];
 
   // Start scheduled jobs (cron)
   startScheduler();
@@ -91,16 +90,33 @@ const startWorker = async () => {
   logger.info('[Worker] All consumers ready. Listening for events.');
 };
 
+let shuttingDown = false;
+
+/**
+ * Stops polling, lets running jobs finish, then exits. That can take one open
+ * long poll (up to 20s) plus the longest running job — set the platform's
+ * stop grace period to match. A second signal exits at once; SQS redelivers
+ * the unfinished jobs after their visibility timeout.
+ */
 const gracefulShutdown = async (signal: string) => {
+  if (shuttingDown) {
+    logger.warn(
+      `[Worker][Shutdown] Second ${signal} — exiting now. Unfinished jobs will be redelivered.`,
+    );
+    process.exit(1);
+  }
+  shuttingDown = true;
   logger.info(`[Worker][Shutdown] ${signal} received. Starting graceful shutdown...`);
 
   isReady = false;
+  stopScheduler();
   workerMetrics.stop();
   healthServer.close();
 
   try {
-    await rabbitmq.close();
+    await Promise.all(consumers.map((consumer) => consumer.stop()));
     await redis.close();
+    await prisma.$disconnect();
 
     logger.info('[Worker][Shutdown] All connections closed. Goodbye.');
     process.exit(0);

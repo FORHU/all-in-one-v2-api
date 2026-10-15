@@ -7,7 +7,6 @@ import logger from './utils/logger';
 import { PORT, NODE_ENV } from './config';
 import { prisma } from './utils/prisma';
 import { redis } from './infrastructure/redis';
-import { rabbitmq } from './infrastructure/rabbitmq';
 import { initSocketIO } from './infrastructure/socket';
 import setup from './setup';
 
@@ -52,7 +51,6 @@ const gracefulShutdown = async (signal: string) => {
 
     try {
       // 2. Disconnect from all infrastructure
-      await rabbitmq.close();
       await redis.close();
       await prisma.$disconnect();
 
