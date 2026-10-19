@@ -26,6 +26,9 @@ export interface ProductVariantStockDto {
   color: string | null;
   size: string | null;
   stock: number;
+  /** This variant's own selling price — what checkout charges for it, which can differ from the product's "from" price. */
+  price: number | null;
+  compareAtPrice: number | null;
 }
 
 export interface ProductDetailDto extends ProductListingItemDto {

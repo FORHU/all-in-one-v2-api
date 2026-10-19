@@ -62,6 +62,30 @@ export interface CJProductListV2Data {
   content: CJProductListV2Item[];
 }
 
+/**
+ * GET /product/getCategory — CJ's 3-level category tree. Only the third
+ * level carries a usable id for /product/listV2's `categoryId` filter
+ * (confirmed against a live account: a level-3 id narrows listV2 to that
+ * category, and each returned item echoes it back as `categoryId`).
+ */
+export interface CJCategoryFirst {
+  categoryFirstId: string;
+  categoryFirstName: string;
+  categoryFirstList: {
+    categorySecondId: string;
+    categorySecondName: string;
+    categorySecondList: { categoryId: string; categoryName: string }[];
+  }[];
+}
+
+/** One level-3 CJ category, flattened with its breadcrumb. */
+export interface CJCategoryLeaf {
+  id: string;
+  name: string;
+  /** e.g. "Consumer Electronics > Portable Audio & Video > Speakers" */
+  path: string;
+}
+
 export interface CJTokenData {
   accessToken: string;
   accessTokenExpiryDate: string;

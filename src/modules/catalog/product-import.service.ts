@@ -1,10 +1,15 @@
 import { ProductStatus, Prisma } from '@prisma/client';
 import { prisma } from '../../utils/prisma';
 import logger from '../../utils/logger';
-import { calculateVariantPrice } from '../../utils/pricing.util';
+import {
+  calculateSalePrice,
+  calculateVariantPrice,
+  isSaleCurrentlyActive,
+} from '../../utils/pricing.util';
 import AttributeRepository from './attribute.repository';
 import InventoryRepository from '../inventory/inventory.repository';
 import PricingRuleRepository from './pricing-rule.repository';
+import { ruleSaleFromRow } from './pricing-rule.service';
 import CategoryRepository from './category.repository';
 import { supplierRegistry } from '../../suppliers/supplier.registry';
 import { throwResponse } from '../../utils/throw-response';
@@ -397,6 +402,10 @@ export class ProductImportService {
           });
         }
 
+        // Each variant's marked-up selling price, collected so the product's
+        // own display price can be set from them after the loop.
+        const sellingPrices: number[] = [];
+
         // Shared across every variant below — CJ/Printful variants of the
         // same product are almost always the cross product of a handful of
         // colors/sizes, so without this the same {code, value} pair gets
@@ -423,6 +432,7 @@ export class ProductImportService {
           const stockToSet =
             typeof liveStock === 'number' && liveStock >= 0 ? liveStock : DEFAULT_IMPORT_STOCK;
           const priceResult = calculateVariantPrice(cost, product.pricingRule);
+          sellingPrices.push(priceResult.calculatedPrice);
           const variantData = {
             tenantId,
             productId: product.id,
@@ -525,7 +535,25 @@ export class ProductImportService {
           }
         }
 
-        return product;
+        // The upsert above wrote the raw supplier cost into `price` — that's
+        // what the storefront displays, so it must be the marked-up price
+        // instead. Same result PricingRuleService.recalculateProductPricing
+        // produces (lowest variant selling price, plus the rule's sale while
+        // its window is open), done here so import AND every resync leave
+        // the displayed price correct rather than resetting it to cost.
+        // SupplierProduct.costPrice keeps the raw cost.
+        if (sellingPrices.length === 0) return product;
+
+        const regularPrice = Math.min(...sellingPrices);
+        const sale = product.pricingRule ? ruleSaleFromRow(product.pricingRule) : null;
+        const salePrice =
+          sale && isSaleCurrentlyActive(sale) ? calculateSalePrice(regularPrice, sale) : null;
+
+        return tx.catalogProduct.update({
+          where: { id: product.id },
+          data: { price: regularPrice, salePrice },
+          include: { pricingRule: true },
+        });
       },
       // A CJ product can carry 30+ variants, each needing several sequential
       // queries on the same transaction connection — the 5s default timeout

@@ -18,6 +18,7 @@
     "db:seed": "ts-node prisma/seed.ts",
     "db:seed:suppliers": "ts-node prisma/seed-suppliers.ts",
     "products:resync-all": "ts-node scripts/resync-all-products.ts",
+    "electronics:import": "ts-node scripts/import-electronics-from-cj.ts",
     "test": "jest",
     "test:unit": "jest tests/unit --passWithNoTests",
     "test:integration": "jest tests/integration --passWithNoTests",
