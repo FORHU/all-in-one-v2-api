@@ -76,7 +76,7 @@ function sumAvailableStock(variant: {
   return variant.supplierVariants.reduce((max, sv) => Math.max(max, sv.stock ?? 0), 0);
 }
 
-/** Per-variant stock, tagged with its color/size values so the PDP can look up the count for whatever the shopper currently has selected. */
+/** Per-variant stock and price, tagged with its color/size values so the PDP can look up both for whatever the shopper currently has selected. */
 function collectVariantStock(product: ProductDetailRow): ProductVariantStockDto[] {
   return product.variants.map((variant) => {
     let color: string | null = null;
@@ -87,7 +87,13 @@ function collectVariantStock(product: ProductDetailRow): ProductVariantStockDto[
       if (va.value.attribute.code === 'size') size = va.value.value;
     }
 
-    return { color, size, stock: sumAvailableStock(variant) };
+    return {
+      color,
+      size,
+      stock: sumAvailableStock(variant),
+      price: toNumber(variant.price),
+      compareAtPrice: toNumber(variant.compareAtPrice),
+    };
   });
 }
 

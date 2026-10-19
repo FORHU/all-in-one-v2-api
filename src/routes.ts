@@ -33,6 +33,7 @@ import notificationRoute from './modules/system/notification.route';
 import auditRoute from './modules/tenant/audit.route';
 import couponRoute from './modules/commerce/coupon.route';
 import storefrontRoute from './modules/storefront/storefront.route';
+import electronicsRoute from './modules/electronics/electronics.route';
 
 const router = express.Router();
 
@@ -75,6 +76,7 @@ router.use('/v2/notifications', notificationRoute);
 router.use('/v2/audits', auditRoute);
 router.use('/v2/coupons', couponRoute);
 router.use('/v2/storefront', storefrontRoute);
+router.use('/v2/electronics', electronicsRoute);
 router.use('/health', healthRouter);
 
 export default router;

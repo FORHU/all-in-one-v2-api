@@ -36,7 +36,7 @@ export interface PricingRuleDto {
 }
 
 /** Reassembles a rule's sale from its 4 columns — `saleType` is the presence flag; the other 3 are meaningless without it. */
-function ruleSaleFromRow(row: {
+export function ruleSaleFromRow(row: {
   saleType: PricingRuleRow['saleType'];
   saleValue: PricingRuleRow['saleValue'];
   saleStartsAt: PricingRuleRow['saleStartsAt'];

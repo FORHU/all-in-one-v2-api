@@ -5,6 +5,8 @@ import { PlaceOrderPayload, SupplierAdapter, SupplierStock } from '../supplier.i
 import { CJ_API_KEY, CJ_BASE_URL, CJ_RATE_LIMIT_MS } from '../../config';
 import {
   CJApiResponse,
+  CJCategoryFirst,
+  CJCategoryLeaf,
   CJTokenData,
   CJProductDetail,
   CJProductListV2Data,
@@ -51,6 +53,9 @@ function parseJsonPreservingBigInts(text: string): unknown {
 const CACHE_VERSION = 'v1';
 const CJ_ACCESS_TOKEN_KEY = `cj:access_token:${CACHE_VERSION}`;
 const CJ_REFRESH_TOKEN_KEY = `cj:refresh_token:${CACHE_VERSION}`;
+const CJ_CATEGORIES_KEY = `cj:categories:${CACHE_VERSION}`;
+// CJ's category tree changes rarely — a day is plenty fresh.
+const CJ_CATEGORIES_TTL = 24 * 60 * 60;
 
 /**
  * Fallback shipping method/origin used when a caller doesn't specify one.
@@ -274,9 +279,15 @@ export class CJDropshippingAdapter implements SupplierAdapter {
     query: string,
     page: number,
     limit: number,
+    // Optional level-3 CJ category id (see getCategories). Not part of
+    // SupplierAdapter — only callers holding the concrete CJ adapter pass it.
+    categoryId?: string,
   ): Promise<{ items: CJProductListV2Item[]; total: number }> {
     const res = await this.request<CJProductListV2Data>('/product/listV2', 'GET', undefined, {
-      keyWord: query,
+      // A category-only browse sends no keyword at all rather than an empty
+      // one; keyword searches are sent exactly as before.
+      keyWord: categoryId && !query ? undefined : query,
+      categoryId,
       page,
       size: limit,
     });
@@ -294,6 +305,27 @@ export class CJDropshippingAdapter implements SupplierAdapter {
     const items = (res.data.content ?? []).flatMap((c) => c.productList ?? c);
 
     return { items, total: res.data.totalRecords ?? 0 };
+  }
+
+  /** CJ's level-3 categories, flattened with their breadcrumb. Cached in Redis. */
+  async getCategories(): Promise<CJCategoryLeaf[]> {
+    return CacheUtil.remember(CJ_CATEGORIES_KEY, CJ_CATEGORIES_TTL, async () => {
+      const res = await this.request<CJCategoryFirst[]>('/product/getCategory', 'GET');
+      // Throw rather than return [] — remember() would cache the empty tree
+      // for the whole TTL.
+      if (!res?.result || !Array.isArray(res.data)) {
+        throw new Error(`CJ getCategory failed: ${res?.message ?? 'no response'}`);
+      }
+      return res.data.flatMap((first) =>
+        (first.categoryFirstList ?? []).flatMap((second) =>
+          (second.categorySecondList ?? []).map((third) => ({
+            id: third.categoryId,
+            name: third.categoryName,
+            path: `${first.categoryFirstName} > ${second.categorySecondName} > ${third.categoryName}`,
+          })),
+        ),
+      );
+    });
   }
 
   async getProduct(externalId: string): Promise<CJProductDetail | null> {
