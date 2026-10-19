@@ -34,6 +34,8 @@ name: Deploy Dev
 #      them. See docs/background-jobs-sqs.md. AWS_SQS_ENDPOINT stays unset.
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       ref:
