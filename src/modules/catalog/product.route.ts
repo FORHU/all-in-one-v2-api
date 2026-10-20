@@ -84,6 +84,15 @@ router.delete(
   ProductController.deleteMedia,
 );
 
+// Single product in the admin (editable) shape — two path segments, so it
+// can't collide with `/:slug` below despite both being registered first.
+router.get(
+  '/:id/admin',
+  authenticate,
+  requirePermission('catalog:read'),
+  ProductController.adminGetById,
+);
+
 router.get('/:slug', ProductController.getBySlug);
 
 router.post('/', authenticate, requirePermission('catalog:write'), ProductController.create);

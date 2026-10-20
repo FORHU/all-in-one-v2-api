@@ -62,6 +62,30 @@ export interface CJProductListV2Data {
   content: CJProductListV2Item[];
 }
 
+/**
+ * GET /product/getCategory — CJ's 3-level category tree. Only the third
+ * level carries a usable id for /product/listV2's `categoryId` filter
+ * (confirmed against a live account: a level-3 id narrows listV2 to that
+ * category, and each returned item echoes it back as `categoryId`).
+ */
+export interface CJCategoryFirst {
+  categoryFirstId: string;
+  categoryFirstName: string;
+  categoryFirstList: {
+    categorySecondId: string;
+    categorySecondName: string;
+    categorySecondList: { categoryId: string; categoryName: string }[];
+  }[];
+}
+
+/** One level-3 CJ category, flattened with its breadcrumb. */
+export interface CJCategoryLeaf {
+  id: string;
+  name: string;
+  /** e.g. "Consumer Electronics > Portable Audio & Video > Speakers" */
+  path: string;
+}
+
 export interface CJTokenData {
   accessToken: string;
   accessTokenExpiryDate: string;
@@ -106,6 +130,39 @@ export interface CJOrderItem {
   quantity: number;
 }
 
+/**
+ * Params for POST /logistic/freightCalculate — quotes real shipping methods
+ * and prices for a set of variants + destination *before* any order exists
+ * (unlike getOrderLogisticsInfo, which only works on an already-created
+ * order). `startCountryCode` is CJ's shipping origin (same default as
+ * placeOrder's DEFAULT_FROM_COUNTRY_CODE, 'CN', unless the item ships from
+ * a different warehouse); `zip` is optional but improves accuracy for
+ * countries where duties/remote-area surcharges depend on it.
+ */
+export interface CJFreightCalculateParams {
+  startCountryCode: string;
+  endCountryCode: string;
+  zip?: string;
+  products: { vid: string; quantity: number }[];
+}
+
+/**
+ * Row shape of POST /logistic/freightCalculate's response — one shipping
+ * method CJ can offer for the given products+destination, with its price.
+ * Not ground-truthed against a live account (unlike CJLogisticsOption);
+ * field names follow CJ's published docs.
+ */
+export interface CJFreightOption {
+  logisticName: string;
+  logisticPrice: number;
+  logisticPriceCn?: number;
+  logisticAging: string;
+  taxesFee?: number;
+  clearanceOperationFee?: number;
+  totalPostageFee?: number;
+  [key: string]: unknown;
+}
+
 export interface CJCreateOrderParams {
   orderNumber: string;
   shippingCountryCode: string;
@@ -138,6 +195,32 @@ export interface CJSimulatePayParams {
   orderId?: string;
   /** Parent order ID, for paying a batch of sandbox orders at once. */
   shipmentOrderId?: string;
+}
+
+/**
+ * Params for the real (non-sandbox) POST /shopping/pay/payBalance —
+ * deducts the order's cost from your actual CJ account balance. Same shape
+ * as CJSimulatePayParams by design: triangulated from CJ's docs/search
+ * results (not ground-truthed against a live account the way
+ * CJSimulatePayParams was), and simulatePay's sandbox stand-in takes the
+ * same two fields, so this mirrors it. See
+ * CJDropshippingAdapter.payBalance's doc comment before using this for real.
+ */
+export interface CJPayBalanceParams {
+  /** CJ order ID from createOrderV2/confirmOrder. Provide this or shipmentOrderId. */
+  orderId?: string;
+  /** Parent order ID, for paying a batch of real orders at once (see payBalanceV2, not implemented here). */
+  shipmentOrderId?: string;
+}
+
+/** Result of CJDropshippingAdapter.placeOrder — a resolved id, not the raw CJ payload. */
+export interface CJPlaceOrderResult {
+  /** Extracted via the same orderId/orderNum/id fallback scripts/test-cj-sandbox.ts uses — CJ's real field name is unconfirmed. */
+  orderId: string;
+  /** True if CJ flagged the initial logisticName as invalid (logisticsMiss) and placeOrder() corrected it automatically. */
+  logisticsAutoCorrected: boolean;
+  /** Full createOrderV2 response, for callers that need fields this type doesn't surface. */
+  raw: Record<string, unknown>;
 }
 
 export interface CJUpdateSandboxStatusParams {
@@ -188,10 +271,25 @@ export interface CJUpdateLogisticsParams {
   logisticName: string;
 }
 
-export interface CJOrder {
+/**
+ * Row shape of GET /shopping/order/getOrderDetail — used by
+ * CJDropshippingAdapter.getOrderStatus for real-time order/tracking lookup.
+ * Field names follow CJ's published docs (developers.cjdropshipping.cn/en/api/api2/api/shopping.html);
+ * not ground-truthed against a live account the way e.g. CJLogisticsOption's
+ * `id` field was — `orderStatus`/`subStatus`'s exact possible string values
+ * in particular are undocumented in detail, so treat them as opaque
+ * display text rather than a closed enum until confirmed live.
+ */
+export interface CJOrderDetail {
   orderId: string;
   orderNum: string;
+  platformOrderId?: string;
   orderStatus: string;
+  subStatus?: string;
+  orderAmount?: number;
+  productAmount?: number;
+  postageAmount?: number;
+  orderWeight?: number;
   shippingCountryCode: string;
   shippingCountry: string;
   shippingProvince: string;
@@ -200,10 +298,16 @@ export interface CJOrder {
   shippingCustomerName: string;
   shippingZip: string;
   shippingPhone: string;
+  remark?: string;
+  fromCountryCode?: string;
+  storageId?: string;
   createDate: string;
   paymentDate?: string;
+  isComplete?: boolean;
   trackNumber?: string;
   logisticName?: string;
+  trackingProvider?: string;
+  [key: string]: unknown;
 }
 
 /**
@@ -218,5 +322,73 @@ export interface CJVariantStock {
   storageNum?: number;
   countryCode?: string;
   areaEn?: string;
+  [key: string]: unknown;
+}
+
+// --- Disputes (post-payment refund/reissue requests) ---
+// Docs: https://developers.cjdropshipping.cn/en/api/api2/api/dispute.html
+// Unconfirmed against a live account — field names follow the docs but
+// haven't been ground-truthed the way e.g. CJLogisticsOption's `id` was.
+
+/** One line item CJ considers eligible to dispute, from GET /disputes/disputeProducts. */
+export interface CJDisputeProduct {
+  lineItemId: string;
+  quantity: number;
+  price: number;
+  [key: string]: unknown;
+}
+
+export interface CJDisputeProductLine {
+  lineItemId: string;
+  quantity: number;
+  price: number;
+}
+
+/** Response of POST /disputes/disputeConfirmInfo — the ceiling for what createDispute can request. */
+export interface CJDisputeConfirmInfo {
+  maxRefundAmount?: number;
+  disputeReasons?: { id: number; name: string }[];
+  [key: string]: unknown;
+}
+
+/** 1 = refund, 2 = reissue (a replacement shipment). */
+export type CJDisputeExpectType = 1 | 2;
+
+/** 1 = balance refund (credited to your CJ account), 2 = platform refund (original payment method). */
+export type CJDisputeRefundType = 1 | 2;
+
+export interface CJCreateDisputeParams {
+  orderId: string;
+  /** Your own idempotency key for this dispute — CJ's docs cap it at 100 chars. */
+  businessDisputeId: string;
+  disputeReasonId: number;
+  expectType: CJDisputeExpectType;
+  refundType: CJDisputeRefundType;
+  /** Max 500 chars. */
+  messageText: string;
+  imageUrl?: string[];
+  videoUrl?: string[];
+  productInfoList: CJDisputeProductLine[];
+}
+
+export interface CJCancelDisputeParams {
+  orderId: string;
+  disputeId: string;
+}
+
+export interface CJDisputeListParams {
+  orderId?: string;
+  disputeId?: number;
+  orderNumber?: string;
+  pageNum?: number;
+  pageSize?: number;
+}
+
+export interface CJDispute {
+  disputeId: string;
+  orderId: string;
+  status: string;
+  disputeReasonId?: number;
+  refundAmount?: number;
   [key: string]: unknown;
 }

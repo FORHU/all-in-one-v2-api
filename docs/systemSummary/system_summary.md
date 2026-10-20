@@ -13,7 +13,7 @@ The platform follows a **Backend-First Centralized Marketplace Architecture** de
 - **Express.js & TypeScript:** Core HTTP routing, controller execution, and business logic layer.
 - **Prisma ORM:** Database schema definitions (`schema.prisma`), migrations, and typed database access.
 - **Redis:** In-memory cache for fast product search aggregation, session storage, and rate-limiting.
-- **RabbitMQ:** Asynchronous job queue handling product synchronization, background imports, and email notifications without blocking HTTP requests.
+- **Amazon SQS:** Background job queues (product sync, supplier refunds), each with a dead-letter queue, consumed by a separate worker process. LocalStack emulates SQS in local dev — see `docs/background-jobs-sqs.md`.
 - **Supplier Adapter Pattern:** A standardized `SupplierAdapter` interface allowing seamless integration with dropshipping suppliers (CJ Dropshipping, AliExpress, Printful) while maintaining platform-agnostic business rules.
 
 ---
@@ -24,7 +24,7 @@ The platform follows a **Backend-First Centralized Marketplace Architecture** de
 2. **Product Catalog & Sourcing:**
    - **Global Search:** Concurrently query external supplier adapters via `/api/v2/product-search` with Redis caching.
    - **On-Demand Import:** Apply platform dynamic margin rules (`PricingRule`) and save imported products into local catalog tables.
-   - **Background Synchronization:** Automated 6-hour RabbitMQ worker updates for live supplier stock & price adjustments.
+   - **Background Synchronization:** Automated 6-hour SQS worker updates for live supplier stock & price adjustments.
 3. **Storefront Taxonomy & Merchandising:**
    - **Categories & Collections:** Hierarchical category trees and curated product collection management (with item reordering).
    - **Attributes & Size Guides:** Custom product variant attributes (color, size, material) and linked size guide reference charts.
@@ -54,7 +54,7 @@ all-in-one-v2-api/
 │   └── seed.ts               # Initial database seed script
 ├── src/
 │   ├── config/               # Environment variables, database connection, and logger setup
-│   ├── consumers/            # RabbitMQ worker event consumers (product-sync, etc.)
+│   ├── consumers/            # SQS worker job handlers (product-sync, supplier-refund)
 │   ├── controllers/          # Express route controllers
 │   │   ├── attribute.controller.ts
 │   │   ├── auth.controller.ts
@@ -104,9 +104,9 @@ all-in-one-v2-api/
 │   ├── utils/                # Utility modules (logger, cache, pricing calculations)
 │   ├── app.ts                # Express application configuration & middleware registration
 │   ├── server.ts             # HTTP server entry point
-│   └── worker.ts             # RabbitMQ background worker process entry point
+│   └── worker.ts             # SQS background worker process entry point
 ├── tests/                    # Unit and integration test suites
 ├── .env                      # Environment variable definitions
-├── docker-compose.yml        # Docker setup (PostgreSQL, Redis, RabbitMQ)
+├── docker-compose.yml        # Docker setup (PostgreSQL, Redis, LocalStack SQS)
 └── package.json              # NPM manifest & script commands
 ```

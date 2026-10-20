@@ -14,7 +14,7 @@ const createCollectionSchema = Joi.object({
     .required(),
   description: Joi.string().allow(null, '').optional(),
   imageUrl: Joi.string().allow(null, '').optional(),
-  metadata: Joi.object().optional(),
+  metadata: Joi.object().allow(null).optional(),
   isPublic: Joi.boolean().optional(),
   parentId: Joi.string().allow(null).optional(),
   categoryId: Joi.string().allow(null).optional(),
@@ -28,7 +28,7 @@ const updateCollectionSchema = Joi.object({
     .optional(),
   description: Joi.string().allow(null, '').optional(),
   imageUrl: Joi.string().allow(null, '').optional(),
-  metadata: Joi.object().optional(),
+  metadata: Joi.object().allow(null).optional(),
   isPublic: Joi.boolean().optional(),
   parentId: Joi.string().allow(null).optional(),
   categoryId: Joi.string().allow(null).optional(),
@@ -36,7 +36,7 @@ const updateCollectionSchema = Joi.object({
 
 const addItemSchema = Joi.object({
   productId: Joi.string().required(),
-  productVariantId: Joi.string().optional(),
+  productVariantId: Joi.string().allow(null).optional(),
   slot: Joi.string().allow(null, '').optional(),
   imageUrl: Joi.string().allow(null, '').optional(),
   position: Joi.number().optional(),
@@ -76,6 +76,10 @@ export default class CollectionController {
       );
       const type = req.query.type as CollectionType | undefined;
       const categorySlug = req.query.categorySlug as string | undefined;
+      // optionalAuthenticate populates req.user for the admin panel's
+      // authenticated requests (it always sends a Bearer token when logged
+      // in) but leaves it unset for anonymous storefront visitors — only the
+      // latter should have unpublished collections filtered out.
       const collections = await CollectionService.listCollections(
         page,
         limit,
@@ -84,6 +88,7 @@ export default class CollectionController {
         sortOrder,
         type,
         categorySlug,
+        Boolean(req.user),
       );
       return responseSuccess(res, 200, collections);
     } catch (error) {
@@ -93,7 +98,10 @@ export default class CollectionController {
 
   static async getById(req: Request, res: Response, next: NextFunction) {
     try {
-      const collection = await CollectionService.getCollectionById(req.params.id);
+      const collection = await CollectionService.getCollectionById(
+        req.params.id,
+        Boolean(req.user),
+      );
       return responseSuccess(res, 200, collection);
     } catch (error) {
       next(error);
@@ -102,7 +110,10 @@ export default class CollectionController {
 
   static async getBySlug(req: Request, res: Response, next: NextFunction) {
     try {
-      const collection = await CollectionService.getCollectionBySlug(req.params.slug);
+      const collection = await CollectionService.getCollectionBySlug(
+        req.params.slug,
+        Boolean(req.user),
+      );
       return responseSuccess(res, 200, collection);
     } catch (error) {
       next(error);

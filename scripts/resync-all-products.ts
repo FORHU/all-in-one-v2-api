@@ -3,8 +3,9 @@
  * fresh sync, so SupplierVariant.stock (and price/attributes/images) gets
  * populated for products imported before that write existed.
  *
- * Requires the API's Postgres and RabbitMQ to be reachable (same env this
- * app normally runs against), and the worker process running separately to
+ * Requires the API's Postgres and the product-sync SQS queue to be reachable
+ * (same env this app normally runs against — PRODUCT_SYNC_QUEUE_URL, plus
+ * AWS_SQS_ENDPOINT locally), and the worker process running separately to
  * actually drain the queue — this script only enqueues the jobs.
  *
  * Usage:
@@ -13,7 +14,6 @@
  * No flags = every supplier, every tenant (same scope as the 6-hourly cron).
  */
 import { PrismaClient } from '@prisma/client';
-import { rabbitmq } from '../src/infrastructure/rabbitmq';
 import { ProductSyncService } from '../src/modules/catalog/product-sync.service';
 
 const prisma = new PrismaClient();
@@ -40,14 +40,9 @@ async function main() {
     `Queuing resync for supplier=${supplierName ?? 'ALL'} tenant=${tenantSlug ?? 'ALL'}...\n`,
   );
 
-  // This script runs standalone (outside server.ts/worker.ts's own startup),
-  // so nothing has connected to RabbitMQ yet — ProductSyncService publishes
-  // over the same shared `rabbitmq` singleton the app/worker use, and
-  // publish() silently swallows a "not connected" error instead of
-  // throwing, so skipping this step looks like success right up until the
-  // worker never receives anything.
-  await rabbitmq.connect();
-
+  // No connect step needed: SQS is plain HTTPS, and a failed enqueue throws
+  // (marking that chunk's Job FAILED), so a misconfigured queue surfaces here
+  // instead of looking like success.
   const result = await ProductSyncService.resyncAll({ supplierName, tenantId });
 
   process.stdout.write(
@@ -65,5 +60,4 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect();
-    await rabbitmq.close();
   });

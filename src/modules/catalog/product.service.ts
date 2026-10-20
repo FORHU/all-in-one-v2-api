@@ -76,6 +76,7 @@ export interface ListProductsQuery {
   brands?: string[];
   colorValues?: string[];
   sizeValues?: string[];
+  season?: string;
   priceMin?: number;
   priceMax?: number;
   sort: 'newest' | 'price-asc' | 'price-desc' | 'popularity';
@@ -103,6 +104,9 @@ export default class ProductService {
       brands: query.brands,
       colorValues: query.colorValues,
       sizeValues: query.sizeValues,
+      // Stored uppercase on CatalogCollection.metadata (e.g. "SPRING") —
+      // the public query param stays lowercase like every other filter.
+      season: query.season?.toUpperCase(),
       priceMin: query.priceMin,
       priceMax: query.priceMax,
       sort: query.sort,
@@ -145,6 +149,7 @@ export default class ProductService {
     status?: ProductStatus,
     categoryId?: string,
     brand?: string,
+    hasPricingRule?: boolean,
   ) {
     const tenantId = requireTenantId();
     const [result, statusCounts] = await Promise.all([
@@ -158,6 +163,7 @@ export default class ProductService {
         status,
         categoryId,
         brand,
+        hasPricingRule,
       ),
       ProductRepository.getStatusCounts(tenantId),
     ]);
@@ -166,6 +172,20 @@ export default class ProductService {
       items: result.items.map(mapProductToAdminListingDto),
       statusCounts,
     };
+  }
+
+  /**
+   * GET /api/v2/products/:id/admin — single-product fetch in the same admin
+   * shape listProductsForAdmin/createProduct/updateProduct return, for a
+   * caller that only has a product id (e.g. a collection item row) and needs
+   * the full editable record rather than the narrow denormalized slice a
+   * collection item carries.
+   */
+  static async getProductByIdForAdmin(id: string) {
+    const tenantId = requireTenantId();
+    const product = await ProductRepository.findByIdForAdmin(tenantId, id);
+    if (!product) return throwResponse(404, 'Product not found');
+    return mapProductToAdminListingDto(product);
   }
 
   static async getBrandCounts() {

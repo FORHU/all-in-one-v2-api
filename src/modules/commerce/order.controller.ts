@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import Joi from 'joi';
 import { OrderStatus } from '@prisma/client';
 import OrderService from './order.service';
+import CJOrderFulfillmentService from './cj-order-fulfillment.service';
 import { responseSuccess, responseError } from '../../helpers/response.helper';
 import { parsePagination, pageFromRepo } from '../../helpers/pagination.helper';
 import { resolveCustomerId, resolveOrderViewer } from '../../helpers/requester.helper';
@@ -19,7 +20,40 @@ const checkoutDirectSchema = Joi.object({
     .min(1)
     .required(),
   shippingAddressId: Joi.string().optional(),
+  couponCode: Joi.string().trim().optional(),
+  promotionCode: Joi.string().trim().optional(),
   currency: Joi.string().optional(),
+  shippingQuoteId: Joi.string().optional(),
+  shippingLogisticName: Joi.string().optional(),
+});
+
+const checkoutSchema = Joi.object({
+  shippingAddressId: Joi.string().optional(),
+  couponCode: Joi.string().trim().optional(),
+  promotionCode: Joi.string().trim().optional(),
+  currency: Joi.string().optional(),
+  shippingQuoteId: Joi.string().optional(),
+  shippingLogisticName: Joi.string().optional(),
+});
+
+const shippingQuoteSchema = Joi.object({
+  items: Joi.array()
+    .items(
+      Joi.object({
+        productId: Joi.string().required(),
+        size: Joi.string().optional(),
+        color: Joi.string().optional(),
+        quantity: Joi.number().integer().min(1).required(),
+      }),
+    )
+    .min(1)
+    .required(),
+  countryCode: Joi.string().trim().uppercase().length(2).required(),
+  zip: Joi.string().trim().optional(),
+});
+
+const rejectOrderSchema = Joi.object({
+  reason: Joi.string().trim().max(500).optional(),
 });
 
 export default class OrderController {
@@ -45,16 +79,22 @@ export default class OrderController {
   }
 
   static async checkout(req: Request, res: Response, next: NextFunction) {
+    const { error, value } = checkoutSchema.validate(req.body);
+    if (error) return responseError(res, 400, error.message);
+
     try {
       const customerId = await resolveCustomerId(req);
       const sessionId = req.headers['x-session-id'] as string | undefined;
-      const { shippingAddressId, currency } = req.body;
 
       const order = await OrderService.checkoutFromCart({
         customerId,
         sessionId,
-        shippingAddressId,
-        currency,
+        shippingAddressId: value.shippingAddressId,
+        couponCode: value.couponCode,
+        promotionCode: value.promotionCode,
+        currency: value.currency,
+        shippingQuoteId: value.shippingQuoteId,
+        shippingLogisticName: value.shippingLogisticName,
       });
 
       return responseSuccess(res, 201, order, 'Order placed successfully');
@@ -82,10 +122,40 @@ export default class OrderController {
         userId: req.user.id,
         items: value.items,
         shippingAddressId: value.shippingAddressId,
+        couponCode: value.couponCode,
+        promotionCode: value.promotionCode,
         currency: value.currency,
+        shippingQuoteId: value.shippingQuoteId,
+        shippingLogisticName: value.shippingLogisticName,
       });
 
       return responseSuccess(res, 201, order, 'Order placed successfully');
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * POST /api/v2/orders/shipping-quote
+   * Real, live shipping options + prices for a would-be cart, given a
+   * destination — call this before "Place Order" so checkout can show a
+   * real fee instead of a guess. Public (optionalAuthenticate): a shopper
+   * should see real shipping costs before being forced to sign in.
+   * See OrderService.getShippingQuote's doc comment for how the quote is
+   * produced and why it must be round-tripped back via shippingQuoteId.
+   */
+  static async shippingQuote(req: Request, res: Response, next: NextFunction) {
+    const { error, value } = shippingQuoteSchema.validate(req.body);
+    if (error) return responseError(res, 400, error.message);
+
+    try {
+      const quote = await OrderService.getShippingQuote({
+        items: value.items,
+        countryCode: value.countryCode,
+        zip: value.zip,
+      });
+
+      return responseSuccess(res, 200, quote);
     } catch (err) {
       next(err);
     }
@@ -98,6 +168,24 @@ export default class OrderController {
         await resolveOrderViewer(req),
       );
       return responseSuccess(res, 200, order);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/v2/orders/:id/tracking
+   * Live CJ Dropshipping tracking lookup — same ownership rule as getOrder
+   * (guest-by-session or the signed-in owner, or an admin). See
+   * OrderService.getOrderTracking's doc comment for the response shape.
+   */
+  static async getOrderTracking(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tracking = await OrderService.getOrderTracking(
+        req.params.id,
+        await resolveOrderViewer(req),
+      );
+      return responseSuccess(res, 200, tracking);
     } catch (error) {
       next(error);
     }
@@ -136,10 +224,59 @@ export default class OrderController {
     }
   }
 
+  /**
+   * POST /api/v2/orders/my/:id/cancel
+   * Customer self-service cancel — same rules as the admin cancel above
+   * (OrderService.cancelOrder: only while PENDING, no captured payment or
+   * supplier order yet), just with ownership enforced via resolveOrderViewer
+   * instead of requirePermission, since a plain customer account has no
+   * orders:write grant to gate on.
+   */
+  static async cancelMyOrder(req: Request, res: Response, next: NextFunction) {
+    try {
+      const order = await OrderService.cancelOrder(req.params.id, await resolveOrderViewer(req));
+      return responseSuccess(res, 200, order, 'Order cancelled');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/v2/orders/:id/reject
+   * Admin declines to fulfill a paid order — issues a full refund and marks
+   * it REJECTED. See OrderService.rejectOrder's doc comment.
+   */
+  static async reject(req: Request, res: Response, next: NextFunction) {
+    const { error, value } = rejectOrderSchema.validate(req.body);
+    if (error) return responseError(res, 400, error.message);
+
+    try {
+      const order = await OrderService.rejectOrder(req.params.id, value.reason);
+      return responseSuccess(res, 200, order, 'Order rejected and refunded');
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async getSupplierOrders(req: Request, res: Response, next: NextFunction) {
     try {
       const orders = await OrderService.getSupplierOrders(req.params.id);
       return responseSuccess(res, 200, orders);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/v2/orders/:id/place-with-supplier
+   * Admin-triggered: places this order's items with CJ Dropshipping and
+   * pays for it. Not called from checkout — see CJOrderFulfillmentService's
+   * doc comment.
+   */
+  static async placeWithSupplier(req: Request, res: Response, next: NextFunction) {
+    try {
+      const supplierOrder = await CJOrderFulfillmentService.placeOrder(req.params.id);
+      return responseSuccess(res, 201, supplierOrder, 'Order placed with supplier');
     } catch (error) {
       next(error);
     }

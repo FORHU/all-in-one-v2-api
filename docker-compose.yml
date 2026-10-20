@@ -29,17 +29,70 @@ services:
     depends_on:
       - redis
 
-  rabbitmq:
-    image: rabbitmq:3-management-alpine
-    restart: always
-    ports:
-      - '${RABBITMQ_PORT:-5672}:5672'
-      - '${RABBITMQ_MANAGEMENT_PORT:-15672}:15672'
+  # Local Amazon SQS emulator for the background-job queues (product-sync,
+  # supplier-refund, and a -dlq for each). Each developer gets a private copy,
+  # so nobody needs AWS access or a shared dev queue. Point the API and worker
+  # at it with AWS_SQS_ENDPOINT=http://localhost:4566 (see .env.example).
+  #
+  # Pinned to a pre-2026.03 tag on purpose: from 2026.03, LocalStack ships one
+  # image that exits at startup without a LOCALSTACK_AUTH_TOKEN (that includes
+  # `latest`). Moving to a newer tag means giving every developer a token —
+  # uncomment the line below — and checking LocalStack's current licence terms.
+  localstack:
+    image: localstack/localstack:3
+    restart: unless-stopped
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+      - SERVICES=sqs
+      - AWS_DEFAULT_REGION=${AWS_REGION:-ap-southeast-1}
+      - SQS_MAX_RECEIVE_COUNT=${SQS_MAX_RECEIVE_COUNT:-3}
+      - SQS_VISIBILITY_TIMEOUT_SECONDS=${SQS_VISIBILITY_TIMEOUT_SECONDS:-300}
+      # - LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN}   # only for 2026.03+ images
+    ports:
+      - '${LOCALSTACK_PORT:-4566}:4566'
     volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
+      - ./docker/localstack/init-queues.sh:/etc/localstack/init/ready.d/init-queues.sh:ro
+    healthcheck:
+      # Healthy only once every ready.d script has finished successfully. The
+      # plain /_localstack/health endpoint turns healthy before the queues
+      # exist, and "completed": true alone also shows up when a script failed.
+      test:
+        - CMD-SHELL
+        - >-
+          curl -sf http://localhost:4566/_localstack/init/ready | grep -q '"completed": true'
+          && ! curl -sf http://localhost:4566/_localstack/init/ready | grep -qE '"state": "(UNKNOWN|RUNNING|ERROR)"'
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  # Local S3-compatible storage for image uploads, via SeaweedFS's S3 gateway.
+  # Point the API at it with S3_ENDPOINT=http://localhost:9000 (see .env.example).
+  # Gated behind a profile, same reasoning as the `app` service's own
+  # `containerized-api` profile below: a bare `docker compose up` shouldn't
+  # pull this unless it's actually wanted.
+  #
+  # This used to run the real minio/minio + minio/mc images. Both were pulled
+  # from Docker Hub, and their quay.io mirror stopped serving anonymous pulls
+  # too, around September 2026 — MinIO's project now only ships source, not
+  # containers (see github.com/minio/minio). Swapped in SeaweedFS's S3 gateway
+  # as a drop-in replacement: verified by hand (CreateBucket, PutObject,
+  # PutBucketPolicy, and an anonymous unauthenticated GET against the
+  # policy-public object all worked against this exact image/command). Auth
+  # is a static file instead of MinIO's env-var login — see
+  # seaweedfs-s3-config.json (same minioadmin/minioadmin dev credentials as
+  # before). Bucket creation + the public-read policy that used to be
+  # minio-init's job now happens lazily in s3.util.ts on first upload instead
+  # of a separate init container, since there's no MinIO-`mc`-equivalent CLI
+  # image to run it in anymore — see ensureLocalBucketReady there.
+  minio:
+    image: chrislusf/seaweedfs:latest
+    profiles: [minio]
+    restart: always
+    command: server -s3 -s3.config=/etc/seaweedfs/s3.json -dir=/data
+    ports:
+      - '${MINIO_PORT:-9000}:8333'
+    volumes:
+      - minio_data:/data
+      - ./seaweedfs-s3-config.json:/etc/seaweedfs/s3.json:ro
 
   app:
     build: .
@@ -51,6 +104,17 @@ services:
     # for local dev. Start it explicitly (`docker compose up app`) when you
     # actually want the containerized API instead of the local dev server.
     restart: 'no'
+    # `restart: 'no'` alone isn't enough — it only stops Docker's own
+    # crash-recovery from reviving this container, not a bare
+    # `docker compose up`/`up -d` (run to bring up db/redis/localstack for
+    # `npm run dev`), which starts every service in this file by default,
+    # `app` included, and has repeatedly shadowed the local dev server on
+    # the same port. A profile makes that opt-in instead of the default: a
+    # plain `docker compose up` now skips `app` entirely; run
+    # `docker compose --profile containerized-api up -d app` when you
+    # actually want the containerized API.
+    profiles:
+      - containerized-api
     ports:
       - '${PORT:-3002}:${PORT:-3002}'
     env_file:
@@ -61,14 +125,20 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/
+      # Inside the compose network `localhost` is this container itself.
+      AWS_SQS_ENDPOINT: http://localstack:4566
+      PRODUCT_SYNC_QUEUE_URL: http://localstack:4566/000000000000/product-sync
+      SUPPLIER_REFUND_QUEUE_URL: http://localstack:4566/000000000000/supplier-refund
     depends_on:
-      - db
-      - redis
-      - rabbitmq
+      db:
+        condition: service_started
+      redis:
+        condition: service_started
+      localstack:
+        condition: service_healthy
 
 volumes:
   postgres_data:
   redis_data:
   redis-insight_data:
-  rabbitmq_data:
+  minio_data:

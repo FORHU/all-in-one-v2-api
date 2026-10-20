@@ -7,6 +7,99 @@ function capitalize(value: string): string {
   return value.length ? value[0].toUpperCase() + value.slice(1) : value;
 }
 
+/**
+ * Common apparel color names -> hex, so a color attribute value created
+ * during a live supplier import (see upsertVariantAttributesFromLabels)
+ * gets a real swatch instead of always coming back `swatchColor: null` the
+ * way the import path did before this map existed. Same color set/hex
+ * values as prisma/seeders/attributes.seeder.ts's manually-curated
+ * products, kept in sync deliberately — extend both together. Anything not
+ * in this list still imports fine, just without a swatch (the storefront's
+ * ProductDetailPage falls back to a plain labeled chip for those).
+ */
+const COMMON_COLOR_SWATCHES: Record<string, string> = {
+  black: '#000000',
+  white: '#FFFFFF',
+  ivory: '#FFFFF0',
+  cream: '#FFFDD0',
+  beige: '#F5F5DC',
+  khaki: '#C3B091',
+  camel: '#C19A6B',
+  brown: '#5C4033',
+  walnut: '#5C4033',
+  coffee: '#6F4E37',
+  tan: '#D2B48C',
+  apricot: '#FBCEB1',
+  gray: '#808080',
+  grey: '#808080',
+  charcoal: '#36454F',
+  silver: '#C0C0C0',
+  navy: '#000080',
+  blue: '#1E3A8A',
+  'sky-blue': '#87CEEB',
+  'electric-blue': '#7DF9FF',
+  teal: '#008080',
+  turquoise: '#40E0D0',
+  green: '#228B22',
+  'forest-green': '#228B22',
+  olive: '#708238',
+  'army-green': '#4B5320',
+  'sage-green': '#9CAF88',
+  mint: '#98FF98',
+  yellow: '#FFD700',
+  mustard: '#FFDB58',
+  orange: '#FFA500',
+  coral: '#FF7F50',
+  red: '#DC143C',
+  'dark-red': '#8B0000',
+  crimson: '#DC143C',
+  wine: '#722F37',
+  burgundy: '#800020',
+  maroon: '#800000',
+  pink: '#FFC0CB',
+  'hot-pink': '#FF69B4',
+  rose: '#FF007F',
+  purple: '#800080',
+  lavender: '#E6E6FA',
+  violet: '#8A2BE2',
+  gold: '#D4AF37',
+  graphite: '#41424C',
+  multicolor: '#B0B0B0',
+};
+
+/** Normalizes "Wine Red", "wine_red", " Wine-Red " etc. to "wine-red" for the lookup above. */
+function normalizeColorKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, '-');
+}
+
+function resolveSwatchColor(attributeCode: string, value: string): string | undefined {
+  if (attributeCode !== 'color' && attributeCode !== 'colour') return undefined;
+  return COMMON_COLOR_SWATCHES[normalizeColorKey(value)];
+}
+
+// CJ (and presumably other suppliers) sometimes prefix a color's raw variant
+// value with its own internal SKU-like code — e.g. "ESCB019 Coffee",
+// "ESCB001 White" — which is meaningless to a shopper and shouldn't be shown
+// as the color name. Matches a short letters+digits token at the very start
+// followed by whitespace; real color names don't start that way, so this
+// shouldn't false-positive on a legitimate name.
+const SKU_CODE_PREFIX = /^[A-Za-z]{2,6}\d{2,5}\s+/;
+
+/**
+ * Display label for a color value — same value if there's no SKU-code prefix
+ * to strip, otherwise the cleaned-up remainder (capitalized). `value` itself
+ * is left untouched: it's the unique key variant selection matches against,
+ * so it has to keep matching whatever the supplier's own data says.
+ */
+function resolveDisplayLabel(attributeCode: string, value: string): string {
+  if (attributeCode !== 'color' && attributeCode !== 'colour') return capitalize(value);
+  const stripped = value.replace(SKU_CODE_PREFIX, '').trim();
+  return stripped ? capitalize(stripped) : capitalize(value);
+}
+
 export default class AttributeRepository {
   /** Find all attributes for a tenant, including value options */
   static async findAll(tenantId: string) {
@@ -74,19 +167,20 @@ export default class AttributeRepository {
     });
   }
 
-  /** Update attribute metadata */
-  static async update(tenantId: string, id: string, data: Prisma.CatalogAttributeUpdateInput) {
-    return prisma.catalogAttribute.update({
-      where: { id },
-      data,
-      include: { values: true },
-    });
+  /** Update attribute metadata — `tenantId` scopes the write even though the service already checked ownership, same defense-in-depth idiom as ProductRepository.updateVariant. */
+  static async update(
+    tenantId: string,
+    id: string,
+    data: Prisma.CatalogAttributeUncheckedUpdateManyInput,
+  ) {
+    await prisma.catalogAttribute.updateMany({ where: { id, tenantId }, data });
+    return this.findById(tenantId, id);
   }
 
   /** Delete attribute and associated values */
   static async delete(tenantId: string, id: string) {
-    return prisma.catalogAttribute.delete({
-      where: { id },
+    return prisma.catalogAttribute.deleteMany({
+      where: { id, tenantId },
     });
   }
 
@@ -100,6 +194,13 @@ export default class AttributeRepository {
         attributeId,
         ...data,
       },
+    });
+  }
+
+  /** Tenant-scoped lookup for a value via its parent attribute — used to verify ownership before delete, since CatalogAttributeValue carries no tenantId of its own. */
+  static async findValueById(tenantId: string, valueId: string) {
+    return prisma.catalogAttributeValue.findFirst({
+      where: { id: valueId, attribute: { tenantId } },
     });
   }
 
@@ -205,10 +306,30 @@ export default class AttributeRepository {
         },
       });
 
+      // Resolved once and reused for both branches below — a value already
+      // in the DB with no swatch (created before this map existed, or for a
+      // color name not in it) gets backfilled the next time an import
+      // touches it, rather than needing a separate one-off migration.
+      const swatchColor = resolveSwatchColor(code, value);
+      const label = resolveDisplayLabel(code, value);
+      // Only ever overwrite an existing value's label when `value` itself
+      // still carries a SKU-code prefix to clean up — never touches a
+      // normal, already-clean label an admin may have hand-edited via the
+      // attribute management UI.
+      const hasSkuPrefix = SKU_CODE_PREFIX.test(value);
+
       const attributeValue = await client.catalogAttributeValue.upsert({
         where: { attributeId_value: { attributeId: attribute.id, value } },
-        update: {},
-        create: { attributeId: attribute.id, value, label: capitalize(value) },
+        update: {
+          ...(hasSkuPrefix ? { label } : {}),
+          ...(swatchColor ? { swatchColor } : {}),
+        },
+        create: {
+          attributeId: attribute.id,
+          value,
+          label,
+          ...(swatchColor ? { swatchColor } : {}),
+        },
       });
 
       cache?.set(cacheKey, attributeValue.id);

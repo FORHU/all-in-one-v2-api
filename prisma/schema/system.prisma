@@ -24,6 +24,11 @@ enum NotificationType {
   SHIPMENT_TRACKING
   SYSTEM_ALERT
   PROMOTION
+  /// Every refund/return/replacement request status change — one type value
+  /// covers submitted/evidence-required/approved/rejected/refund-processed/
+  /// replacement-shipped/completed, same "one type, varying title/message"
+  /// pattern ORDER_STATUS already uses for every order-status change.
+  RETURN_REQUEST_STATUS
 }
 
 enum NotificationChannel {

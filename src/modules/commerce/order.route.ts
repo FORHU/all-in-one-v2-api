@@ -11,6 +11,9 @@ const router = express.Router();
 // Listing orders is an admin operation, same as GET /api/v2/customers.
 router.get('/', authenticate, requirePermission('orders:read'), OrderController.index);
 
+// Public — a shopper should see a real shipping fee before signing in.
+router.post('/shipping-quote', optionalAuthenticate, OrderController.shippingQuote);
+
 // Guests may check out with an x-session-id cart, so auth is optional here.
 router.post('/checkout', optionalAuthenticate, OrderController.checkout);
 
@@ -22,6 +25,8 @@ router.get('/my-orders', authenticate, OrderController.getMyOrders);
 // Guests can view an order they placed by presenting the same x-session-id.
 // Ownership is enforced in the service, which 404s for everyone else.
 router.get('/:id', optionalAuthenticate, OrderController.getOrder);
+// Same ownership rule as above — live CJ tracking lookup for the order's own customer.
+router.get('/:id/tracking', optionalAuthenticate, OrderController.getOrderTracking);
 router.patch(
   '/:id/status',
   authenticate,
@@ -29,6 +34,17 @@ router.patch(
   OrderController.updateStatus,
 );
 router.post('/:id/cancel', authenticate, requirePermission('orders:write'), OrderController.cancel);
+// Customer self-service cancel — ownership enforced in the service (see
+// OrderController.cancelMyOrder), not requirePermission, since a plain
+// customer account has no orders:write grant.
+router.post('/my/:id/cancel', authenticate, OrderController.cancelMyOrder);
+router.post('/:id/reject', authenticate, requirePermission('orders:write'), OrderController.reject);
+router.post(
+  '/:id/place-with-supplier',
+  authenticate,
+  requirePermission('orders:write'),
+  OrderController.placeWithSupplier,
+);
 router.get(
   '/:id/supplier-orders',
   authenticate,

@@ -112,10 +112,11 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION || env.AWS_REGION }}
           AWS_S3_BUCKET_NAME: ${{ secrets.AWS_S3_BUCKET_NAME }}
           S3_CDN_URL: ${{ secrets.S3_CDN_URL || '' }}
-          RABBITMQ_URL: ${{ secrets.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672/' }}
-          RABBITMQ_EXCHANGE: ${{ secrets.RABBITMQ_EXCHANGE || 'app_events_exchange' }}
-          RABBITMQ_QUEUE_PREFIX: ${{ secrets.RABBITMQ_QUEUE_PREFIX || 'app' }}
-          INGESTION_QUEUE_NAME: ${{ secrets.INGESTION_QUEUE_NAME || 'ingestion_jobs' }}
+          # Real SQS queue URLs (each queue has a DLQ, redrive maxReceiveCount 3).
+          # AWS_SQS_ENDPOINT is deliberately not set here — that's LocalStack only.
+          PRODUCT_SYNC_QUEUE_URL: ${{ secrets.PRODUCT_SYNC_QUEUE_URL }}
+          SUPPLIER_REFUND_QUEUE_URL: ${{ secrets.SUPPLIER_REFUND_QUEUE_URL }}
+          SQS_MAX_RECEIVE_COUNT: ${{ secrets.SQS_MAX_RECEIVE_COUNT || '3' }}
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY || '' }}
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID || '' }}
           GOOGLE_ANDROID_CLIENT_ID: ${{ secrets.GOOGLE_ANDROID_CLIENT_ID || '' }}
@@ -161,10 +162,9 @@ jobs:
           AWS_REGION=${AWS_REGION}
           AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME}
           S3_CDN_URL=${S3_CDN_URL}
-          RABBITMQ_URL=${RABBITMQ_URL}
-          RABBITMQ_EXCHANGE=${RABBITMQ_EXCHANGE}
-          RABBITMQ_QUEUE_PREFIX=${RABBITMQ_QUEUE_PREFIX}
-          INGESTION_QUEUE_NAME=${INGESTION_QUEUE_NAME}
+          PRODUCT_SYNC_QUEUE_URL=${PRODUCT_SYNC_QUEUE_URL}
+          SUPPLIER_REFUND_QUEUE_URL=${SUPPLIER_REFUND_QUEUE_URL}
+          SQS_MAX_RECEIVE_COUNT=${SQS_MAX_RECEIVE_COUNT}
           YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
           GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
           GOOGLE_ANDROID_CLIENT_ID=${GOOGLE_ANDROID_CLIENT_ID}
@@ -227,18 +227,22 @@ jobs:
             --log-opt max-file=3 \
             ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
 
-          # Stop and restart Worker container
+          # Stop and restart Worker container. It runs the compiled worker —
+          # `npm run worker` is nodemon + ts-node on src/, which isn't in the
+          # image. --stop-timeout gives a graceful shutdown time to finish the
+          # open SQS long poll (20s) and the running job before SIGKILL.
           docker stop ${{ env.CONTAINER_NAME }}-worker 2>/dev/null || true
           docker rm   ${{ env.CONTAINER_NAME }}-worker 2>/dev/null || true
           docker run -d --name ${{ env.CONTAINER_NAME }}-worker --restart unless-stopped \
             --network all-in-one \
             --env-file /home/ec2-user/api.env \
+            --stop-timeout 90 \
             -p 127.0.0.1:8080:8080 \
             --log-driver json-file \
             --log-opt max-size=10m \
             --log-opt max-file=3 \
             ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }} \
-            npm run worker
+            node ./dist/src/worker.js
 
           # Health check loop for API container
           echo "Verifying API container health..."

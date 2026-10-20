@@ -102,11 +102,13 @@ export const requirePermission = (permission: Permission) => {
       return next();
     }
 
-    // 2. If not, check if they have a tenant membership that grants it
+    // 2. If not, check if they have an ACTIVE tenant membership that grants it.
+    // A SUSPENDED/INVITED row exists in the table but must never carry any
+    // permission — status is otherwise stored and never enforced anywhere.
     const tenantId = getTenantId();
     if (tenantId) {
       const membership = await TenantRepository.getMembership(tenantId, req.user.id);
-      if (membership) {
+      if (membership && membership.status === 'ACTIVE') {
         const tenantPerms = TENANT_ROLE_PERMISSIONS[membership.role] || [];
         if (tenantPerms.includes(permission)) {
           return next();

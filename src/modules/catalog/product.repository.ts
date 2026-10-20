@@ -7,6 +7,8 @@ export interface ProductListingFilters {
   brands?: string[];
   colorValues?: string[];
   sizeValues?: string[];
+  /** Uppercase, e.g. "SPRING" — matched against CatalogCollection.metadata.season. */
+  season?: string;
   priceMin?: number;
   priceMax?: number;
   sort: 'newest' | 'price-asc' | 'price-desc' | 'popularity';
@@ -130,6 +132,10 @@ export default class ProductRepository {
     status?: ProductStatus,
     categoryId?: string,
     brand?: string,
+    // `true` = only products with a pricing rule assigned. `false` = only
+    // products with none (selling at raw supplier cost, or manually priced
+    // with no markup) — backs the admin "No markup rule" filter.
+    hasPricingRule?: boolean,
   ): Promise<PageResult<AdminProductListingRow>> {
     const where: Prisma.CatalogProductWhereInput = {
       tenantId,
@@ -140,6 +146,9 @@ export default class ProductRepository {
       // this is "show only this brand" (from a Brand tile click), not a
       // free-text guess.
       ...(brand && { brand }),
+      ...(hasPricingRule !== undefined && {
+        pricingRuleId: hasPricingRule ? { not: null } : null,
+      }),
       ...(search && {
         OR: [
           { title: { contains: search, mode: 'insensitive' } },
@@ -226,6 +235,21 @@ export default class ProductRepository {
         ...((where.AND as Prisma.CatalogProductWhereInput[]) ?? []),
         { variants: { some: sizeCondition } },
       ];
+    }
+
+    // Season isn't tagged on the product itself — it's curated via
+    // CatalogCollection.metadata.season on the (public, non-deleted) OUTFIT
+    // collections a product appears in (see CatalogCollectionItem).
+    if (filters.season) {
+      where.collectionItems = {
+        some: {
+          collection: {
+            isPublic: true,
+            isDeleted: false,
+            metadata: { path: ['season'], equals: filters.season },
+          },
+        },
+      };
     }
 
     return where;

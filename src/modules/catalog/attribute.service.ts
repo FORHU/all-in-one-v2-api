@@ -53,6 +53,9 @@ export default class AttributeService {
   }
 
   static async deleteValue(valueId: string) {
+    const tenantId = requireTenantId();
+    const value = await AttributeRepository.findValueById(tenantId, valueId);
+    if (!value) return throwResponse(404, 'Attribute value not found');
     return AttributeRepository.deleteValue(valueId);
   }
 

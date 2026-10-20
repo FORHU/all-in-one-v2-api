@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import Joi from 'joi';
-import { TenantStatus } from '@prisma/client';
+import { TenantStatus, UserRole } from '@prisma/client';
 import TenantService from './tenant.service';
 import { responseSuccess, responseError } from '../../helpers/response.helper';
+import { requireTenantId } from '../../utils/async-context';
 
 // A slug becomes a subdomain, so it has to be a valid DNS label: lowercase
 // alphanumerics and inner hyphens only.
@@ -75,6 +76,18 @@ export default class TenantController {
     try {
       const { error, value } = updateSchema.validate(req.body);
       if (error) return responseError(res, 422, error.details[0].message);
+
+      // `requirePermission` only verified tenant_settings:write against the
+      // *ambient* tenant (the request's own host) — TenantRole.OWNER/ADMIN
+      // hold that permission too, via a membership scoped to one tenant, so
+      // without this a store's own admin could target :id = any other
+      // tenant's row. Only a platform role (checked here, not membership) is
+      // allowed to reach across tenants, same as /tenants/all and POST /.
+      const isPlatformAdmin =
+        req.user?.role === UserRole.SUPER_ADMIN || req.user?.role === UserRole.DEVELOPER;
+      if (!isPlatformAdmin && req.params.id !== requireTenantId()) {
+        return responseError(res, 403, "Cannot modify a different store's settings");
+      }
 
       const tenant = await TenantService.updateTenant(req.params.id, value);
       return responseSuccess(res, 200, tenant, 'Tenant updated');

@@ -53,6 +53,34 @@ const CATEGORY_TREE_BY_TENANT: Record<string, CategoryNode[]> = {
   ],
   [TENANT_IDS.BEAUTY]: [
     { name: 'Skincare', slug: 'skincare', description: 'Serums, moisturizers and treatments.' },
+    // Specific skincare sub-categories, alongside the general "Skincare"
+    // bucket above — slugs are prefixed "skincare-" deliberately: the
+    // storefront's MirrorShelfHero.tsx splits categories into a
+    // "Skincare" column vs. everything else by checking whether a
+    // category's slug or name contains "skincare", so these need the
+    // same substring to land in that column (not a relational/parent-
+    // category link, which this schema's flat CatalogCategory model
+    // doesn't model for this tenant).
+    {
+      name: 'Cleansers',
+      slug: 'skincare-cleansers',
+      description: 'Oil, foam and gel cleansers for every skin type.',
+    },
+    {
+      name: 'Serums & Treatments',
+      slug: 'skincare-serums',
+      description: 'Targeted actives — vitamin C, retinol and beyond.',
+    },
+    {
+      name: 'Moisturizers',
+      slug: 'skincare-moisturizers',
+      description: 'Day and night creams, gels and lotions.',
+    },
+    {
+      name: 'Masks',
+      slug: 'skincare-masks',
+      description: 'Clay, sheet and overnight masks.',
+    },
     { name: 'Makeup & Cosmetics', slug: 'makeup', description: 'Color cosmetics and complexion.' },
     { name: 'Hair Care', slug: 'haircare', description: 'Styling tools and hair treatments.' },
     { name: 'Fragrance', slug: 'fragrance', description: 'Eau de parfum and eau de toilette.' },

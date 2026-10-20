@@ -15,6 +15,7 @@ import orderRoute from './modules/commerce/order.route';
 import paymentRoute from './modules/commerce/payment.route';
 import cmsRoute from './modules/cms/cms.route';
 import tenantRoute from './modules/tenant/tenant.route';
+import membershipRoute from './modules/tenant/membership.route';
 import marketingRoute from './modules/marketing/marketing.routes';
 import collectionRoute from './modules/catalog/collection.route';
 import pricingRuleRoute from './modules/catalog/pricing-rule.route';
@@ -32,6 +33,7 @@ import notificationRoute from './modules/system/notification.route';
 import auditRoute from './modules/tenant/audit.route';
 import couponRoute from './modules/commerce/coupon.route';
 import storefrontRoute from './modules/storefront/storefront.route';
+import electronicsRoute from './modules/electronics/electronics.route';
 
 const router = express.Router();
 
@@ -62,6 +64,7 @@ router.use('/v2/orders', orderRoute);
 router.use('/v2/payments', paymentRoute);
 router.use('/v2/cms', cmsRoute);
 router.use('/v2/tenants', tenantRoute);
+router.use('/v2/tenant-memberships', membershipRoute);
 router.use('/v2/marketing', marketingRoute);
 router.use('/v2/reviews', reviewRoute);
 router.use('/v2/wishlists', wishlistRoute);
@@ -73,6 +76,7 @@ router.use('/v2/notifications', notificationRoute);
 router.use('/v2/audits', auditRoute);
 router.use('/v2/coupons', couponRoute);
 router.use('/v2/storefront', storefrontRoute);
+router.use('/v2/electronics', electronicsRoute);
 router.use('/health', healthRouter);
 
 export default router;

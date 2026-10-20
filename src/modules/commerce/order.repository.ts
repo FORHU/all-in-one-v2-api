@@ -1,4 +1,10 @@
-import { Prisma, OrderStatus, ShipmentStatus, PaymentStatus } from '@prisma/client';
+import {
+  Prisma,
+  OrderStatus,
+  ShipmentStatus,
+  PaymentStatus,
+  SupplierOrderStatus,
+} from '@prisma/client';
 import { prisma } from '../../utils/prisma';
 import { paginate } from '../../helpers/pagination.helper';
 
@@ -103,7 +109,10 @@ export default class OrderRepository {
         },
         supplierOrders: {
           include: {
-            supplier: true,
+            // Narrowed select, not `supplier: true` — SupplierPartner.config
+            // can hold API keys/base URLs and must never reach the frontend
+            // via a nested include (same fix as getSupplierOrders below).
+            supplier: { select: { id: true, name: true, displayName: true } },
             shipments: true,
           },
         },
@@ -197,19 +206,244 @@ export default class OrderRepository {
   static async getSupplierOrders(tenantId: string, orderId: string) {
     return prisma.commerceSupplierOrder.findMany({
       where: { orderId },
-      include: { supplier: true, shipments: true },
+      // Narrowed select, not `supplier: true` — SupplierPartner.config can
+      // hold API keys/base URLs and must never reach the frontend via a
+      // nested include (same fix applied to createSupplierOrderWithItems
+      // below, which returns the same shape after a fresh placement).
+      include: {
+        supplier: { select: { id: true, name: true, displayName: true } },
+        shipments: true,
+      },
     });
   }
 
+  /**
+   * Records the outcome of a supplier-side refund request (SupplierAdapter.
+   * requestRefund) against the CommerceSupplierOrder it was filed for.
+   * Merged into `rawResponse` rather than a dedicated column/status — the
+   * schema's SupplierOrderStatus enum has no REFUNDED/DISPUTED value, and
+   * adding one is a migration this change intentionally avoids. `rawResponse`
+   * already exists for "full supplier order response", so a `refund` key
+   * inside it is a natural fit without a schema change.
+   */
+  static async recordSupplierRefundResult(
+    supplierOrderId: string,
+    result: { requested: boolean; externalRefundId?: string; raw?: unknown },
+    refundId?: string,
+  ) {
+    const rawResponse = await this.getSupplierOrderRawResponse(supplierOrderId);
+    const requestedAt = new Date().toISOString();
+
+    return prisma.commerceSupplierOrder.update({
+      where: { id: supplierOrderId },
+      data: {
+        rawResponse: {
+          ...rawResponse,
+          // `refund` keeps holding the latest outcome, as before.
+          refund: { ...result, requestedAt } as Prisma.InputJsonValue,
+          ...(refundId
+            ? {
+                supplierRefundRequests: {
+                  ...this.readSupplierRefundRequests(rawResponse),
+                  [refundId]: { state: 'DONE', requested: result.requested, requestedAt },
+                },
+              }
+            : {}),
+        },
+      },
+    });
+  }
+
+  /**
+   * Per-Refund progress of the supplier-side refund request, keyed by Refund
+   * id inside `rawResponse.supplierRefundRequests` (same no-migration
+   * reasoning as recordSupplierRefundResult). This is what makes the
+   * supplier-refund worker idempotent under SQS's at-least-once delivery:
+   *   undefined     → never attempted
+   *   'IN_PROGRESS' → an attempt started and never recorded an outcome
+   *                   (the worker died mid-call, or recording the result failed)
+   *   'DONE'        → outcome recorded; never call the supplier again
+   */
+  static async getSupplierRefundRequestState(
+    supplierOrderId: string,
+    refundId: string,
+  ): Promise<'IN_PROGRESS' | 'DONE' | undefined> {
+    const rawResponse = await this.getSupplierOrderRawResponse(supplierOrderId);
+    const entry = this.readSupplierRefundRequests(rawResponse)[refundId] as
+      | { state?: 'IN_PROGRESS' | 'DONE' }
+      | undefined;
+    return entry?.state;
+  }
+
+  /** Marks a Refund's supplier request as started, or clears the marker with `false`. */
+  static async setSupplierRefundRequestInProgress(
+    supplierOrderId: string,
+    refundId: string,
+    inProgress: boolean,
+  ) {
+    const rawResponse = await this.getSupplierOrderRawResponse(supplierOrderId);
+    const { [refundId]: _previous, ...others } = this.readSupplierRefundRequests(rawResponse);
+
+    return prisma.commerceSupplierOrder.update({
+      where: { id: supplierOrderId },
+      data: {
+        rawResponse: {
+          ...rawResponse,
+          supplierRefundRequests: inProgress
+            ? {
+                ...others,
+                [refundId]: { state: 'IN_PROGRESS', startedAt: new Date().toISOString() },
+              }
+            : others,
+        } as Prisma.InputJsonValue,
+      },
+    });
+  }
+
+  private static async getSupplierOrderRawResponse(
+    supplierOrderId: string,
+  ): Promise<Prisma.JsonObject> {
+    const existing = await prisma.commerceSupplierOrder.findUnique({
+      where: { id: supplierOrderId },
+      select: { rawResponse: true },
+    });
+    return (existing?.rawResponse as Prisma.JsonObject | null) ?? {};
+  }
+
+  private static readSupplierRefundRequests(rawResponse: Prisma.JsonObject): Prisma.JsonObject {
+    const requests = rawResponse.supplierRefundRequests;
+    return requests && typeof requests === 'object' && !Array.isArray(requests)
+      ? (requests as Prisma.JsonObject)
+      : {};
+  }
+
+  /**
+   * CommerceShipment carries no tenantId of its own — it's scoped through
+   * supplierOrder.order.tenantId, two relations up. `updateMany` (tenant-safe
+   * idiom) + refetch, same as ProductRepository.updateVariant — `tenantId`
+   * was previously accepted here but never used in the `where`, so any
+   * shipment id from any tenant could be updated.
+   */
   static async updateShipment(
     tenantId: string,
     shipmentId: string,
     status: string,
     trackingNumber?: string,
   ) {
-    return prisma.commerceShipment.update({
-      where: { id: shipmentId },
+    const result = await prisma.commerceShipment.updateMany({
+      where: { id: shipmentId, supplierOrder: { order: { tenantId } } },
       data: { status: status as ShipmentStatus, trackingNumber },
+    });
+    if (result.count === 0) return null;
+    return prisma.commerceShipment.findUnique({ where: { id: shipmentId } });
+  }
+
+  /** Has this order already been placed with this supplier? Used to refuse a duplicate placement. */
+  static async findSupplierOrderForOrder(tenantId: string, orderId: string, supplierId: string) {
+    return prisma.commerceSupplierOrder.findFirst({
+      where: { orderId, supplierId, order: { tenantId } },
+      include: { shipments: true },
+    });
+  }
+
+  /**
+   * Records a live tracking lookup against a supplier order — creates the
+   * one CommerceShipment row for it if this is the first time (no shipment
+   * exists per supplier order yet in this codebase; CJ's model is one
+   * tracking number per order, not per line item), or updates it in place
+   * on every later refresh. `status` is a best-effort mapping (see
+   * OrderService.getOrderTracking) since the supplier's own status string
+   * isn't a confirmed closed enum — `details` keeps the full raw response
+   * regardless, so nothing is lost even when the mapping undershoots.
+   */
+  static async upsertShipmentFromTracking(
+    supplierOrderId: string,
+    data: {
+      status: ShipmentStatus;
+      trackingNumber?: string;
+      carrier?: string;
+      details: Prisma.InputJsonValue;
+    },
+  ) {
+    const existing = await prisma.commerceShipment.findFirst({
+      where: { supplierOrderId },
+    });
+
+    if (existing) {
+      return prisma.commerceShipment.update({
+        where: { id: existing.id },
+        data: {
+          status: data.status,
+          trackingNumber: data.trackingNumber,
+          carrier: data.carrier,
+          details: data.details,
+        },
+      });
+    }
+
+    return prisma.commerceShipment.create({
+      data: {
+        supplierOrderId,
+        status: data.status,
+        trackingNumber: data.trackingNumber,
+        carrier: data.carrier,
+        details: data.details,
+      },
+    });
+  }
+
+  /**
+   * Records a successful supplier placement: creates the CommerceSupplierOrder,
+   * links every given CommerceOrderItem to it, and advances the order itself
+   * to PROCESSING — all in one transaction, since a partial write here (e.g.
+   * order row created but items unlinked) would leave the refund flow (see
+   * recordSupplierRefundResult) unable to find which items belong to this
+   * supplier order. The order-status bump matters beyond bookkeeping: it's
+   * the only signal callers (e.g. a customer-facing "cancel order" button)
+   * have that this order has already been placed with a supplier — without
+   * it, status would stay PENDING forever even after real money was spent
+   * placing/paying for it with CJ.
+   */
+  static async createSupplierOrderWithItems(
+    tenantId: string,
+    orderId: string,
+    supplierId: string,
+    externalId: string,
+    status: SupplierOrderStatus,
+    rawResponse: Prisma.InputJsonValue,
+    itemIds: string[],
+  ) {
+    return prisma.$transaction(async (tx) => {
+      const supplierOrder = await tx.commerceSupplierOrder.create({
+        data: { orderId, supplierId, externalId, status, rawResponse },
+      });
+
+      await tx.commerceOrderItem.updateMany({
+        where: { id: { in: itemIds }, orderId, tenantId },
+        data: { supplierOrderId: supplierOrder.id },
+      });
+
+      // updateMany (not update): applies the tenant filter at the DB level,
+      // same reasoning as updateStatus above. Only bump PENDING -> PROCESSING
+      // — an order already PARTIALLY_FULFILLED/FULFILLED/etc. from a prior
+      // supplier placement (a second supplier on a mixed order, once that's
+      // supported) must not be regressed backward by this one.
+      await tx.commerceOrder.updateMany({
+        where: { id: orderId, tenantId, status: OrderStatus.PENDING },
+        data: { status: OrderStatus.PROCESSING },
+      });
+
+      return tx.commerceSupplierOrder.findUniqueOrThrow({
+        where: { id: supplierOrder.id },
+        // Narrowed select, not `supplier: true` — same reasoning as
+        // getSupplierOrders/SupplierRepository.getSyncJobs: SupplierPartner.config
+        // can hold API keys/base URLs and must never reach the frontend via a
+        // nested include.
+        include: {
+          supplier: { select: { id: true, name: true, displayName: true } },
+          shipments: true,
+        },
+      });
     });
   }
 }

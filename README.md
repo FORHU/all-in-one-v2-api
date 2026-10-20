@@ -7,7 +7,7 @@
     <img src="https://img.shields.io/badge/Coverage-95%25-brightgreen?style=flat-square" alt="Coverage" />
     <img src="https://img.shields.io/badge/Build-Passing-brightgreen?style=flat-square" alt="Build" />
     <img src="https://img.shields.io/badge/OpenAPI-Enabled-85EA2D?style=flat-square" alt="OpenAPI" />
-    <img src="https://img.shields.io/badge/EDA-RabbitMQ-FF6600?style=flat-square" alt="EDA" />
+    <img src="https://img.shields.io/badge/Jobs-Amazon_SQS-FF9900?style=flat-square" alt="Jobs" />
   </div>
   <br />
   <div>
@@ -16,7 +16,7 @@
     <img src="https://img.shields.io/badge/TypeScript-5.x-3178C6?style=flat-square&logo=typescript" alt="TypeScript" />
     <img src="https://img.shields.io/badge/Prisma-6.x-2D3748?style=flat-square&logo=prisma" alt="Prisma" />
     <img src="https://img.shields.io/badge/PostgreSQL-15.x-4169E1?style=flat-square&logo=postgresql" alt="PostgreSQL" />
-    <img src="https://img.shields.io/badge/RabbitMQ-3.x-FF6600?style=flat-square&logo=rabbitmq" alt="RabbitMQ" />
+    <img src="https://img.shields.io/badge/Amazon_SQS-LocalStack-FF9900?style=flat-square&logo=amazonsqs" alt="Amazon SQS" />
     <img src="https://img.shields.io/badge/Redis-7.x-DC382D?style=flat-square&logo=redis" alt="Redis" />
     <img src="https://img.shields.io/badge/Docker-Enabled-2496ED?style=flat-square&logo=docker" alt="Docker" />
     <img src="https://img.shields.io/badge/Jest-Tested-C21325?style=flat-square&logo=jest" alt="Jest" />
@@ -27,22 +27,22 @@
 
 ## ⚡ Infrastructure Stack
 
-| Layer              | Technology                                           |
-| ------------------ | ---------------------------------------------------- |
-| **API Framework**  | Express.js + TypeScript                              |
-| **Database**       | PostgreSQL via Prisma ORM                            |
-| **Message Broker** | RabbitMQ (Topic Exchange, DLQ, Retries)              |
-| **Cache / State**  | Redis (TLS-ready, cache-aside pattern)               |
-| **Authentication** | JWT (Access + Refresh tokens)                        |
-| **Validation**     | Joi                                                  |
-| **Email**          | Nodemailer + Handlebars templates (Ethereal for dev) |
-| **Scheduling**     | node-cron                                            |
-| **Logging**        | Winston (JSON in prod / colorized in dev)            |
-| **Security**       | Helmet, CORS, express-rate-limit                     |
-| **API Docs**       | Swagger / OpenAPI (dev only)                         |
-| **Testing**        | Jest + ts-jest + Supertest                           |
-| **CI/CD**          | GitHub Actions                                       |
-| **Containers**     | Docker + Docker Compose                              |
+| Layer              | Technology                                            |
+| ------------------ | ----------------------------------------------------- |
+| **API Framework**  | Express.js + TypeScript                               |
+| **Database**       | PostgreSQL via Prisma ORM                             |
+| **Job Queue**      | Amazon SQS (DLQ redrive, retries) — LocalStack in dev |
+| **Cache / State**  | Redis (TLS-ready, cache-aside pattern)                |
+| **Authentication** | JWT (Access + Refresh tokens)                         |
+| **Validation**     | Joi                                                   |
+| **Email**          | Nodemailer + Handlebars templates (Ethereal for dev)  |
+| **Scheduling**     | node-cron                                             |
+| **Logging**        | Winston (JSON in prod / colorized in dev)             |
+| **Security**       | Helmet, CORS, express-rate-limit                      |
+| **API Docs**       | Swagger / OpenAPI (dev only)                          |
+| **Testing**        | Jest + ts-jest + Supertest                            |
+| **CI/CD**          | GitHub Actions                                        |
+| **Containers**     | Docker + Docker Compose                               |
 
 ---
 
@@ -70,13 +70,13 @@ graph TD
     subgraph DATA ["Data Layer"]
         DB[(PostgreSQL)]
         RED[(Redis)]
-        RMQ[(RabbitMQ)]
+        RMQ[(Amazon SQS)]
     end
 
     C -->|HTTP| MW --> R --> CTR --> SVC
     SVC -->|Read/Write| REPO --> DB
     SVC -.->|Cache-aside| RED
-    SVC -->|Publish Event| RMQ
+    SVC -->|Enqueue Job| RMQ
 
     RMQ -->|Consume| CONS
     CONS -.->|Background Work| DB
@@ -94,8 +94,8 @@ Most Express boilerplates stop at **JWT + Prisma**. This template gives you the 
 - **Domain-Driven Design (DDD)** — Source code logically grouped by domain under `src/modules/`
 - **Modular Database Schema** — Prisma models split into multiple files under `prisma/schema/`
 - **Multi-Tenant Ready** — Strict tenant isolation built directly into the database constraints
-- **Event-Driven Architecture** — RabbitMQ as a first-class citizen, not an afterthought
-- **Full Observability** — Correlation IDs flow from HTTP → RabbitMQ → Worker → every log line
+- **Background Jobs** — slow work goes to Amazon SQS queues with DLQs, handled by a separate worker
+- **Full Observability** — Correlation IDs flow from HTTP → SQS → Worker → every log line
 - **Production-Grade Resilience** — Exponential backoff reconnect, graceful shutdown, health probes
 - **Developer-Ready Helpers** — Response formatting, pagination, caching, and error throwing utilities included
 - **Test Coverage** — Unit + Integration tests wired up from day one
@@ -135,8 +135,8 @@ npm install
 # 3. Copy and configure environment
 cp .env.example .env
 
-# 4. Start infrastructure (PostgreSQL · Redis · RabbitMQ)
-docker-compose up -d
+# 4. Start infrastructure (PostgreSQL · Redis · LocalStack SQS) — waits until the queues exist
+docker compose up -d --wait
 
 # 5. Run database migrations
 npm run db:setup
@@ -151,12 +151,12 @@ In a **separate terminal**, start the background worker:
 npm run worker
 ```
 
-| Service            | URL                                      |
-| ------------------ | ---------------------------------------- |
-| API                | `http://localhost:3002`                  |
-| Swagger Docs       | `http://localhost:3002/api/docs`         |
-| RabbitMQ Dashboard | `http://localhost:15672` (guest / guest) |
-| Worker Health      | `http://localhost:8080/health`           |
+| Service          | URL                              |
+| ---------------- | -------------------------------- |
+| API              | `http://localhost:3002`          |
+| Swagger Docs     | `http://localhost:3002/api/docs` |
+| LocalStack (SQS) | `http://localhost:4566`          |
+| Worker Health    | `http://localhost:8080/health`   |
 
 ---
 
@@ -190,12 +190,12 @@ src/
 │   ├── error.middleware.ts
 │   └── validation.middleware.ts
 ├── infrastructure/
-│   ├── rabbitmq/           # connection, publisher, consumer, exchanges
+│   ├── sqs/                # client, enqueue (publisher), consume (consumer), queue registry
 │   ├── redis/              # connection singleton (TLS-ready)
 │   └── scheduler/          # node-cron scheduled jobs
-├── consumers/              # Background job handlers (email, AI)
+├── consumers/              # Background job handlers (product sync, supplier refund)
 ├── events/
-│   └── routing-keys.ts     # Domain event keys
+│   └── routing-keys.ts     # Job event types (metadata labels)
 ├── helpers/
 │   ├── response.helper.ts  # responseSuccess / responseError
 │   └── pagination.helper.ts # parsePagination / buildPage / pageFromRepo
@@ -238,96 +238,78 @@ tests/
 
 ### The Golden Rule
 
-> If it takes time, it goes to RabbitMQ.
+> If it takes time, it goes on a queue.
 
-Emails, AI inference, report generation, audit logging — none of these belong in the HTTP request lifecycle.
-
-### Why RabbitMQ Instead of BullMQ?
-
-Many developers ask: _Why not just use BullMQ?_
-
-- **BullMQ** is a **Job Queue**. It is designed for task execution (e.g., "process video 123"). It tightly couples the producer and the worker.
-- **RabbitMQ** is an **Event Broker**. It is designed for **Event-Driven Architecture**.
-
-When a user signs up, the API publishes a `user.created` domain event. Multiple independent consumers (EmailConsumer, AuditConsumer, AnalyticsConsumer) can subscribe to this exact same event without the API needing to know about them. This decoupling is essential for enterprise platforms.
+Supplier calls, bulk re-syncs and supplier refunds don't belong in the HTTP request lifecycle.
+The API enqueues a job on Amazon SQS and responds; the worker process picks it up.
 
 ### 📚 Architectural Decisions
 
-| Decision                    | Reason                                                           |
-| --------------------------- | ---------------------------------------------------------------- |
-| **RabbitMQ over BullMQ**    | Event broker for decoupled domain events vs task job queue       |
-| **Prisma over TypeORM**     | Strict type safety and superior Developer Experience (DX)        |
-| **Joi over Zod**            | Single robust validation standard historically proven in Express |
-| **PostgreSQL over MongoDB** | Strong consistency and relational data modeling                  |
-| **AsyncLocalStorage**       | Zero-friction correlation ID propagation across async boundaries |
+| Decision                    | Reason                                                                            |
+| --------------------------- | --------------------------------------------------------------------------------- |
+| **Amazon SQS for jobs**     | Managed, no broker to run in production; DLQ redrive built in; LocalStack locally |
+| **Prisma over TypeORM**     | Strict type safety and superior Developer Experience (DX)                         |
+| **Joi over Zod**            | Single robust validation standard historically proven in Express                  |
+| **PostgreSQL over MongoDB** | Strong consistency and relational data modeling                                   |
+| **AsyncLocalStorage**       | Zero-friction correlation ID propagation across async boundaries                  |
 
 ---
 
-## 🍰 Vertical Slice: The User Module
+## 🍰 Vertical Slice: Product Sync
 
-A complete feature module demonstrating the end-to-end architecture from an HTTP request to background processing.
+A complete flow from an HTTP request to background processing.
 
 ```mermaid
 sequenceDiagram
     participant Client
-    participant Controller as UserController
-    participant Service as UserService
-    participant Repo as UserRepository
+    participant Controller as ProductSyncController
+    participant Queue as JobQueueService
+    participant SQS as SQS product-sync
+    participant Worker as product-sync consumer
     participant DB as PostgreSQL
-    participant Broker as RabbitMQ
-    participant Consumer as EmailConsumer
 
-    Client->>Controller: POST /users
-    Controller->>Service: createUser(dto)
-    Service->>Repo: create(dto)
-    Repo->>DB: INSERT
-    DB-->>Repo: user record
-    Repo-->>Service: user record
-    Service->>Broker: publish("user.created", { id, email })
-    Service-->>Controller: user dto
-    Controller-->>Client: 201 Created
+    Client->>Controller: POST /api/v2/products/sync
+    Controller->>DB: create Job (PENDING)
+    Controller->>Queue: publishProductSyncJob(jobId, supplierId, externalIds)
+    Queue->>SQS: SendMessage
+    Controller-->>Client: 202 Accepted { jobId }
 
-    Broker-->>Consumer: [Async] Consume "user.created"
-    Consumer->>Consumer: Send Welcome Email
+    SQS-->>Worker: [Async] long poll
+    Worker->>DB: re-import each product, Job → COMPLETED
+    Worker->>SQS: DeleteMessage
 ```
 
-**Files tracing this exact flow:**
+**Files tracing this flow:**
 
-1. `src/controllers/user.controller.ts` — Parses request, returns standard response
-2. `src/services/user.service.ts` — Executes business rules, orchestrates repository, publishes events
-3. `src/repositories/user.repository.ts` — Handles Prisma queries
-4. `src/consumers/email.consumer.ts` — Background worker reacting to the new user
+1. `src/modules/catalog/product-sync.controller.ts` — validates, creates the Job row, responds 202
+2. `src/modules/system/job-queue.service.ts` — enqueues on the product-sync queue
+3. `src/infrastructure/sqs/` — `enqueue()` and `consume()`
+4. `src/consumers/product-sync.consumer.ts` — the worker-side handler
 
 ---
 
 ## 🔄 Request Lifecycle
 
 ```text
-POST /api/users
+POST /api/v2/products/sync
        │
        ▼
 correlationMiddleware ──── requestId + correlationId assigned
        │                   echoed in x-request-id / x-correlation-id headers
        ▼
-Joi Validation Middleware
+Controller → Service
        │
-       ▼
-UserController.create()
+       ├─── Repository ─────► Prisma → PostgreSQL
        │
-       ▼
-UserService.createUser()
-       │
-       ├─── UserRepository.create() ─────► Prisma → PostgreSQL
-       │
-       └─── rabbitmq.publish("user.created", { userId, email })
-                  │       correlationId injected into message headers
+       └─── sqs.enqueue(QUEUES.PRODUCT_SYNC, ...)
+                  │       correlationId/requestId sent as message attributes
                   ▼
            JSON Response ◄── HTTP request ends here
 
 ════════════════ BACKGROUND WORKER ════════════════
                   │
                   ▼
-         Consumer extracts correlationId from message headers
+         consume() long-polls, restores correlationId from the attributes
                   │
                   ▼
          asyncLocalStorage.run({ requestId, correlationId })
@@ -339,47 +321,31 @@ UserService.createUser()
 
 ---
 
-## 📡 Domain Events
+## 📡 Queues
 
-One domain event triggers multiple independent consumers simultaneously.
+SQS can't route by message type, so each job type has its own queue and dead-letter queue.
 
-```mermaid
-graph TD
-    API[Service] -->|publish| E["Exchange: app.events (topic)"]
-    E -->|user.created| Q1[email.queue]
-    E -->|user.created| Q2[audit.queue]
-    Q1 --> C1[Email Consumer]
-    Q2 --> C2[Audit Consumer]
-```
+| Queue             | Payload                                                                   | Sent by                            |
+| ----------------- | ------------------------------------------------------------------------- | ---------------------------------- |
+| `product-sync`    | `{ jobId, supplierId, payload: { externalIds }, timestamp }`              | sync endpoints, 6-hourly scheduler |
+| `supplier-refund` | `{ tenantId, refundId, supplierOrderId, supplierId, externalId, reason }` | `ReturnService.issueRefund`        |
 
-### Supported Events
-
-| Routing Key               | Payload                              |
-| ------------------------- | ------------------------------------ |
-| `user.created`            | `{ userId, email, timestamp }`       |
-| `email.send.requested`    | `{ userId, email, subject, body }`   |
-| `ai.analysis.requested`   | `{ userId, imageUrl, analysisType }` |
-| `skin.analysis.requested` | `{ userId, imageUrl }`               |
-
-**Publishing an event:**
+**Enqueuing a job:**
 
 ```typescript
-import { rabbitmq } from '../infrastructure/rabbitmq';
+import { sqs, QUEUES } from '../infrastructure/sqs';
 import { ROUTING_KEYS } from '../events/routing-keys';
 
-await rabbitmq.publish(ROUTING_KEYS.USER_CREATED, {
-  userId: user.id,
-  email: user.email,
-});
+await sqs.enqueue(QUEUES.PRODUCT_SYNC, ROUTING_KEYS.PRODUCT_SYNC, message);
 ```
 
-Every event is automatically wrapped with a metadata envelope:
+Every message body is wrapped in a metadata envelope:
 
 ```json
 {
   "metadata": {
     "eventId": "evt-uuid",
-    "eventType": "user.created",
+    "eventType": "product.sync",
     "correlationId": "abc-123",
     "requestId": "req-uuid",
     "timestamp": "2026-06-19T00:00:00.000Z",
@@ -388,6 +354,8 @@ Every event is automatically wrapped with a metadata envelope:
   "payload": { ... }
 }
 ```
+
+Full guide — local setup, debugging, production setup: [docs/background-jobs-sqs.md](docs/background-jobs-sqs.md).
 
 ---
 
@@ -420,26 +388,26 @@ Every HTTP response includes two headers:
 
 ## 🔁 Retry & Dead Letter Strategy
 
-| Attempt | Behaviour                                                |
-| ------- | -------------------------------------------------------- |
-| 1       | Fails → sent to retry queue with **5s delay**            |
-| 2       | Fails → sent to retry queue with **5s delay**            |
-| 3       | Fails → moved to **Dead Letter Queue (DLQ)** permanently |
+| Attempt | Behaviour                                                                   |
+| ------- | --------------------------------------------------------------------------- |
+| 1       | Fails → visible again after `SQS_RETRY_DELAY_SECONDS` (30s)                 |
+| 2       | Fails → visible again after 30s                                             |
+| 3       | Fails → the queue's redrive policy moves it to `<queue>-dlq` (kept 14 days) |
 
-No data is silently lost. Inspect failed messages in the RabbitMQ dashboard at `http://localhost:15672`.
-
-**Connection Recovery** — If RabbitMQ or Redis restart, both singletons reconnect automatically with exponential backoff (1s → 2s → 4s → … → 30s max).
+While a job runs, the worker renews its visibility timeout every third of it, so long jobs aren't
+picked up twice. A message that can't be parsed is logged and deleted. Delivery is at least once,
+so both handlers are idempotent — see [docs/background-jobs-sqs.md](docs/background-jobs-sqs.md).
 
 ---
 
 ## ❤️ Health Checks
 
-| Endpoint                | Process | Description                                      |
-| ----------------------- | ------- | ------------------------------------------------ |
-| `GET /api/health/live`  | API     | Liveness — process is running                    |
-| `GET /api/health/ready` | API     | Readiness — PostgreSQL + Redis + RabbitMQ all up |
-| `GET :8080/live`        | Worker  | Worker liveness                                  |
-| `GET :8080/health`      | Worker  | Worker readiness + job metrics snapshot          |
+| Endpoint                | Process | Description                                    |
+| ----------------------- | ------- | ---------------------------------------------- |
+| `GET /api/health/live`  | API     | Liveness — process is running                  |
+| `GET /api/health/ready` | API     | Readiness — PostgreSQL + Redis + SQS queues up |
+| `GET :8080/live`        | Worker  | Worker liveness                                |
+| `GET :8080/health`      | Worker  | Worker readiness + job metrics snapshot        |
 
 **Readiness Response:**
 
@@ -451,7 +419,7 @@ No data is silently lost. Inspect failed messages in the RabbitMQ dashboard at `
   "services": {
     "database": "up",
     "redis": "up",
-    "rabbitmq": "up"
+    "sqs": "up"
   }
 }
 ```
@@ -551,12 +519,12 @@ Before deploying:
 - [ ] Enable HTTPS / TLS on your load balancer
 - [ ] Configure SMTP provider credentials
 - [ ] Configure Redis TLS (`REDIS_TLS=true`)
-- [ ] Configure RabbitMQ credentials and virtual host
+- [ ] Create the SQS queues + DLQs and set their URLs (see docs/background-jobs-sqs.md)
 - [ ] Enable log aggregation (Datadog, CloudWatch, etc.)
 - [ ] Run database migrations (`npx prisma migrate deploy`)
 - [ ] Verify readiness endpoints (`/api/health/ready`)
 - [ ] Configure database backup strategy
-- [ ] Configure monitoring alerts for DLQs and health probes
+- [ ] Configure alarms on DLQ depth and health probes
 
 ---
 
@@ -569,7 +537,7 @@ API Containers (×2)         Worker Containers (×5)
       │                            │
       └─────────┬──────────────────┘
                 │
-            RabbitMQ
+           Amazon SQS
                 │
     ┌───────────┼───────────┐
 PostgreSQL     Redis     CloudWatch
@@ -594,6 +562,7 @@ PostgreSQL     Redis     CloudWatch
 | `npm run test:unit`        | Unit tests only                |
 | `npm run test:integration` | Integration tests only         |
 | `npm run test:coverage`    | Tests with coverage report     |
+| `npm run test:localstack`  | SQS tests against LocalStack   |
 | `npm run lint`             | Lint and auto-fix              |
 | `npm run db:setup`         | Prisma generate + migrate      |
 | `npm run db:seed`          | Run database seed              |
@@ -602,23 +571,25 @@ PostgreSQL     Redis     CloudWatch
 
 ## 🔑 Environment Variables
 
-| Variable                | Default                             | Description                       |
-| ----------------------- | ----------------------------------- | --------------------------------- |
-| `PORT`                  | `3002`                              | API server port                   |
-| `NODE_ENV`              | `development`                       | Environment                       |
-| `DATABASE_URL`          | —                                   | Prisma connection string          |
-| `ACCESS_TOKEN_SECRET`   | —                                   | JWT signing secret                |
-| `REFRESH_TOKEN_SECRET`  | —                                   | JWT refresh secret                |
-| `REDIS_HOST`            | `localhost`                         | Redis host                        |
-| `REDIS_PORT`            | `6379`                              | Redis port                        |
-| `REDIS_TLS`             | `false`                             | Enable TLS (ElastiCache, Upstash) |
-| `REDIS_TTL_SECONDS`     | `3600`                              | Default cache TTL                 |
-| `RABBITMQ_URL`          | `amqp://guest:guest@localhost:5672` | AMQP connection URL               |
-| `WORKER_HEALTH_PORT`    | `8080`                              | Worker health probe port          |
-| `METRICS_INTERVAL_MS`   | `60000`                             | Worker metrics log interval       |
-| `MAILER_TRANSPORT_HOST` | `smtp.ethereal.email`               | SMTP host                         |
-| `MAILER_EMAIL`          | —                                   | SMTP user                         |
-| `MAILER_PASSWORD`       | —                                   | SMTP password                     |
+| Variable                    | Default                            | Description                       |
+| --------------------------- | ---------------------------------- | --------------------------------- |
+| `PORT`                      | `3002`                             | API server port                   |
+| `NODE_ENV`                  | `development`                      | Environment                       |
+| `DATABASE_URL`              | —                                  | Prisma connection string          |
+| `ACCESS_TOKEN_SECRET`       | —                                  | JWT signing secret                |
+| `REFRESH_TOKEN_SECRET`      | —                                  | JWT refresh secret                |
+| `REDIS_HOST`                | `localhost`                        | Redis host                        |
+| `REDIS_PORT`                | `6379`                             | Redis port                        |
+| `REDIS_TLS`                 | `false`                            | Enable TLS (ElastiCache, Upstash) |
+| `REDIS_TTL_SECONDS`         | `3600`                             | Default cache TTL                 |
+| `AWS_SQS_ENDPOINT`          | `http://localhost:4566` (dev only) | LocalStack; unset in deployments  |
+| `PRODUCT_SYNC_QUEUE_URL`    | —                                  | product-sync queue URL            |
+| `SUPPLIER_REFUND_QUEUE_URL` | —                                  | supplier-refund queue URL         |
+| `WORKER_HEALTH_PORT`        | `8080`                             | Worker health probe port          |
+| `METRICS_INTERVAL_MS`       | `60000`                            | Worker metrics log interval       |
+| `MAILER_TRANSPORT_HOST`     | `smtp.ethereal.email`              | SMTP host                         |
+| `MAILER_EMAIL`              | —                                  | SMTP user                         |
+| `MAILER_PASSWORD`           | —                                  | SMTP password                     |
 
 See `.env.example` for the full list including AWS, Google OAuth, and WebSub.
 
@@ -635,5 +606,5 @@ See `.env.example` for the full list including AWS, Google OAuth, and WebSub.
 ---
 
 <div align="center">
-  <i>Built with ❤️ using Node.js · Express · Prisma · RabbitMQ · Redis</i>
+  <i>Built with ❤️ using Node.js · Express · Prisma · Amazon SQS · Redis</i>
 </div>

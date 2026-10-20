@@ -10,6 +10,7 @@ const listQuerySchema = Joi.object({
   brand: Joi.string().optional(), // comma-separated
   color: Joi.string().optional(), // comma-separated attribute values
   size: Joi.string().optional(), // comma-separated attribute values
+  season: Joi.string().valid('spring', 'summer', 'fall', 'winter').optional(),
   priceMin: Joi.number().min(0).optional(),
   priceMax: Joi.number().min(0).optional(),
   sort: Joi.string().valid('newest', 'price-asc', 'price-desc', 'popularity').default('newest'),
@@ -59,6 +60,7 @@ export default class ProductController {
         brands: splitCsv(value.brand),
         colorValues: splitCsv(value.color),
         sizeValues: splitCsv(value.size),
+        season: value.season,
         priceMin: value.priceMin,
         priceMax: value.priceMax,
         sort: value.sort,
@@ -86,6 +88,12 @@ export default class ProductController {
       const categoryId =
         typeof req.query.categoryId === 'string' ? req.query.categoryId : undefined;
       const brand = typeof req.query.brand === 'string' ? req.query.brand : undefined;
+      const hasPricingRule =
+        req.query.pricingRule === 'assigned'
+          ? true
+          : req.query.pricingRule === 'unassigned'
+            ? false
+            : undefined;
 
       const result = await ProductService.listProductsForAdmin(
         page,
@@ -96,8 +104,23 @@ export default class ProductController {
         status,
         categoryId,
         brand,
+        hasPricingRule,
       );
       return responseSuccess(res, 200, result);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * GET /api/v2/products/:id/admin — single product in the admin (editable)
+   * shape, for a caller that only has an id (e.g. a collection item row)
+   * rather than an already-loaded admin listing row.
+   */
+  static async adminGetById(req: Request, res: Response, next: NextFunction) {
+    try {
+      const product = await ProductService.getProductByIdForAdmin(req.params.id);
+      return responseSuccess(res, 200, product);
     } catch (err) {
       next(err);
     }

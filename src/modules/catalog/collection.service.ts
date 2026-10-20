@@ -1,10 +1,22 @@
 import CollectionRepository from './collection.repository';
 import CategoryRepository from './category.repository';
+import ProductRepository from './product.repository';
 import { throwResponse } from '../../utils/throw-response';
 import { requireTenantId } from '../../utils/async-context';
 import { deleteFromS3 } from '../../utils/s3.util';
 import logger from '../../utils/logger';
 import { Prisma, CollectionType } from '@prisma/client';
+
+/**
+ * Prisma requires the `Prisma.JsonNull` sentinel (not a plain JS `null`) to
+ * actually write SQL NULL into a nullable Json column — a raw `null` here
+ * would throw. `undefined` (key omitted) still means "leave it alone".
+ */
+function toJsonInput(
+  metadata: Prisma.InputJsonValue | null | undefined,
+): Prisma.InputJsonValue | typeof Prisma.JsonNull | undefined {
+  return metadata === null ? Prisma.JsonNull : metadata;
+}
 
 export default class CollectionService {
   // ─── Collections ────────────────────────────────────────────────────────────
@@ -25,6 +37,7 @@ export default class CollectionService {
     sortOrder?: 'asc' | 'desc',
     type?: CollectionType,
     categorySlug?: string,
+    includePrivate = true,
   ) {
     const tenantId = requireTenantId();
 
@@ -46,17 +59,22 @@ export default class CollectionService {
       sortOrder,
       type,
       categoryId,
+      includePrivate,
     );
   }
 
-  static async getCollectionById(id: string) {
-    const collection = await CollectionRepository.findById(requireTenantId(), id);
+  static async getCollectionById(id: string, includePrivate = true) {
+    const collection = await CollectionRepository.findById(requireTenantId(), id, includePrivate);
     if (!collection) return throwResponse(404, 'Collection not found');
     return collection;
   }
 
-  static async getCollectionBySlug(slug: string) {
-    const collection = await CollectionRepository.findBySlug(requireTenantId(), slug);
+  static async getCollectionBySlug(slug: string, includePrivate = true) {
+    const collection = await CollectionRepository.findBySlug(
+      requireTenantId(),
+      slug,
+      includePrivate,
+    );
     if (!collection) return throwResponse(404, `Collection '${slug}' not found`);
     return collection;
   }
@@ -67,7 +85,7 @@ export default class CollectionService {
     type: CollectionType;
     description?: string;
     imageUrl?: string;
-    metadata?: Prisma.InputJsonValue;
+    metadata?: Prisma.InputJsonValue | null;
     isPublic?: boolean;
     parentId?: string;
     categoryId?: string | null;
@@ -86,11 +104,24 @@ export default class CollectionService {
       if (!category) return throwResponse(404, 'Category not found');
     }
 
-    // Guard duplicate slug
+    // Guard duplicate slug. This only catches non-deleted rows — the
+    // (tenantId, slug) unique index still blocks a slug held by a
+    // soft-deleted collection, so the create() below can still throw P2002
+    // even after this check passes.
     const existing = await CollectionRepository.findBySlug(tenantId, data.slug);
     if (existing) return throwResponse(409, `Collection slug '${data.slug}' already in use`);
 
-    return CollectionRepository.create(tenantId, data);
+    try {
+      return await CollectionRepository.create(tenantId, {
+        ...data,
+        metadata: toJsonInput(data.metadata),
+      });
+    } catch (error) {
+      const isDuplicateSlug =
+        error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+      if (!isDuplicateSlug) throw error;
+      return throwResponse(409, `Collection slug '${data.slug}' already in use`);
+    }
   }
 
   static async updateCollection(
@@ -101,7 +132,7 @@ export default class CollectionService {
       type?: CollectionType;
       description?: string;
       imageUrl?: string | null;
-      metadata?: Prisma.InputJsonValue;
+      metadata?: Prisma.InputJsonValue | null;
       isPublic?: boolean;
       parentId?: string | null;
       categoryId?: string | null;
@@ -155,7 +186,18 @@ export default class CollectionService {
     }
 
     const previousImageUrl = collection.imageUrl;
-    const updated = await CollectionRepository.update(tenantId, id, data);
+    let updated;
+    try {
+      updated = await CollectionRepository.update(tenantId, id, {
+        ...data,
+        metadata: toJsonInput(data.metadata),
+      });
+    } catch (error) {
+      const isDuplicateSlug =
+        error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+      if (!isDuplicateSlug) throw error;
+      return throwResponse(409, `Collection slug '${data.slug}' already in use`);
+    }
 
     // Replacing (or clearing) the cover image orphans the old S3 object —
     // clean it up now that the new value is confirmed saved. Best-effort:
@@ -183,7 +225,7 @@ export default class CollectionService {
     collectionId: string,
     data: {
       productId: string;
-      productVariantId?: string;
+      productVariantId?: string | null;
       slot?: string | null;
       imageUrl?: string;
       position?: number;
@@ -191,9 +233,25 @@ export default class CollectionService {
       metadata?: Prisma.InputJsonValue;
     },
   ) {
-    // Verify collection belongs to this tenant
-    const collection = await CollectionRepository.findById(requireTenantId(), collectionId);
+    const tenantId = requireTenantId();
+    const collection = await CollectionRepository.findById(tenantId, collectionId);
     if (!collection) return throwResponse(404, 'Collection not found');
+
+    // Cross-tenant guard: without this, a productId from a different tenant
+    // would still create the item (the FK only requires the row to exist
+    // somewhere), and every subsequent read joins `product` with no tenant
+    // filter — silently leaking that tenant's product into this collection.
+    const product = await ProductRepository.findById(tenantId, data.productId);
+    if (!product) return throwResponse(404, 'Product not found');
+
+    if (data.productVariantId) {
+      const variant = await ProductRepository.findVariantById(
+        tenantId,
+        data.productId,
+        data.productVariantId,
+      );
+      if (!variant) return throwResponse(404, 'Product variant not found');
+    }
 
     return CollectionRepository.addItem(collectionId, data);
   }
@@ -211,24 +269,45 @@ export default class CollectionService {
       metadata?: Prisma.InputJsonValue;
     },
   ) {
-    const collection = await CollectionRepository.findById(requireTenantId(), collectionId);
+    const tenantId = requireTenantId();
+    const collection = await CollectionRepository.findById(tenantId, collectionId);
     if (!collection) return throwResponse(404, 'Collection not found');
 
-    return CollectionRepository.updateItem(itemId, data);
+    // Confirms itemId actually belongs to collectionId — without this, any
+    // item id reachable from any tenant's collection could be edited through
+    // a :collectionId the caller merely happens to own.
+    const item = await CollectionRepository.findItemById(collectionId, itemId);
+    if (!item) return throwResponse(404, 'Collection item not found');
+
+    if (data.productId) {
+      const product = await ProductRepository.findById(tenantId, data.productId);
+      if (!product) return throwResponse(404, 'Product not found');
+    }
+
+    if (data.productVariantId) {
+      const variant = await ProductRepository.findVariantById(
+        tenantId,
+        data.productId ?? item.productId,
+        data.productVariantId,
+      );
+      if (!variant) return throwResponse(404, 'Product variant not found');
+    }
+
+    return CollectionRepository.updateItem(collectionId, itemId, data);
   }
 
   static async removeItem(collectionId: string, itemId: string) {
     const collection = await CollectionRepository.findById(requireTenantId(), collectionId);
     if (!collection) return throwResponse(404, 'Collection not found');
 
-    return CollectionRepository.removeItem(itemId);
+    return CollectionRepository.removeItem(collectionId, itemId);
   }
 
-  /** Bulk reorder items — accepts [{ id, position }] */
+  /** Bulk reorder items — accepts [{ id, position }], all scoped to collectionId. */
   static async reorderItems(collectionId: string, updates: { id: string; position: number }[]) {
     const collection = await CollectionRepository.findById(requireTenantId(), collectionId);
     if (!collection) return throwResponse(404, 'Collection not found');
 
-    return CollectionRepository.reorderItems(updates);
+    return CollectionRepository.reorderItems(collectionId, updates);
   }
 }

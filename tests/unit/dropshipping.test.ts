@@ -51,6 +51,131 @@ describe('Dropshipping Pipeline & Supplier Adapters', () => {
     });
   });
 
+  describe('Search/Detail Result Normalization (regression guard for supplier.service.ts)', () => {
+    // Real Printful /product/listV2-style search item, captured live via
+    // DevTools — note the numeric `id` and Printful-only field names
+    // (`title`, `image`, `type_name`) that don't match CJ's shape, which the
+    // shared search contract (SupplierSearchResultSchema) was originally
+    // ground-truthed against. This exact shape is what broke the frontend's
+    // Zod parse before normalizeSearchResult existed: `id: z.string()`
+    // rejects a raw number outright.
+    const rawPrintfulSearchItem = {
+      id: 679,
+      main_category_id: 24,
+      type: 'DTFILM',
+      type_name: 'Cooling Performance Short Sleeve Tee',
+      title: 'Unisex Performance Crew Neck T-Shirt | A4 N3142',
+      brand: 'A4',
+      model: 'N3142',
+      image:
+        'https://files.cdn.printful.com/o/upload/product-catalog-img/e2/e239b78e54f77c63f3ec3bcda3be8e62_1',
+      variant_count: 70,
+      currency: 'USD',
+    };
+
+    it("normalizeSearchResult turns Printful's numeric id into the string the shared search contract requires", () => {
+      const normalized = printfulAdapter.normalizeSearchResult?.(rawPrintfulSearchItem);
+      expect(normalized).toBeDefined();
+      expect(typeof normalized!.id).toBe('string');
+      expect(normalized!.id).toBe('679');
+      expect(normalized!.nameEn).toBe(rawPrintfulSearchItem.title);
+      expect(normalized!.bigImage).toBe(rawPrintfulSearchItem.image);
+    });
+
+    it("normalizeProductDetail flattens Printful's nested {product, variants} into pid/variants[].vid strings", () => {
+      const rawDetail = {
+        product: {
+          id: 679,
+          title: 'Unisex Performance Crew Neck T-Shirt | A4 N3142',
+          image: 'https://files.cdn.printful.com/.../front.png',
+          description: 'Stay cool, dry, and confident...',
+          type_name: 'T-Shirts',
+        },
+        variants: [
+          {
+            id: 4013,
+            name: 'Black / S',
+            color: 'Black',
+            size: 'S',
+            price: '12.95',
+            image: 'https://files.cdn.printful.com/.../black-s.png',
+          },
+          {
+            id: 4014,
+            name: 'Black / M',
+            color: 'Black',
+            size: 'M',
+            price: '12.95',
+            image: 'https://files.cdn.printful.com/.../black-m.png',
+          },
+        ],
+      };
+
+      const normalized = printfulAdapter.normalizeProductDetail?.(rawDetail);
+      expect(normalized).toBeDefined();
+      expect(normalized!.pid).toBe('679');
+      expect(normalized!.productNameEn).toBe(rawDetail.product.title);
+
+      const variants = normalized!.variants as Record<string, unknown>[];
+      expect(variants).toHaveLength(2);
+      expect(typeof variants[0].vid).toBe('string');
+      expect(variants[0].vid).toBe('4013');
+      expect(variants[0].variantKey).toBe('Black-S');
+    });
+
+    it("normalizeSearchResult cleans CJ's title-escaping artifacts (doubled '' and stray \" before 's) without touching anything else", () => {
+      const rawCjSearchItem = {
+        id: '2408130123456789012',
+        nameEn: "Women''s Summer Dress",
+        sku: 'CJ-DRESS-001',
+        bigImage: 'https://cf.cjdropshipping.com/dress.jpg',
+        sellPrice: 12.99,
+      };
+
+      const normalized = cjAdapter.normalizeSearchResult?.(rawCjSearchItem);
+      expect(normalized).toBeDefined();
+      // Everything else on the item passes through untouched.
+      expect(normalized!.id).toBe(rawCjSearchItem.id);
+      expect(normalized!.bigImage).toBe(rawCjSearchItem.bigImage);
+      // Only the doubled '' is cleaned, to a single apostrophe.
+      expect(normalized!.nameEn).toBe("Women's Summer Dress");
+    });
+
+    it("normalizeProductDetail cleans productNameEn and every variant's variantNameEn the same way", () => {
+      const rawCjDetail = {
+        pid: '2408130123456789012',
+        productNameEn: 'Dress Women"s Chiffon Summer',
+        sku: 'CJ-DRESS-001',
+        variants: [
+          { vid: 'v1', variantNameEn: "Kid''s Size S", variantSellPrice: 12.99 },
+          { vid: 'v2', variantNameEn: 'Adult Size M', variantSellPrice: 14.99 },
+        ],
+      };
+
+      const normalized = cjAdapter.normalizeProductDetail?.(rawCjDetail);
+      expect(normalized).toBeDefined();
+      expect(normalized!.productNameEn).toBe("Dress Women's Chiffon Summer");
+
+      const variants = normalized!.variants as Record<string, unknown>[];
+      expect(variants[0].variantNameEn).toBe("Kid's Size S");
+      // A title with nothing to clean passes through unchanged.
+      expect(variants[1].variantNameEn).toBe('Adult Size M');
+    });
+
+    it('every registered adapter with a normalizeSearchResult always returns a string id — the exact invariant that broke the frontend Zod parse for Printful', () => {
+      const sampleRawItemBySupplier: Record<string, unknown> = {
+        printful: rawPrintfulSearchItem,
+      };
+
+      for (const adapter of supplierRegistry.getAll()) {
+        if (!adapter.normalizeSearchResult) continue;
+        const sample = sampleRawItemBySupplier[adapter.supplierId];
+        if (!sample) continue;
+        expect(typeof adapter.normalizeSearchResult(sample).id).toBe('string');
+      }
+    });
+  });
+
   describe('Automated Profit Margin & Selling Price Calculation', () => {
     it('should correctly calculate selling price with 50% markup', () => {
       const baseCost = 50.0; // Wholesale cost from supplier
@@ -206,6 +331,193 @@ describe('Dropshipping Pipeline & Supplier Adapters', () => {
         trackNumber: 'SBXTN2607290902',
       });
       expect(ok).toBe(true);
+    });
+  });
+
+  describe('CJ Real Order Flow', () => {
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    const samplePayload = {
+      orderId: 'ORD-2001',
+      items: [{ productVariantId: 'p1', supplierVariantExternalId: 'vid-456', quantity: 1 }],
+      shippingAddress: {
+        firstName: 'Demo',
+        lastName: 'Customer',
+        address1: '123 Commerce St',
+        city: 'Manila',
+        state: 'NCR',
+        country: 'PH',
+        zip: '1000',
+      },
+    };
+
+    it('placeOrder sends default logistics fields when none are given', async () => {
+      const requestSpy = mockRequest(cjAdapter, { orderId: 'CJ-REAL-1' });
+
+      const result = await cjAdapter.placeOrder(samplePayload);
+
+      expect(requestSpy).toHaveBeenCalledWith(
+        '/shopping/order/createOrderV2',
+        'POST',
+        expect.objectContaining({ logisticName: 'CJPacket Ordinary', fromCountryCode: 'CN' }),
+      );
+      expect(result).toEqual({
+        orderId: 'CJ-REAL-1',
+        logisticsAutoCorrected: false,
+        raw: { orderId: 'CJ-REAL-1' },
+      });
+    });
+
+    it('placeOrder honors an explicit logisticName/fromCountryCode', async () => {
+      const requestSpy = mockRequest(cjAdapter, { orderId: 'CJ-REAL-2' });
+
+      await cjAdapter.placeOrder(samplePayload, {
+        logisticName: 'DHL',
+        fromCountryCode: 'US',
+      });
+
+      expect(requestSpy).toHaveBeenCalledWith(
+        '/shopping/order/createOrderV2',
+        'POST',
+        expect.objectContaining({ logisticName: 'DHL', fromCountryCode: 'US' }),
+      );
+    });
+
+    it('placeOrder auto-corrects logistics when CJ flags logisticsMiss', async () => {
+      mockRequest(cjAdapter, { orderId: 'CJ-REAL-3', logisticsMiss: true });
+      const logisticsSpy = jest.spyOn(cjAdapter, 'getOrderLogisticsInfo').mockResolvedValue([
+        {
+          id: '1',
+          orderCode: 'CJ-REAL-3',
+          logisticsName: 'Slow Boat',
+          postage: 20,
+          arrivalTime: '30',
+          hasStock: true,
+        },
+        {
+          id: '2',
+          orderCode: 'CJ-REAL-3',
+          logisticsName: 'CJPacket Ordinary',
+          postage: 5,
+          arrivalTime: '15',
+          hasStock: true,
+        },
+      ]);
+      const updateSpy = jest.spyOn(cjAdapter, 'updateLogistics').mockResolvedValue(true);
+
+      const result = await cjAdapter.placeOrder(samplePayload);
+
+      expect(logisticsSpy).toHaveBeenCalledWith('CJ-REAL-3');
+      expect(updateSpy).toHaveBeenCalledWith({
+        id: '2',
+        orderCode: 'CJ-REAL-3',
+        logisticName: 'CJPacket Ordinary',
+      });
+      expect(result).toEqual(
+        expect.objectContaining({ orderId: 'CJ-REAL-3', logisticsAutoCorrected: true }),
+      );
+    });
+
+    it('placeOrder returns null when logisticsMiss cannot be auto-corrected', async () => {
+      mockRequest(cjAdapter, { orderId: 'CJ-REAL-4', logisticsMiss: true });
+      jest.spyOn(cjAdapter, 'getOrderLogisticsInfo').mockResolvedValue([]);
+
+      const result = await cjAdapter.placeOrder(samplePayload);
+
+      expect(result).toBeNull();
+    });
+
+    it('placeOrder returns null when no orderId can be extracted from the response', async () => {
+      mockRequest(cjAdapter, { someOtherField: 'nope' });
+
+      const result = await cjAdapter.placeOrder(samplePayload);
+
+      expect(result).toBeNull();
+    });
+
+    it('payBalance rejects when neither orderId nor shipmentOrderId is given', async () => {
+      await expect(cjAdapter.payBalance({})).rejects.toThrow(
+        'payBalance requires orderId or shipmentOrderId',
+      );
+    });
+
+    it('payBalance charges the real order balance via /shopping/pay/payBalance', async () => {
+      const requestSpy = mockRequest(cjAdapter, true);
+
+      const paid = await cjAdapter.payBalance({ orderId: 'CJ-REAL-1' });
+
+      expect(requestSpy).toHaveBeenCalledWith('/shopping/pay/payBalance', 'POST', {
+        orderId: 'CJ-REAL-1',
+      });
+      expect(paid).toBe(true);
+    });
+
+    it('placeAndPayOrder places, confirms, then pays in sequence', async () => {
+      const requestSpy = jest
+        .spyOn(cjAdapter as unknown as WithRequest, 'request')
+        .mockResolvedValueOnce({
+          code: 200,
+          result: true,
+          message: 'Success',
+          data: { orderId: 'CJ-REAL-5' },
+          requestId: 'req-1',
+        })
+        .mockResolvedValueOnce({
+          code: 200,
+          result: true,
+          message: 'Success',
+          data: true,
+          requestId: 'req-2',
+        })
+        .mockResolvedValueOnce({
+          code: 200,
+          result: true,
+          message: 'Success',
+          data: true,
+          requestId: 'req-3',
+        });
+
+      const result = await cjAdapter.placeAndPayOrder(samplePayload);
+
+      expect(requestSpy).toHaveBeenNthCalledWith(
+        1,
+        '/shopping/order/createOrderV2',
+        'POST',
+        expect.objectContaining({ orderNumber: 'ORD-2001' }),
+      );
+      expect(requestSpy).toHaveBeenNthCalledWith(2, '/shopping/order/confirmOrder', 'PATCH', {
+        orderId: 'CJ-REAL-5',
+      });
+      expect(requestSpy).toHaveBeenNthCalledWith(3, '/shopping/pay/payBalance', 'POST', {
+        orderId: 'CJ-REAL-5',
+      });
+      expect(result).toEqual({ orderId: 'CJ-REAL-5', paid: true, logisticsAutoCorrected: false });
+    });
+
+    it('placeAndPayOrder stops without paying when confirmOrder is rejected', async () => {
+      const requestSpy = jest
+        .spyOn(cjAdapter as unknown as WithRequest, 'request')
+        .mockResolvedValueOnce({
+          code: 200,
+          result: true,
+          message: 'Success',
+          data: { orderId: 'CJ-REAL-6' },
+          requestId: 'req-1',
+        })
+        .mockResolvedValueOnce({
+          code: 200,
+          result: true,
+          message: 'Success',
+          data: false,
+          requestId: 'req-2',
+        });
+
+      const result = await cjAdapter.placeAndPayOrder(samplePayload);
+
+      expect(requestSpy).toHaveBeenCalledTimes(2);
+      expect(result).toEqual({ orderId: 'CJ-REAL-6', paid: false, logisticsAutoCorrected: false });
     });
   });
 });

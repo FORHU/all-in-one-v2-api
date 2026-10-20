@@ -5,6 +5,8 @@ import { PlaceOrderPayload, SupplierAdapter, SupplierStock } from '../supplier.i
 import { CJ_API_KEY, CJ_BASE_URL, CJ_RATE_LIMIT_MS } from '../../config';
 import {
   CJApiResponse,
+  CJCategoryFirst,
+  CJCategoryLeaf,
   CJTokenData,
   CJProductDetail,
   CJProductListV2Data,
@@ -13,11 +15,23 @@ import {
   CJCreateOrderParams,
   CJSandboxTargetStatus,
   CJSimulatePayParams,
+  CJPayBalanceParams,
+  CJPlaceOrderResult,
   CJUpdateSandboxStatusParams,
   CJUpdateSandboxTrackNumberParams,
   CJLogisticsOption,
   CJUpdateLogisticsParams,
+  CJFreightCalculateParams,
+  CJFreightOption,
+  CJOrderDetail,
+  CJDisputeProduct,
+  CJDisputeConfirmInfo,
+  CJCreateDisputeParams,
+  CJCancelDisputeParams,
+  CJDisputeListParams,
+  CJDispute,
 } from './cj.types';
+import { cleanCjText } from './cj.text.util';
 
 /** CJ's sandbox status ladder, in order — see CJSandboxTargetStatus. */
 const SANDBOX_STATUS_LADDER: CJSandboxTargetStatus[] = [400, 500, 600, 700];
@@ -39,6 +53,22 @@ function parseJsonPreservingBigInts(text: string): unknown {
 const CACHE_VERSION = 'v1';
 const CJ_ACCESS_TOKEN_KEY = `cj:access_token:${CACHE_VERSION}`;
 const CJ_REFRESH_TOKEN_KEY = `cj:refresh_token:${CACHE_VERSION}`;
+const CJ_CATEGORIES_KEY = `cj:categories:${CACHE_VERSION}`;
+// CJ's category tree changes rarely — a day is plenty fresh.
+const CJ_CATEGORIES_TTL = 24 * 60 * 60;
+
+/**
+ * Fallback shipping method/origin used when a caller doesn't specify one.
+ * Whether CJ's createOrderV2 even accepts a request with these fields
+ * omitted entirely has never been tested (every confirmed live call,
+ * sandbox included, has sent *some* value) — so placeOrder() always sends
+ * one, then corrects it automatically via getOrderLogisticsInfo/
+ * updateLogistics if CJ flags it invalid for this order (logisticsMiss).
+ * Same values scripts/test-cj-sandbox.ts and test-cj-cancel-refund.ts
+ * already default their --logistic/--fromCountry flags to.
+ */
+const DEFAULT_LOGISTIC_NAME = 'CJPacket Ordinary';
+const DEFAULT_FROM_COUNTRY_CODE = 'CN';
 
 const DEFAULT_ACCESS_TOKEN_TTL = 14 * 24 * 60 * 60; // 14 days
 const DEFAULT_REFRESH_TOKEN_TTL = 170 * 24 * 60 * 60; // 170 days
@@ -249,9 +279,15 @@ export class CJDropshippingAdapter implements SupplierAdapter {
     query: string,
     page: number,
     limit: number,
+    // Optional level-3 CJ category id (see getCategories). Not part of
+    // SupplierAdapter — only callers holding the concrete CJ adapter pass it.
+    categoryId?: string,
   ): Promise<{ items: CJProductListV2Item[]; total: number }> {
     const res = await this.request<CJProductListV2Data>('/product/listV2', 'GET', undefined, {
-      keyWord: query,
+      // A category-only browse sends no keyword at all rather than an empty
+      // one; keyword searches are sent exactly as before.
+      keyWord: categoryId && !query ? undefined : query,
+      categoryId,
       page,
       size: limit,
     });
@@ -271,11 +307,66 @@ export class CJDropshippingAdapter implements SupplierAdapter {
     return { items, total: res.data.totalRecords ?? 0 };
   }
 
+  /** CJ's level-3 categories, flattened with their breadcrumb. Cached in Redis. */
+  async getCategories(): Promise<CJCategoryLeaf[]> {
+    return CacheUtil.remember(CJ_CATEGORIES_KEY, CJ_CATEGORIES_TTL, async () => {
+      const res = await this.request<CJCategoryFirst[]>('/product/getCategory', 'GET');
+      // Throw rather than return [] — remember() would cache the empty tree
+      // for the whole TTL.
+      if (!res?.result || !Array.isArray(res.data)) {
+        throw new Error(`CJ getCategory failed: ${res?.message ?? 'no response'}`);
+      }
+      return res.data.flatMap((first) =>
+        (first.categoryFirstList ?? []).flatMap((second) =>
+          (second.categorySecondList ?? []).map((third) => ({
+            id: third.categoryId,
+            name: third.categoryName,
+            path: `${first.categoryFirstName} > ${second.categorySecondName} > ${third.categoryName}`,
+          })),
+        ),
+      );
+    });
+  }
+
   async getProduct(externalId: string): Promise<CJProductDetail | null> {
     const res = await this.request<CJProductDetail>('/product/query', 'GET', undefined, {
       pid: externalId,
     });
     return res?.data || null;
+  }
+
+  /**
+   * Cleans CJ's title text-escaping artifacts (see cleanCjText) on a raw
+   * /product/listV2 search result before it reaches the sourcing UI —
+   * otherwise the preview-before-import search list shows the same garbled
+   * "Women"s Summer..." titles ProductImportService.normalizeCjProduct
+   * already cleans up at actual import time.
+   */
+  normalizeSearchResult(raw: unknown): Record<string, unknown> {
+    const item = raw as CJProductListV2Item;
+    return {
+      ...item,
+      nameEn: typeof item.nameEn === 'string' ? cleanCjText(item.nameEn) : item.nameEn,
+    };
+  }
+
+  /** Same idea as normalizeSearchResult, for the /product/query detail payload the "preview before import" panel reads. */
+  normalizeProductDetail(raw: unknown): Record<string, unknown> {
+    const detail = raw as CJProductDetail;
+    return {
+      ...detail,
+      productNameEn:
+        typeof detail.productNameEn === 'string'
+          ? cleanCjText(detail.productNameEn)
+          : detail.productNameEn,
+      variants: Array.isArray(detail.variants)
+        ? detail.variants.map((v) => ({
+            ...v,
+            variantNameEn:
+              typeof v.variantNameEn === 'string' ? cleanCjText(v.variantNameEn) : v.variantNameEn,
+          }))
+        : detail.variants,
+    };
   }
 
   /**
@@ -355,17 +446,189 @@ export class CJDropshippingAdapter implements SupplierAdapter {
     };
   }
 
-  async placeOrder(payload: PlaceOrderPayload): Promise<unknown> {
-    const cjPayload = this.buildCreateOrderPayload(payload);
+  /**
+   * Creates a REAL order (real balance will be charged once payBalance()
+   * runs, real fulfillment follows) — same createOrderV2 call as
+   * placeSandboxOrder but without isSandbox=1. `options.logisticName`/
+   * `fromCountryCode` are optional: when omitted, DEFAULT_LOGISTIC_NAME/
+   * DEFAULT_FROM_COUNTRY_CODE are sent instead and corrected automatically
+   * (see autoCorrectLogistics) if CJ flags them invalid for this specific
+   * product/destination — the same fix-up scripts/test-cj-sandbox.ts and
+   * test-cj-cancel-refund.ts perform by hand, now centralized here so every
+   * caller gets it for free instead of re-implementing it.
+   *
+   * Returns null (logging why) if CJ's response has no data, or no orderId
+   * could be extracted from it, or the order needed a logistics fix that
+   * failed — in every other case the order exists on CJ's side even if this
+   * returns null, so check getOrderStatus/CJ's dashboard before retrying a
+   * null result, or you risk creating a duplicate order.
+   */
+  async placeOrder(
+    payload: PlaceOrderPayload,
+    options?: { logisticName?: string; fromCountryCode?: string },
+  ): Promise<CJPlaceOrderResult | null> {
+    const cjPayload = this.buildCreateOrderPayload(payload, {
+      logisticName: options?.logisticName ?? DEFAULT_LOGISTIC_NAME,
+      fromCountryCode: options?.fromCountryCode ?? DEFAULT_FROM_COUNTRY_CODE,
+    });
     const res = await this.request('/shopping/order/createOrderV2', 'POST', cjPayload);
-    return res?.data;
+    const raw = res?.data as Record<string, unknown> | undefined;
+    if (!raw) {
+      logger.error('[CJDropshippingAdapter:placeOrder] createOrderV2 returned no data');
+      return null;
+    }
+
+    const orderId = this.extractOrderId(raw);
+    if (!orderId) {
+      logger.error(
+        '[CJDropshippingAdapter:placeOrder] Order may have been created but no orderId ' +
+          `could be extracted from the response (tried orderId/orderNum/id): ${JSON.stringify(raw)}`,
+      );
+      return null;
+    }
+
+    let logisticsAutoCorrected = false;
+    if (raw.logisticsMiss) {
+      logisticsAutoCorrected = await this.autoCorrectLogistics(orderId);
+      if (!logisticsAutoCorrected) {
+        logger.error(
+          `[CJDropshippingAdapter:placeOrder] Order ${orderId} was created but CJ rejected ` +
+            'its logistics method and no in-stock alternative could be applied automatically — ' +
+            'it is unshippable (and therefore unpayable) until fixed via updateLogistics.',
+        );
+        return null;
+      }
+    }
+
+    return { orderId, logisticsAutoCorrected, raw };
   }
 
-  async getOrderStatus(externalOrderId: string): Promise<unknown> {
-    const res = await this.request('/shopping/order/getOrderDetail', 'GET', undefined, {
-      orderId: externalOrderId,
+  /**
+   * CJ's actual field name for a created order's id has never been
+   * confirmed against a live account — same fallback
+   * scripts/test-cj-sandbox.ts and test-cj-cancel-refund.ts use.
+   */
+  private extractOrderId(raw: Record<string, unknown>): string | null {
+    const candidate = raw.orderId ?? raw.orderNum ?? raw.id;
+    return typeof candidate === 'string' ? candidate : null;
+  }
+
+  /**
+   * Looks up CJ's actual accepted shipping options for an order that came
+   * back with logisticsMiss=true, and switches to the cheapest in-stock
+   * one — same heuristic the manual test scripts use. Returns false (not a
+   * thrown error) if CJ has no in-stock option to offer, or rejects the
+   * switch — the order still exists in that case, just uncorrected.
+   */
+  private async autoCorrectLogistics(orderId: string): Promise<boolean> {
+    const options = await this.getOrderLogisticsInfo(orderId);
+    const chosen = options.filter((o) => o.hasStock).sort((a, b) => a.postage - b.postage)[0];
+    if (!chosen) return false;
+
+    return this.updateLogistics({
+      id: chosen.id,
+      orderCode: orderId,
+      logisticName: chosen.logisticsName,
     });
-    return res?.data;
+  }
+
+  /**
+   * Real (non-sandbox) equivalent of simulatePay — actually deducts this
+   * order's cost from your CJ account balance. Requires confirmOrder() to
+   * have already moved the order from CREATED to UNPAID first, same
+   * precondition simulatePay has (CJ rejects a payment attempt on a
+   * CREATED order with code 812).
+   *
+   * The endpoint itself is confirmed to exist — an unauthenticated request
+   * to it returns HTTP 401, not 404 — but its parameter/response shape was
+   * triangulated from CJ's public docs and search results, not
+   * ground-truthed against a live account the way simulatePay's sandbox
+   * flow was (see scripts/test-cj-sandbox.ts). A successful call here
+   * spends real money. Verify it manually against one cheap, real order
+   * before this is wired into any automated flow.
+   *
+   * CJ also documents payBalanceV2 (POST /shopping/pay/payBalanceV2) for
+   * paying a parent order with multiple sub-orders in a single call via
+   * shipmentOrderId — not implemented here; this method's own
+   * shipmentOrderId param covers a single sub-order/parent at a time only.
+   */
+  async payBalance(params: CJPayBalanceParams): Promise<boolean> {
+    if (!params.orderId && !params.shipmentOrderId) {
+      throw new Error('payBalance requires orderId or shipmentOrderId');
+    }
+    const res = await this.request<boolean>('/shopping/pay/payBalance', 'POST', params);
+    return Boolean(res?.data);
+  }
+
+  /**
+   * End-to-end REAL order flow: create (auto-fixing logistics if CJ flags
+   * them) -> confirm (CREATED -> UNPAID) -> pay (UNPAID -> PAID, real
+   * balance charge) — the non-sandbox counterpart to what
+   * scripts/test-cj-sandbox.ts drives by hand for a sandbox order.
+   *
+   * This is the adapter-level building block for a future "place this
+   * order with CJ after checkout" integration. It is deliberately NOT
+   * called from anywhere in src/modules or src/consumers yet — nothing in
+   * the checkout flow invokes this. Wire it in only after verifying
+   * payBalance's real behavior against a live account (see its doc
+   * comment) and deciding how a failed confirm/pay here should reflect
+   * back onto the CommerceOrder/CommerceSupplierOrder it was placed for.
+   */
+  async placeAndPayOrder(
+    payload: PlaceOrderPayload,
+    options?: { logisticName?: string; fromCountryCode?: string },
+  ): Promise<{ orderId: string; paid: boolean; logisticsAutoCorrected: boolean } | null> {
+    const placed = await this.placeOrder(payload, options);
+    if (!placed) return null;
+
+    const confirmed = await this.confirmOrder(placed.orderId);
+    if (!confirmed) {
+      logger.error(
+        `[CJDropshippingAdapter:placeAndPayOrder] confirmOrder was rejected for order ` +
+          `${placed.orderId} — not attempting payment. The order exists on CJ's side unpaid.`,
+      );
+      return {
+        orderId: placed.orderId,
+        paid: false,
+        logisticsAutoCorrected: placed.logisticsAutoCorrected,
+      };
+    }
+
+    const paid = await this.payBalance({ orderId: placed.orderId });
+    if (!paid) {
+      logger.error(
+        `[CJDropshippingAdapter:placeAndPayOrder] payBalance was rejected for order ` +
+          `${placed.orderId} — the order exists on CJ's side, confirmed but unpaid.`,
+      );
+    }
+    return { orderId: placed.orderId, paid, logisticsAutoCorrected: placed.logisticsAutoCorrected };
+  }
+
+  /**
+   * Real-time order/tracking lookup — used for customer-facing tracking
+   * (OrderService.getOrderTracking) as well as anything else that needs
+   * this order's current state directly from CJ rather than our own
+   * last-known CommerceSupplierOrder/CommerceShipment rows. Declared here
+   * as CJOrderDetail (narrower than the SupplierAdapter interface's generic
+   * `Promise<unknown>`, which TS allows for an interface implementation).
+   */
+  async getOrderStatus(externalOrderId: string): Promise<CJOrderDetail | null> {
+    const res = await this.request<CJOrderDetail>(
+      '/shopping/order/getOrderDetail',
+      'GET',
+      undefined,
+      {
+        orderId: externalOrderId,
+      },
+    );
+    if (!res?.result || res.code !== 200) {
+      logger.error(
+        '[CJDropshippingAdapter] API error for /shopping/order/getOrderDetail:',
+        res?.message,
+      );
+      return null;
+    }
+    return res.data ?? null;
   }
 
   /**
@@ -469,6 +732,28 @@ export class CJDropshippingAdapter implements SupplierAdapter {
   // --- Logistics ---
 
   /**
+   * Quotes real shipping methods + prices for a destination *before* any
+   * order exists — unlike getOrderLogisticsInfo below, which only works on
+   * an order CJ has already created. This is what lets checkout show the
+   * customer a real price instead of the flat placeholder rate. Prices in
+   * the response are ordinary numbers (not CJ's 19-digit ids), so the
+   * shared request() helper's plain JSON parsing is fine here — no need for
+   * getOrderLogisticsInfo's big-integer-preserving parse.
+   */
+  async calculateFreight(params: CJFreightCalculateParams): Promise<CJFreightOption[]> {
+    const res = await this.request<CJFreightOption[]>('/logistic/freightCalculate', 'POST', params);
+
+    if (!res?.result || res.code !== 200) {
+      logger.error(
+        '[CJDropshippingAdapter] API error for /logistic/freightCalculate:',
+        res?.message,
+      );
+      return [];
+    }
+    return Array.isArray(res.data) ? res.data : [];
+  }
+
+  /**
    * Real shipping methods CJ will accept for an already-created order. Call
    * this when createOrderV2/createOrderV3 (real or sandbox) comes back with
    * `logisticsMiss: true` — the `logisticName` passed at creation wasn't a
@@ -510,5 +795,156 @@ export class CJDropshippingAdapter implements SupplierAdapter {
   async updateLogistics(params: CJUpdateLogisticsParams): Promise<boolean> {
     const res = await this.request<boolean>('/shopping/order/updateLogistics', 'POST', params);
     return Boolean(res?.data);
+  }
+
+  // --- Cancel & Refund ---
+  //
+  // CJ has no single "cancel this order" call that works at every stage.
+  // Two separate mechanisms, depending on how far the order has progressed:
+  //   - cancelOrder (deleteOrder): only while the order is CREATED/IN_CART,
+  //     i.e. before confirmOrder has run. Rejects anything past that.
+  //   - Disputes: the only path once an order is UNPAID or later. A dispute
+  //     is a *request* CJ reviews and approves/rejects — not an instant
+  //     refund. Flow: getDisputeProducts -> getDisputeConfirmInfo (caps the
+  //     refundable amount + valid reasons) -> createDispute -> poll via
+  //     getDisputeDetail/getDisputeList -> optionally cancelDispute to
+  //     withdraw it before CJ rules.
+  // See docs: https://developers.cjdropshipping.cn/en/api/api2/api/dispute.html
+
+  /**
+   * Deletes an order that hasn't progressed past CREATED/IN_CART yet — CJ
+   * rejects this for anything already confirmOrder'd, which in this
+   * adapter's own placeOrder/confirmOrder flow happens almost immediately
+   * after creation. Use the dispute methods below for anything past that
+   * point.
+   */
+  async cancelOrder(orderId: string): Promise<boolean> {
+    const res = await this.request<boolean>(
+      `/shopping/order/deleteOrder?orderId=${encodeURIComponent(orderId)}`,
+      'DELETE',
+    );
+    return Boolean(res?.result);
+  }
+
+  /** Line items on this order CJ will accept a dispute against. Call first — not every item is always eligible. */
+  async getDisputeProducts(orderId: string): Promise<CJDisputeProduct[]> {
+    const res = await this.request<CJDisputeProduct[]>(
+      '/disputes/disputeProducts',
+      'GET',
+      undefined,
+      {
+        orderId,
+      },
+    );
+    return Array.isArray(res?.data) ? res.data : [];
+  }
+
+  /**
+   * Returns the max refundable amount and valid dispute reasons for the
+   * chosen line items — call this before createDispute so the amount you
+   * request isn't rejected outright for exceeding what was actually paid.
+   */
+  async getDisputeConfirmInfo(
+    orderId: string,
+    productInfoList: { lineItemId: string; quantity: number; price: number }[],
+  ): Promise<CJDisputeConfirmInfo | null> {
+    const res = await this.request<CJDisputeConfirmInfo>('/disputes/disputeConfirmInfo', 'POST', {
+      orderId,
+      productInfoList,
+    });
+    return res?.data ?? null;
+  }
+
+  /** Files the actual refund/reissue request. Doesn't move any money itself — CJ reviews and decides. */
+  async createDispute(params: CJCreateDisputeParams): Promise<boolean> {
+    const res = await this.request<boolean>('/disputes/create', 'POST', params);
+    return Boolean(res?.data);
+  }
+
+  /** Withdraws a dispute before CJ has ruled on it. */
+  async cancelDispute(params: CJCancelDisputeParams): Promise<boolean> {
+    const res = await this.request<boolean>('/disputes/cancel', 'POST', params);
+    return Boolean(res?.data);
+  }
+
+  /** Paginated dispute list, optionally filtered by order. */
+  async getDisputeList(
+    params: CJDisputeListParams,
+  ): Promise<{ items: CJDispute[]; total: number }> {
+    const res = await this.request<{ list: CJDispute[]; total: number }>(
+      '/disputes/getDisputeList',
+      'GET',
+      undefined,
+      params as Record<string, string | number | undefined>,
+    );
+    return { items: res?.data?.list ?? [], total: res?.data?.total ?? 0 };
+  }
+
+  /** Full detail for one dispute, including the resolved refund breakdown once CJ has ruled. */
+  async getDisputeDetail(disputeId: string): Promise<CJDispute | null> {
+    const res = await this.request<CJDispute>('/disputes/getDisputeDetail', 'GET', undefined, {
+      disputeId,
+    });
+    return res?.data ?? null;
+  }
+
+  /**
+   * SupplierAdapter.requestRefund implementation — orchestrates the full
+   * dispute chain (getDisputeProducts -> getDisputeConfirmInfo ->
+   * createDispute) behind the generic, supplier-agnostic signature callers
+   * use. Always requests a refund of every CJ-eligible line item on the
+   * order for its full paid quantity — this adapter has no way to accept a
+   * partial-item/partial-quantity refund request from the caller yet, since
+   * the generic interface only takes an orderId + reason.
+   *
+   * Picks the FIRST dispute reason CJ returns from getDisputeConfirmInfo —
+   * there's no mapping yet from an app-level refund reason to CJ's specific
+   * disputeReasonId catalog. Fine as a default for now (CJ's review is
+   * manual either way), but revisit if wrong-reason disputes turn out to
+   * get rejected more often than a correctly-reasoned one would.
+   *
+   * Confirmed live (sandbox): CJ rejects disputes on sandbox orders outright
+   * ("Order cannot be disputed", code 9060) via getDisputeProducts returning
+   * an empty list — which this method treats as `requested: false`, not an
+   * error. Real (non-sandbox) orders are unverified — the reason-picking and
+   * createDispute steps have never actually run against a live order.
+   */
+  async requestRefund(params: {
+    orderId: string;
+    reason: string;
+  }): Promise<{ requested: boolean; externalRefundId?: string; raw?: unknown }> {
+    const eligible = await this.getDisputeProducts(params.orderId);
+    if (eligible.length === 0) {
+      return { requested: false, raw: { reason: 'No dispute-eligible line items on this order' } };
+    }
+
+    const productInfoList = eligible.map((p) => ({
+      lineItemId: p.lineItemId,
+      quantity: p.quantity,
+      price: p.price,
+    }));
+
+    const confirmInfo = await this.getDisputeConfirmInfo(params.orderId, productInfoList);
+    const reasonId = confirmInfo?.disputeReasons?.[0]?.id;
+    if (!reasonId) {
+      return { requested: false, raw: confirmInfo };
+    }
+
+    const created = await this.createDispute({
+      orderId: params.orderId,
+      businessDisputeId: `REFUND-${params.orderId}-${Date.now()}`,
+      disputeReasonId: reasonId,
+      expectType: 1, // refund
+      refundType: 1, // balance
+      messageText: params.reason.slice(0, 500),
+      productInfoList,
+    });
+    if (!created) {
+      return { requested: false, raw: confirmInfo };
+    }
+
+    const list = await this.getDisputeList({ orderId: params.orderId });
+    const dispute = list.items[0];
+    return { requested: true, externalRefundId: dispute?.disputeId, raw: dispute };
   }
 }
