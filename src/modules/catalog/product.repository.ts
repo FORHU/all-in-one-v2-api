@@ -16,7 +16,9 @@ export interface ProductListingFilters {
   limit: number;
 }
 
-const LISTING_INCLUDE = {
+// Exported so other storefront listings (modules/electronics) load exactly
+// the shape mapProductToListingDto expects.
+export const LISTING_INCLUDE = {
   media: { where: { isPrimary: true }, take: 1 },
   variants: {
     where: { deletedAt: null },
