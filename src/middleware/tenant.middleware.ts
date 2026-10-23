@@ -50,26 +50,59 @@ const lookupByDomain = async (domain: string): Promise<Tenant | null> =>
   );
 
 /**
- * Resolves the vertical for the request, in order:
- *   1. subdomain            fashion.example.com
- *   2. custom domain        shop.myfashion.com
- *   3. x-tenant-slug header (tools, local dev, server-to-server)
+ * Picks the request's tenant, in order:
+ *   1. x-tenant-slug header (storefronts, admin, tools, server-to-server)
+ *   2. subdomain            fashion.example.com
+ *   3. custom domain        shop.myfashion.com
  *   4. DEFAULT_TENANT_SLUG  (dev convenience; unset in production)
  *
- * The resolved id is written into AsyncLocalStorage so downstream services can
- * read it without threading it through every signature.
+ * The header comes first because the host is the API's own hostname, not the
+ * storefront's: every storefront calls the same API URL, so on dev — where
+ * that URL is dev.addictstyle.com, also fashion's domain — a host-first order
+ * resolved every storefront's requests to fashion and ignored the header the
+ * storefront sent. A header naming no real tenant is ignored, so the host
+ * still decides for requests without a valid one.
+ */
+export const findTenant = async ({
+  headerSlug,
+  host,
+  bySlug,
+  byDomain,
+  defaultSlug,
+}: {
+  headerSlug?: string;
+  host: string;
+  bySlug: (slug: string) => Promise<Tenant | null>;
+  byDomain: (domain: string) => Promise<Tenant | null>;
+  defaultSlug?: string;
+}): Promise<Tenant | null> => {
+  const subdomainSlug = slugFromHost(host);
+
+  let tenant: Tenant | null = null;
+  if (headerSlug) tenant = await bySlug(headerSlug);
+  if (!tenant && subdomainSlug) tenant = await bySlug(subdomainSlug);
+  if (!tenant && host) tenant = await byDomain(host);
+  if (!tenant && defaultSlug) tenant = await bySlug(defaultSlug);
+  return tenant;
+};
+
+/**
+ * Resolves the vertical for the request (see findTenant for the order) and
+ * writes it into AsyncLocalStorage so downstream services can read it
+ * without threading it through every signature.
  */
 export const resolveTenant = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const host = req.hostname?.toLowerCase() ?? '';
-    const slug = slugFromHost(host);
-    const headerSlug = (req.headers['x-tenant-slug'] as string | undefined)?.toLowerCase();
+    const headerSlug = (req.headers['x-tenant-slug'] as string | undefined)?.trim().toLowerCase();
 
-    let tenant: Tenant | null = null;
-    if (slug) tenant = await lookupBySlug(slug);
-    if (!tenant && host) tenant = await lookupByDomain(host);
-    if (!tenant && headerSlug) tenant = await lookupBySlug(headerSlug);
-    if (!tenant && DEFAULT_TENANT_SLUG) tenant = await lookupBySlug(DEFAULT_TENANT_SLUG);
+    const tenant = await findTenant({
+      headerSlug: headerSlug || undefined,
+      host,
+      bySlug: lookupBySlug,
+      byDomain: lookupByDomain,
+      defaultSlug: DEFAULT_TENANT_SLUG || undefined,
+    });
 
     if (!tenant) {
       // Not fatal: unscoped routes (auth, health, tenant listing) still work.
