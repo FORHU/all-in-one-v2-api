@@ -79,6 +79,7 @@ export interface ListProductsQuery {
   season?: string;
   priceMin?: number;
   priceMax?: number;
+  search?: string;
   sort: 'newest' | 'price-asc' | 'price-desc' | 'popularity';
   page: number;
   limit: number;
@@ -109,6 +110,7 @@ export default class ProductService {
       season: query.season?.toUpperCase(),
       priceMin: query.priceMin,
       priceMax: query.priceMax,
+      search: query.search,
       sort: query.sort,
       page: query.page,
       limit: query.limit,

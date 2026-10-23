@@ -1,4 +1,5 @@
 import ElectronicsCatalogRepository from '../../src/modules/electronics/electronics-catalog.repository';
+import { buildSearchCondition } from '../../src/modules/catalog/product.repository';
 import { prisma } from '../../src/utils/prisma';
 
 jest.mock('../../src/utils/prisma', () => ({
@@ -90,5 +91,38 @@ describe('ElectronicsCatalogRepository.countByCategory', () => {
         [null, 1],
       ]),
     );
+  });
+});
+
+describe('ElectronicsCatalogRepository search', () => {
+  const searchWhere = buildSearchCondition('mechanical keyboard');
+
+  it('narrows the page and its total by the free-text search', async () => {
+    await ElectronicsCatalogRepository.findPage('t1', {
+      search: 'mechanical keyboard',
+      sort: 'newest',
+      page: 1,
+      limit: 12,
+    });
+
+    expect(db.catalogProduct.findMany.mock.calls[0][0].where.AND).toEqual([searchWhere]);
+    expect(db.catalogProduct.count.mock.calls[0][0].where.AND).toEqual([searchWhere]);
+  });
+
+  it('applies the search to the sidebar counts too', async () => {
+    await ElectronicsCatalogRepository.countByCategory('t1', { search: 'mechanical keyboard' });
+
+    expect(db.catalogProduct.groupBy.mock.calls[0][0].where.AND).toEqual([searchWhere]);
+  });
+
+  it('adds no search clause for a blank query', async () => {
+    await ElectronicsCatalogRepository.findPage('t1', {
+      search: '  ',
+      sort: 'newest',
+      page: 1,
+      limit: 12,
+    });
+
+    expect(db.catalogProduct.findMany.mock.calls[0][0].where).not.toHaveProperty('AND');
   });
 });

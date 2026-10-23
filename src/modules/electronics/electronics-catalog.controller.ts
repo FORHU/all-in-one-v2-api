@@ -12,10 +12,11 @@ const listQuerySchema = Joi.object({
   sort: Joi.string().valid('newest', 'price-asc', 'price-desc', 'name-asc').default('newest'),
   priceMin: Joi.number().min(0).optional(),
   priceMax: Joi.number().min(0).optional(),
+  q: Joi.string().trim().max(100).optional().allow(''), // free-text title/brand search
 }).unknown(true);
 
 export default class ElectronicsCatalogController {
-  /** GET /api/v2/electronics/products?category=&sort=&priceMin=&priceMax=&page=&limit= */
+  /** GET /api/v2/electronics/products?category=&sort=&priceMin=&priceMax=&q=&page=&limit= */
   static async listProducts(req: Request, res: Response, next: NextFunction) {
     try {
       const { error, value } = listQuerySchema.validate(req.query);
@@ -34,6 +35,7 @@ export default class ElectronicsCatalogController {
         sort: value.sort,
         priceMin: value.priceMin,
         priceMax: value.priceMax,
+        search: value.q || undefined,
         page,
         limit,
       });

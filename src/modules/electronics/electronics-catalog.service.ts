@@ -11,6 +11,8 @@ export interface ElectronicsProductQuery {
   sort: ElectronicsProductSort;
   priceMin?: number;
   priceMax?: number;
+  /** Free-text title/brand search (every word must match). */
+  search?: string;
   page: number;
   limit: number;
 }
@@ -44,7 +46,7 @@ function ancestorChains(categories: CategoryRow[]): Map<string, string[]> {
 export class ElectronicsCatalogService {
   static async listProducts(query: ElectronicsProductQuery) {
     const tenantId = requireTenantId();
-    const { categorySlug, sort, priceMin, priceMax, page, limit } = query;
+    const { categorySlug, sort, priceMin, priceMax, search, page, limit } = query;
 
     const categories = await ElectronicsCatalogRepository.findCategories(tenantId);
     const chains = ancestorChains(categories);
@@ -69,11 +71,12 @@ export class ElectronicsCatalogService {
         categoryIds,
         priceMin,
         priceMax,
+        search,
         sort,
         page,
         limit,
       }),
-      ElectronicsCatalogRepository.countByCategory(tenantId, { priceMin, priceMax }),
+      ElectronicsCatalogRepository.countByCategory(tenantId, { priceMin, priceMax, search }),
     ]);
 
     const ratings = await ProductRepository.getRatingsForProducts(
@@ -98,6 +101,7 @@ export class ElectronicsCatalogService {
         sort,
         priceMin: priceMin ?? null,
         priceMax: priceMax ?? null,
+        q: search ?? null,
       },
       categories: categories
         .filter((c) => !c.parentId)

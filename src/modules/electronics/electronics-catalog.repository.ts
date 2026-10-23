@@ -1,7 +1,11 @@
 import { Prisma, ProductStatus } from '@prisma/client';
 import { prisma } from '../../utils/prisma';
 import { buildPage, PageResult } from '../../helpers/pagination.helper';
-import { LISTING_INCLUDE, ProductListingRow } from '../catalog/product.repository';
+import {
+  LISTING_INCLUDE,
+  ProductListingRow,
+  buildSearchCondition,
+} from '../catalog/product.repository';
 
 export type ElectronicsProductSort = 'newest' | 'price-asc' | 'price-desc' | 'name-asc';
 
@@ -10,6 +14,8 @@ export interface ElectronicsProductFilters {
   categoryIds?: string[];
   priceMin?: number;
   priceMax?: number;
+  /** Free-text title/brand search — same matching as the shared listing's `q`. */
+  search?: string;
   sort: ElectronicsProductSort;
   page: number;
   limit: number;
@@ -30,8 +36,9 @@ const ORDER_BY: Record<ElectronicsProductSort, Prisma.CatalogProductOrderByWithR
 export default class ElectronicsCatalogRepository {
   private static buildWhere(
     tenantId: string,
-    filters: Pick<ElectronicsProductFilters, 'categoryIds' | 'priceMin' | 'priceMax'>,
+    filters: Pick<ElectronicsProductFilters, 'categoryIds' | 'priceMin' | 'priceMax' | 'search'>,
   ): Prisma.CatalogProductWhereInput {
+    const searchCondition = buildSearchCondition(filters.search);
     return {
       tenantId,
       status: ProductStatus.PUBLISHED,
@@ -43,6 +50,7 @@ export default class ElectronicsCatalogRepository {
           ...(filters.priceMax != null && { lte: filters.priceMax }),
         },
       }),
+      ...(searchCondition && { AND: [searchCondition] }),
     };
   }
 
@@ -71,13 +79,13 @@ export default class ElectronicsCatalogRepository {
   }
 
   /**
-   * Product count per category id under the price filter but NOT the
-   * category filter — a category sidebar keeps every count visible while
-   * one category is selected. `null` = uncategorized.
+   * Product count per category id under the price and search filters but
+   * NOT the category filter — a category sidebar keeps every count visible
+   * while one category is selected. `null` = uncategorized.
    */
   static async countByCategory(
     tenantId: string,
-    filters: Pick<ElectronicsProductFilters, 'priceMin' | 'priceMax'>,
+    filters: Pick<ElectronicsProductFilters, 'priceMin' | 'priceMax' | 'search'>,
   ): Promise<Map<string | null, number>> {
     const rows = await prisma.catalogProduct.groupBy({
       by: ['categoryId'],
