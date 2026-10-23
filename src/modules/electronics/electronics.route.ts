@@ -1,5 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import ElectronicsSourcingController from './electronics-sourcing.controller';
+import ElectronicsCatalogController from './electronics-catalog.controller';
 import { authenticate, requirePermission } from '../../middleware/auth.middleware';
 import { ELECTRONICS_TENANT_SLUG } from './electronics.config';
 
@@ -20,14 +21,29 @@ const requireElectronicsTenant = (req: Request, res: Response, next: NextFunctio
   next();
 };
 
-router.use(requireElectronicsTenant, authenticate);
+router.use(requireElectronicsTenant);
 
+// Public storefront listing — shoppers browse without signing in.
+router.get('/products', ElectronicsCatalogController.listProducts);
+
+// CJ sourcing — staff only.
 router.get(
   '/cj/categories',
+  authenticate,
   requirePermission('catalog:read'),
   ElectronicsSourcingController.categories,
 );
-router.get('/cj/search', requirePermission('catalog:read'), ElectronicsSourcingController.search);
-router.post('/cj/import', requirePermission('catalog:write'), ElectronicsSourcingController.import);
+router.get(
+  '/cj/search',
+  authenticate,
+  requirePermission('catalog:read'),
+  ElectronicsSourcingController.search,
+);
+router.post(
+  '/cj/import',
+  authenticate,
+  requirePermission('catalog:write'),
+  ElectronicsSourcingController.import,
+);
 
 export default router;
