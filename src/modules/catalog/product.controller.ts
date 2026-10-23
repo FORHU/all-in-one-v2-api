@@ -13,6 +13,7 @@ const listQuerySchema = Joi.object({
   season: Joi.string().valid('spring', 'summer', 'fall', 'winter').optional(),
   priceMin: Joi.number().min(0).optional(),
   priceMax: Joi.number().min(0).optional(),
+  q: Joi.string().trim().max(100).allow('').optional(), // free-text title/brand search
   sort: Joi.string().valid('newest', 'price-asc', 'price-desc', 'popularity').default('newest'),
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(20),
@@ -63,6 +64,7 @@ export default class ProductController {
         season: value.season,
         priceMin: value.priceMin,
         priceMax: value.priceMax,
+        search: value.q,
         sort: value.sort,
         page: value.page,
         limit: value.limit,

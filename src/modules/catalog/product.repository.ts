@@ -11,12 +11,40 @@ export interface ProductListingFilters {
   season?: string;
   priceMin?: number;
   priceMax?: number;
+  /** Free-text storefront search — see buildSearchCondition. */
+  search?: string;
   sort: 'newest' | 'price-asc' | 'price-desc' | 'popularity';
   page: number;
   limit: number;
 }
 
-const LISTING_INCLUDE = {
+/** Words beyond this are ignored, so a pasted paragraph can't build a huge query. */
+const MAX_SEARCH_TERMS = 5;
+
+/**
+ * Storefront search: every whitespace-separated word must appear
+ * (case-insensitively) in the product's title or brand. AND across words
+ * means "wireless keyboard" narrows results instead of widening them;
+ * OR across title/brand means a brand name alone still matches. Returns
+ * null for a blank query so callers can skip the filter entirely.
+ */
+export function buildSearchCondition(search?: string): Prisma.CatalogProductWhereInput | null {
+  const terms = (search ?? '').trim().split(/\s+/).filter(Boolean).slice(0, MAX_SEARCH_TERMS);
+  if (terms.length === 0) return null;
+
+  return {
+    AND: terms.map((term) => ({
+      OR: [
+        { title: { contains: term, mode: 'insensitive' as const } },
+        { brand: { contains: term, mode: 'insensitive' as const } },
+      ],
+    })),
+  };
+}
+
+// Exported so other storefront listings (modules/electronics) load exactly
+// the shape mapProductToListingDto expects.
+export const LISTING_INCLUDE = {
   media: { where: { isPrimary: true }, take: 1 },
   variants: {
     where: { deletedAt: null },
@@ -250,6 +278,11 @@ export default class ProductRepository {
           },
         },
       };
+    }
+
+    const searchCondition = buildSearchCondition(filters.search);
+    if (searchCondition) {
+      where.AND = [...((where.AND as Prisma.CatalogProductWhereInput[]) ?? []), searchCondition];
     }
 
     return where;
