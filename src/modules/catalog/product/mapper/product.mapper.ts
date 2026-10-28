@@ -198,18 +198,25 @@ export function mapProductToDetailDto(
   product: ProductDetailRow,
   rating?: { rating: number; reviewCount: number },
 ): ProductDetailDto {
-  // Real gallery images (CatalogProductMedia) win when present; today's
-  // seed data doesn't populate that table, so this falls back to the single
-  // thumbnailUrl — the frontend gallery adapts to however many images it
-  // actually gets rather than assuming a fixed count.
+  // The product's own thumbnail leads the gallery, followed by the real
+  // gallery images (CatalogProductMedia). The thumbnail is the image staff
+  // chose for the product — often a background-removed render uploaded in
+  // the admin — while the gallery holds the supplier's photos. For a plain
+  // import the thumbnail is already the first supplier photo, so the order
+  // is unchanged; products with no gallery (seed data) show just the
+  // thumbnail. The frontend gallery adapts to however many images it gets.
   //
   // CatalogProductMedia carries one row per variant, and imported products
   // (CJ Dropshipping etc.) commonly reuse the same photo across every size
   // of a given color — deduping by URL here means the gallery only ever
   // shows genuinely different photos, not the same shot once per size.
-  const galleryUrls = [...new Set(product.media.map((m) => m.url))];
-  const images =
-    galleryUrls.length > 0 ? galleryUrls : product.thumbnailUrl ? [product.thumbnailUrl] : [];
+  const images = [
+    ...new Set(
+      [product.thumbnailUrl, ...product.media.map((m) => m.url)].filter(
+        (url): url is string => !!url,
+      ),
+    ),
+  ];
 
   return {
     id: product.id,
