@@ -43,3 +43,48 @@ describe('mapProductToDetailDto — variants', () => {
     ]);
   });
 });
+
+describe('mapProductToDetailDto — gallery images', () => {
+  const withImages = (thumbnailUrl: string | null, urls: string[]) =>
+    ({
+      ...product,
+      thumbnailUrl,
+      media: urls.map((url) => ({ url })),
+    }) as unknown as ProductDetailRow;
+
+  it('puts an uploaded main image first, then the supplier photos', () => {
+    const dto = mapProductToDetailDto(
+      withImages('https://bucket.s3.amazonaws.com/products/bg-removed.png', [
+        'https://cf.cjdropshipping.com/1.jpg',
+        'https://cf.cjdropshipping.com/2.jpg',
+      ]),
+    );
+    expect(dto.images).toEqual([
+      'https://bucket.s3.amazonaws.com/products/bg-removed.png',
+      'https://cf.cjdropshipping.com/1.jpg',
+      'https://cf.cjdropshipping.com/2.jpg',
+    ]);
+    expect(dto.thumbnailUrl).toBe('https://bucket.s3.amazonaws.com/products/bg-removed.png');
+  });
+
+  it('keeps the supplier order when the main image is already the first photo', () => {
+    const dto = mapProductToDetailDto(
+      withImages('https://cf.cjdropshipping.com/1.jpg', [
+        'https://cf.cjdropshipping.com/1.jpg',
+        'https://cf.cjdropshipping.com/2.jpg',
+        'https://cf.cjdropshipping.com/1.jpg',
+      ]),
+    );
+    expect(dto.images).toEqual([
+      'https://cf.cjdropshipping.com/1.jpg',
+      'https://cf.cjdropshipping.com/2.jpg',
+    ]);
+  });
+
+  it('falls back to just the main image, or nothing, when there is no gallery', () => {
+    expect(mapProductToDetailDto(withImages('https://x/a.jpg', [])).images).toEqual([
+      'https://x/a.jpg',
+    ]);
+    expect(mapProductToDetailDto(withImages(null, [])).images).toEqual([]);
+  });
+});
